@@ -1,6 +1,5 @@
 menu "ISAXes"
 
-source ISAX/example_isax/Kconfig
-source ISAX/other_isax/Kconfig
+source "ISAX/*/Kconfig"
 
 endmenu
