@@ -1,3 +1,6 @@
 [submodule "deps/treenail"]
 	path = deps/treenail
 	url = git@gitlab.esa.informatik.tu-darmstadt.de:scale4edge/treenail.git
+[submodule "deps/longnail"]
+	path = deps/longnail
+	url = git@gitlab.esa.informatik.tu-darmstadt.de:scale4edge/longnail.git

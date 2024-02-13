@@ -4,24 +4,29 @@ choice
 	prompt "RISC-V core"
 	default PICORV32
 
-config PICORV32
+config CORE_PICORV32
 	bool "PicoRV32"
 
-config CVA5
+config CORE_CVA5
 	bool "CVA5"
 
-config ORCA
+config CORE_ORCA
 	bool "ORCA"
 
-config PICCOLO
+config CORE_PICCOLO
 	bool "Piccolo"
 
-config VEX_4S
+config CORE_VEX_4S
 	bool "VexRISC-V (4-Stage)"
 
-config VEX_5S
+config CORE_VEX_5S
 	bool "VexRISC-V (5-Stage)"
 
 endchoice
 
 source ISAX/Kconfig
+
+menu "Longnail configuration"
+	config LN_CELL_LIBRARY
+		string "Longnail cell library"
+endmenu

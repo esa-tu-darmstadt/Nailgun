@@ -1,5 +1,6 @@
 menuconfig:
-	python -m menuconfig
+	python3 -m menuconfig
 
+.PHONY : build
 build:
-	python dispatch.py
+	python3 dispatch.py

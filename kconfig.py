@@ -10,7 +10,7 @@ def read_kconfig():
         # ... and discard comments, empty lines and disabled options (if line[0] != '#' and line != "\n" and line.split("=")[1].lower() != "n\n")
         # For lines which were not discarded, we extract the key (line.split("=")[0]).
         # For the value, we check if it is a y -> boolean option or a string and set the value accordingly (True if line.split("=")[1].lower() == "y\n" else line.split("=")[1])
-        config_options = { line.split("=")[0]:(True if line.split("=")[1].lower() == "y\n" else line.split("=")[1]) for line in file if line[0] != '#' and line != "\n" and line.split("=")[1].lower() != "n\n" }
+        config_options = { line.split("=")[0]:(True if line.split("=")[1].lower() == "y\n" else line.split("=")[1][1:-2]) for line in file if line[0] != '#' and line != "\n" and line.split("=")[1].lower() != "n\n" }
         return config_options
     except:
         exit_error("Config could not be parsed - file is missing or malformated. Re-run make menuconfig")
@@ -24,3 +24,11 @@ def extract_kconfig_enabled(kconfig_dict):
 # filter kconfig dictionary for config options related to loading MLIR files
 def extract_enabled_isax_from_config(kconfig_dict):
     return { k:v for k,v in kconfig_dict.items() if k[:12] == "CONFIG_ISAX_" and k[-3:] == "_EN"}
+
+# filter kconfig dictionary for config options related to longnail
+def extract_longnail_from_config(kconfig_dict):
+    return { k:v for k,v in kconfig_dict.items() if k[:10] == "CONFIG_LN_"}
+
+# filter kconfig dictionary for config options related to longnail
+def extract_core_from_config(kconfig_dict):
+    return { k:v for k,v in kconfig_dict.items() if k[:12] == "CONFIG_CORE_"}

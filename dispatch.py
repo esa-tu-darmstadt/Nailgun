@@ -3,6 +3,7 @@ import os
 import error
 import kconfig
 import treenail
+import longnail
 
 # generate mapping from ISAX config name to isax description file
 def gen_isax_map():
@@ -47,5 +48,8 @@ if __name__ == "__main__":
     treenail.run_treenail_batch(enabled_isaxes, isax_input_files)
 
     # LN mlir to .v
+    longnail.build_longnail()
+    datasheet = longnail.select_core_datasheet(kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconfig_dict)))
+    longnail.run_longnail(enabled_isaxes, datasheet, kconfig.extract_longnail_from_config(kconfig_dict))
 
     # SCAIE-V integrate into core

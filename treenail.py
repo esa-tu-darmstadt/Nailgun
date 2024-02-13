@@ -24,19 +24,14 @@ def build_treenail():
     # create build and tool directory
     if not os.path.isdir("build"):
         os.mkdir("build")
-    if not os.path.isdir("build/bin"):
-        os.mkdir("build/bin")
 
     # check that gradlew exists
     if not os.path.isfile("deps/treenail/gradlew"):
         exit_error("Treenail is not cloned. Check out submodules in this repo!")
 
     # build treenail
-    if not os.path.isfile("build/bin/treenail"):
+    if not os.path.isfile("./deps/treenail/app/build/install/app/bin/app"):
         print("Building Treenail...")
         run_cmd.run("deps/treenail", "./gradlew build", "Could not build treenail")
         run_cmd.run("deps/treenail", "./gradlew test", "Treenail failed tests")
         run_cmd.run("deps/treenail", "./gradlew install", "Treenail could not be installed")
-        #shutil.copyfile("deps/treenail/app/build/install/app/bin/app", "build/bin/treenail")
-        #st = os.stat("build/bin/treenail")
-        #os.chmod("build/bin/treenail", st.st_mode | stat.S_IEXEC)
