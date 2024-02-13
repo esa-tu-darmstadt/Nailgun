@@ -1,0 +1,3 @@
+[submodule "deps/treenail"]
+	path = deps/treenail
+	url = git@gitlab.esa.informatik.tu-darmstadt.de:scale4edge/treenail.git
