@@ -19,12 +19,17 @@ def run_longnail(isax_tags, datasheet, longnail_configs):
     isax_tags = list(map(lambda a: f"build/mlir/{a}.mlir", isax_tags))
     mlir_str = functools.reduce(lambda a,b: a+" "+b, isax_tags)
 
-    # collect flags to ln
+    # check inputs
+    if (longnail_configs['CONFIG_LN_CELL_LIBRARY'] == 0):
+        error.exit_error("No cell library provided to longnail")
+
+    # collect flags to LN
     longnail_flags = ["-lower-coredsl-to-lil", f"-lower-lil-to-hw=\"datasheet={datasheet} library={longnail_configs['CONFIG_LN_CELL_LIBRARY']}\"", "-simplify-structure", "-cse", "-canonicalize", "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-export-split-verilog=dir-name=build/verilog", "-o /dev/null"]
     longnail_flags_str = functools.reduce(lambda a,b: a+" "+b, longnail_flags)
 
-    print(f"./deps/longnail/build/bin/longnail-opt {longnail_flags_str} {isax_tags[0]}")
+    # execute LN
     run_cmd.run(".", f"./deps/longnail/build/bin/longnail-opt {longnail_flags_str} {isax_tags[0]}", f"Longnail failed")
+
 
 def build_longnail():
     # create build and tool directory
@@ -58,11 +63,14 @@ def select_core_datasheet(kconfig_core):
         return "deps/longnail/datasheets/ORCA.yaml"
     elif (kconfig_core == "CONFIG_CORE_PICCOLO"):
         return "deps/longnail/datasheets/Piccolo.yaml"
-    elif (kconfig_core == "CONFIG_CORE_PICCOLO"):
-        return "deps/longnail/datasheets/Piccolo.yaml"
-    elif (kconfig_core == "CONFIG_CORE_VEX_4s"):
+    elif (kconfig_core == "CONFIG_CORE_VEX_4S"):
         return "deps/longnail/datasheets/VexRiscv_4s.yaml"
-    elif (kconfig_core == "CONFIG_CORE_VEX_5s"):
+    elif (kconfig_core == "CONFIG_CORE_VEX_5S"):
         return "deps/longnail/datasheets/VexRiscv_5s.yaml"
     else:
         exit_error("No datasheet for selected core found!")
+
+def provide_isax_yaml():
+    filelist = open("build/verilog/filelist.f")
+    yamls = [ f[:-1] for f in filelist if f[-6:-1] == ".yaml"]
+    return "build/verilog/"+yamls[0]

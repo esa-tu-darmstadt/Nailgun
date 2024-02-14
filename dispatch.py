@@ -4,6 +4,7 @@ import error
 import kconfig
 import treenail
 import longnail
+import scaiev
 
 # generate mapping from ISAX config name to isax description file
 def gen_isax_map():
@@ -53,3 +54,6 @@ if __name__ == "__main__":
     longnail.run_longnail(enabled_isaxes, datasheet, kconfig.extract_longnail_from_config(kconfig_dict))
 
     # SCAIE-V integrate into core
+    scaiev.build_scaiev()
+    scaiev_core_name = scaiev.select_core(kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconfig_dict)))
+    scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml())
