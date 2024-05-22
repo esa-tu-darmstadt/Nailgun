@@ -1,0 +1,38 @@
+// Inspired by https://cv32e40p.readthedocs.io/en/latest/instruction_set_extensions.html#post-incrementing-load-store-instructions-and-register-register-load-store-instructions
+// However, the PULP extensions' version increments the `rs1` register, which we would have to emulate for most cores.
+// Hence, we're using a custom address register here.
+
+InstructionSet autoinc {
+  architectural_state {
+    register unsigned<32> X[32];
+    extern unsigned<8> MEM[0x100000000];
+    register unsigned<32> ADDR;
+  }
+
+  instructions {
+    set_addr {
+      encoding: 12'd0 :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0001011;
+      behavior: {
+        ADDR = X[rs1];
+      }
+    }
+    lw_inc {
+      encoding: simm[11:0] :: rs1[4:0] :: 3'b010 :: rd[4:0] :: 7'b0101011;
+      behavior: {
+        unsigned<32> addr = ADDR;
+        unsigned<32> res = MEM[addr+3:addr];
+        ADDR = (unsigned<32>) (((signed)simm) + addr);
+        X[rd] = res;
+      }
+    }
+    sw_inc {
+      encoding: simm[11:0] :: rs1[4:0] :: 3'b010 :: rd[4:0] :: 7'b1011011;
+      behavior: {
+        unsigned<32> addr = ADDR;
+        unsigned<32> data = X[rs1];
+        MEM[addr+3:addr] = data;
+        ADDR = (unsigned<32>) (((signed)simm) + addr);
+      }
+    }
+  }
+}

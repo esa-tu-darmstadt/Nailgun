@@ -1,0 +1,19 @@
+
+InstructionSet indirectjmp {
+  architectural_state {
+    register unsigned<32> X[32];
+    register unsigned<32> PC;
+    extern unsigned<8> MEM[33'h100000000];
+  }
+
+  instructions {
+    ijmp {
+      encoding: offset[11:0] :: rs1[4:0] :: 3'b010 :: rd[4:0] :: 7'b1111011;
+      behavior: {
+        unsigned<32> addr = X[rs1];
+        addr += offset;
+        PC = MEM[addr+3:addr];
+      }
+    }
+  }
+}

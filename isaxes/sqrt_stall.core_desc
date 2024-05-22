@@ -1,0 +1,27 @@
+// Source: https://github.com/chmike/fpsqrt/blob/master/fpsqrt.c
+
+InstructionSet sqrt {
+  architectural_state {
+    register unsigned<32> X[32];
+  }
+
+  instructions {
+    sqrt_stall {
+      encoding: 7'd5 :: 5'd0 :: rs[4:0] :: 3'b000 :: rd[4:0] :: 7'b0001011;
+      behavior: {
+        unsigned<32> r = X[rs], b = 0x40000000, q = 0;
+        for (int i = 0; i < 32; ++i) {
+          unsigned<32> t = (unsigned<32>)(q + b);
+          if(r >= t) {
+            r -= t;
+            q = (unsigned<32>)(t + b);
+          }
+          r <<= 1;
+          b >>= 1;
+        }
+        if(r > q) ++q;
+        X[rd] = q;
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+// Inspired by PULP extensions.
+
+InstructionSet zol {
+  architectural_state {
+    register unsigned<32> X[32];
+    register unsigned<32> PC;
+
+    register unsigned<32> ZOLSTARTPC;
+    register unsigned<32> ZOLENDPC;
+    register unsigned<32> ZOLCOUNTER;
+  }
+
+  instructions {
+    setup_zol {
+      encoding: uimmL[11:0] :: uimmS[4:0] :: 3'b101 :: 5'b00000 :: 7'b0001011;
+      behavior: {
+        ZOLSTARTPC = (unsigned<32>) (PC + 4);
+        ZOLENDPC = (unsigned<32>) (PC + (uimmS :: 1'b0));
+        ZOLCOUNTER = uimmL;
+      }
+    }
+  }
+
+  always {
+    zol {
+      unsigned<32> cnt = ZOLCOUNTER;
+      if (cnt != 0 && ZOLENDPC == PC) {
+        PC = ZOLSTARTPC;
+        ZOLCOUNTER = (unsigned<32>)(cnt - 1);
+      }
+    }
+  }
+}

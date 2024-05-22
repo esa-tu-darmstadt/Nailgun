@@ -24,7 +24,7 @@ config CORE_VEX_5S
 
 endchoice
 
-source "ISAX/Kconfig"
+source "build/ISAX/Kconfig"
 
 menu "Longnail configuration"
 	config LN_CELL_LIBRARY

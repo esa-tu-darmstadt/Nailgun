@@ -1,0 +1,61 @@
+// Cheng et al., RISC-V Instruction Set Extensions for Lightweight Symmetric Cryptography 
+
+InstructionSet sparkle {
+  architectural_state {
+    register unsigned<32> X[32];
+
+    const register unsigned<8> ROT_0[4] = {31, 17, 0, 24};
+    const register unsigned<8> ROT_1[4] = {24, 17, 31, 16};
+    const register unsigned<32> RCON[8] =
+      {0xB7E15162, 0xBF715880, 0x38B4DA56, 0x324E7738,
+      0xBB1185EB, 0x4F7C7B57, 0xCFBFA1C8, 0xC2B3293D};
+  }
+
+  functions {
+    unsigned<32> ROTR(unsigned<32> x, unsigned<8> shamt) {
+      return (x >> shamt) | (x << (32 - shamt));
+    }
+
+    unsigned<32> ELL(unsigned<32> x) {
+      return ROTR(x ^ (x << 16), 16);
+    }
+  }
+
+  instructions {
+    sparkle_ell {
+      encoding: 7'b0000010 :: rs2[4:0] :: rs1[4:0] :: 3'b111 :: rd[4:0] :: 7'b1111011;
+      behavior: X[rd] = ELL(X[rs1] ^ X[rs2]);
+    }
+
+    sparkle_rcon {
+      encoding: 4'b0000 :: imm[2:0] :: rs2[4:0] :: rs1[4:0] :: 3'b110 :: rd[4:0] :: 7'b1111011;
+      behavior: X[rd] = X[rs1] ^ RCON[imm];
+    }
+
+    sparkle_whole_enci_x {
+      encoding: 4'b1000 :: imm[2:0] :: rs2[4:0] :: rs1[4:0] :: 3'b110 :: rd[4:0] :: 7'b1111011;
+      behavior: {
+        unsigned<32> xi = X[rs1], yi = X[rs2], ci = RCON[imm];
+        for (unsigned<3> k = 0; k < 4; ++k) {
+          xi += ROTR(yi, ROT_0[k]);
+          yi ^= ROTR(xi, ROT_1[k]);
+          xi ^= ci;
+        }
+        X[rd] = xi;
+      }
+    }
+
+    sparkle_whole_enci_y {
+      encoding: 4'b1001 :: imm[2:0] :: rs2[4:0] :: rs1[4:0] :: 3'b110 :: rd[4:0] :: 7'b1111011;
+      behavior: {
+        unsigned<32> xi = X[rs1], yi = X[rs2], ci = RCON[imm];
+        for (unsigned<3> k = 0; k < 4; ++k) {
+          xi += ROTR(yi, ROT_0[k]);
+          yi ^= ROTR(xi, ROT_1[k]);
+          xi ^= ci;
+        }
+        X[rd] = yi;
+      }
+    }
+  }
+}
