@@ -18,15 +18,24 @@ def run_longnail(isax_tags, datasheet, longnail_configs):
     # gather src files
     print(f" - Invoking Longnail HLS")
     isax_tags = list(map(lambda a: f"build/mlir/{a}.mlir", isax_tags))
-    mlir_str = functools.reduce(lambda a,b: a+" "+b, isax_tags)
+    mlir_str = functools.reduce(lambda a, b: a+" "+b, isax_tags)
 
     # check inputs
     if (longnail_configs['CONFIG_LN_CELL_LIBRARY'] == 0):
         error.exit_error("No cell library provided to longnail")
 
     # collect flags to LN
-    longnail_flags = ["-lower-coredsl-to-lil", f"-lower-lil-to-hw=\"datasheet={datasheet} library={longnail_configs['CONFIG_LN_CELL_LIBRARY']}\"", "-simplify-structure", "-cse", "-canonicalize", "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-export-split-verilog=dir-name=build/verilog", "-o /dev/null"]
-    longnail_flags_str = functools.reduce(lambda a,b: a+" "+b, longnail_flags)
+    longnail_flags = [
+        "-lower-coredsl-to-lil",
+        #TODO make schedulingTimeout, schedRefineTimeout, clockTime, schedulingAlgo, useCommercialSolver, opTyLibrary configurable
+        f"-schedule-lil=\"datasheet={datasheet} library={longnail_configs['CONFIG_LN_CELL_LIBRARY']}\"",
+        #TODO implement another step to select the solution
+        "-lower-lil-to-hw=forceUseMinIISolution=true",
+        "-simplify-structure", "-cse", "-canonicalize",
+        "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog",
+        "-export-split-verilog=dir-name=build/verilog", "-o /dev/null"
+    ]
+    longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_flags)
 
     # execute LN
     run_cmd.run(".", f"./deps/longnail/build/bin/longnail-opt {longnail_flags_str} {isax_tags[0]}", f"Longnail failed")
@@ -55,7 +64,8 @@ def build_longnail():
 # TODO: if we would make the files in LN all lowercase, we could simply generate the file name
 def select_core_datasheet(kconfig_core):
     if len(kconfig_core) != 1:
-        error.exit_error(f"No or more than one core selected in Kconfig: {kconfig_core}")
+        error.exit_error(
+            f"No or more than one core selected in Kconfig: {kconfig_core}")
     kconfig_core = kconfig_core[0]
 
     if (kconfig_core == "CONFIG_CORE_PICORV32"):
@@ -74,5 +84,5 @@ def select_core_datasheet(kconfig_core):
 
 def provide_isax_yaml():
     filelist = open("build/verilog/filelist.f")
-    yamls = [ f[:-1] for f in filelist if f[-6:-1] == ".yaml"]
+    yamls = [f[:-1] for f in filelist if f[-6:-1] == ".yaml"]
     return "build/verilog/"+yamls[0]

@@ -13,7 +13,7 @@ def run_treenail(isax_tag, coredsl_file):
         os.mkdir("build/mlir")
 
     print(f" - Mapping {coredsl_file} to build/mlir/{isax_tag}.mlir")
-    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} build/mlir/{isax_tag}.mlir", f"Treenail failed on {coredsl_file}", False)
+    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o build/mlir/{isax_tag}.mlir", f"Treenail failed on {coredsl_file}", False)
 
 def run_treenail_batch(isax_tags, coredsl_files):
     print("Running Treenail:")
