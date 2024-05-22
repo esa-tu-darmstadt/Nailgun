@@ -1,4 +1,4 @@
-#!/bin/python3
+#!/usr/bin/env python3
 
 # function to parse Kconfig file and return a dict of options
 def read_kconfig():
