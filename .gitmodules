@@ -7,3 +7,6 @@
 [submodule "deps/scaie-v"]
 	path = deps/scaie-v
 	url = git@gitlab.esa.informatik.tu-darmstadt.de:scale4edge/scaie-v.git
+[submodule "deps/scaie-v-tb"]
+	path = deps/scaie-v-tb
+	url = git@gitlab.esa.informatik.tu-darmstadt.de:scale4edge/scaie-v-testbenches.git
