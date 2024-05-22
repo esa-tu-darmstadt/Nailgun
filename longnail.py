@@ -7,6 +7,7 @@ import shutil
 import functools
 import error
 
+
 def run_longnail(isax_tags, datasheet, longnail_configs):
     # create build and tool directory
     if not os.path.isdir("build"):
@@ -68,7 +69,8 @@ def select_core_datasheet(kconfig_core):
     elif (kconfig_core == "CONFIG_CORE_VEX_5S"):
         return "deps/longnail/datasheets/VexRiscv_5s.yaml"
     else:
-        exit_error("No datasheet for selected core found!")
+        error.exit_error("No datasheet for selected core found!")
+
 
 def provide_isax_yaml():
     filelist = open("build/verilog/filelist.f")

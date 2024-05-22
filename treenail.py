@@ -23,7 +23,7 @@ def run_treenail_batch(isax_tags, coredsl_files):
 def build_treenail():
     # check that gradlew exists
     if not os.path.isfile("deps/treenail/gradlew"):
-        exit_error("Treenail is not cloned. Check out submodules in this repo!")
+        error.exit_error("Treenail is not cloned. Check out submodules in this repo!")
 
     # build treenail
     if not os.path.isfile("./deps/treenail/app/build/install/app/bin/app"):

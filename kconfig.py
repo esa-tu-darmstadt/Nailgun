@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import error
+
 # function to parse Kconfig file and return a dict of options
 def read_kconfig():
     try:
@@ -13,7 +15,7 @@ def read_kconfig():
         config_options = { line.split("=")[0]:(True if line.split("=")[1].lower() == "y\n" else line.split("=")[1][1:-2]) for line in file if line[0] != '#' and line != "\n" and line.split("=")[1].lower() != "n\n" }
         return config_options
     except:
-        exit_error("Config could not be parsed - file is missing or malformated. Re-run make menuconfig")
+        error.exit_error("Config could not be parsed - file is missing or malformated. Re-run make menuconfig")
 
 
 # discard all read kconfig entries which are not boolean

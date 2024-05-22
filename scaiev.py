@@ -43,4 +43,4 @@ def select_core(kconfig_core):
     elif (kconfig_core == "CONFIG_CORE_VEX_5S"):
         return "VexRiscv_5s"
     else:
-        exit_error("No datasheet for selected core found!")
+        error.exit_error("No datasheet for selected core found!")

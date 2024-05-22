@@ -18,7 +18,7 @@ def gen_isax_map():
                     current_map = { line.split(";")[0]:line.split(";")[1].replace("\n","") for line in csvfile}
                     isax_map = {**isax_map, **current_map}
                 except:
-                    exit_error(f"could not parse ISAX path.csv file found in: {root}")
+                    error.exit_error(f"could not parse ISAX path.csv file found in: {root}")
     return isax_map
 
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     try:
         isax_input_files = list(map(lambda x: isax_file_mapping[x], enabled_isaxes))
     except KeyError as ke:
-        exit_error(f"Could not find .mlir file for {str(ke)}. Check your paths.csv.")
+        error.exit_error(f"Could not find .mlir file for {str(ke)}. Check your paths.csv.")
 
     # print enabled ISAXes
     print("Building <core> with ISAXes:")
