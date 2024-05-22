@@ -14,7 +14,8 @@ def run_scaiev(core, isax_desc):
     if not os.path.isdir(f"build/core/{core}"):
         os.mkdir(f"build/core/{core}")
 
-    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i ../../../../{isax_desc} -o ../../../../build/core", "SCAIEV failed")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {script_dir}/{isax_desc} -o {script_dir}/build/core", "SCAIEV failed")
 
 
 def build_scaiev():
