@@ -2,7 +2,7 @@ mainmenu "NailGun ISAX integration config"
 
 choice
 	prompt "RISC-V core"
-	default PICORV32
+	default CORE_PICORV32
 
 config CORE_PICORV32
 	bool "PicoRV32"
@@ -24,7 +24,7 @@ config CORE_VEX_5S
 
 endchoice
 
-source ISAX/Kconfig
+source "ISAX/Kconfig"
 
 menu "Longnail configuration"
 	config LN_CELL_LIBRARY
