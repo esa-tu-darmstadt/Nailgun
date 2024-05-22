@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 import os
-import stat
+
 import error
 import run_cmd
-import shutil
 
 def run_treenail(isax_tag, coredsl_file):
     # create build and tool directory

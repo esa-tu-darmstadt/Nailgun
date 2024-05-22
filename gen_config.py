@@ -47,4 +47,4 @@ config ISAX_{name.upper()}_EN
         # Generate paths.csv file for the isax
         path_csv_file = os.path.join(kconfig_dir, "paths.csv")
         with open(path_csv_file, 'w') as file:
-            file.write(f"CONFIG_ISAX_{name.upper()}_EN;{path}\n")
+            file.write(f"ISAX_{name.upper()}_EN;{path}\n")

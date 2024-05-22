@@ -1,14 +1,27 @@
 #!/usr/bin/env python3
 import os
-import stat
+import functools
+
 import error
 import run_cmd
-import shutil
-import functools
 import error
 
 
-def run_longnail(isax_tags, datasheet, longnail_configs):
+def resolve_sched_algo(kconfig_syms):
+    if kconfig_syms['LN_SCHED_ALGO_MS'].str_value == "y":
+        sched_algo = ""
+        if kconfig_syms['LN_SCHED_ALGO_MI'].str_value == "y":
+            sched_algo = "MI_"
+        if kconfig_syms['LN_SCHED_ALGO_PA'].str_value == "y":
+            sched_algo += "PA"
+        if kconfig_syms['LN_SCHED_ALGO_RA'].str_value == "y":
+            sched_algo += "RA"
+
+        sched_algo += "MS"
+        return sched_algo
+    return "LEGACY"
+
+def run_longnail(isax_tags, datasheet, kconfig_syms):
     # create build and tool directory
     if not os.path.isdir("build"):
         os.mkdir("build")
@@ -18,17 +31,21 @@ def run_longnail(isax_tags, datasheet, longnail_configs):
     # gather src files
     print(f" - Invoking Longnail HLS")
     isax_tags = list(map(lambda a: f"build/mlir/{a}.mlir", isax_tags))
-    mlir_str = functools.reduce(lambda a, b: a+" "+b, isax_tags)
+    # mlir_str = functools.reduce(lambda a, b: a+" "+b, isax_tags)
 
     # check inputs
-    if (longnail_configs['CONFIG_LN_CELL_LIBRARY'] == 0):
-        error.exit_error("No cell library provided to longnail")
+    try:
+        float(kconfig_syms['LN_CLOCK_PERIOD'].str_value)
+    except ValueError:
+        error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!")
+
+    sched_algo = resolve_sched_algo(kconfig_syms)
 
     # collect flags to LN
     longnail_flags = [
         "-lower-coredsl-to-lil",
-        #TODO make schedulingTimeout, schedRefineTimeout, clockTime, schedulingAlgo, useCommercialSolver, opTyLibrary configurable
-        f"-schedule-lil=\"datasheet={datasheet} library={longnail_configs['CONFIG_LN_CELL_LIBRARY']}\"",
+        f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
+        f"-schedule-lil=\"datasheet={datasheet} library={kconfig_syms['LN_CELL_LIBRARY'].str_value} opTyLibrary={kconfig_syms['LN_OPTY_MODEL'].str_value} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value}\"",
         #TODO implement another step to select the solution
         "-lower-lil-to-hw=forceUseMinIISolution=true",
         "-simplify-structure", "-cse", "-canonicalize",
@@ -68,16 +85,18 @@ def select_core_datasheet(kconfig_core):
             f"No or more than one core selected in Kconfig: {kconfig_core}")
     kconfig_core = kconfig_core[0]
 
-    if (kconfig_core == "CONFIG_CORE_PICORV32"):
+    if (kconfig_core == "CORE_PICORV32"):
         return "deps/longnail/datasheets/PicoRV32.yaml"
-    elif (kconfig_core == "CONFIG_CORE_ORCA"):
+    elif (kconfig_core == "CORE_ORCA"):
         return "deps/longnail/datasheets/ORCA.yaml"
-    elif (kconfig_core == "CONFIG_CORE_PICCOLO"):
+    elif (kconfig_core == "CORE_PICCOLO"):
         return "deps/longnail/datasheets/Piccolo.yaml"
-    elif (kconfig_core == "CONFIG_CORE_VEX_4S"):
+    elif (kconfig_core == "CORE_VEX_4S"):
         return "deps/longnail/datasheets/VexRiscv_4s.yaml"
-    elif (kconfig_core == "CONFIG_CORE_VEX_5S"):
+    elif (kconfig_core == "CORE_VEX_5S"):
         return "deps/longnail/datasheets/VexRiscv_5s.yaml"
+    elif (kconfig_core == "CORE_CVA5"):
+        return "deps/benchmarks/CVA5.yaml"
     else:
         error.exit_error("No datasheet for selected core found!")
 

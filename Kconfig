@@ -26,7 +26,4 @@ endchoice
 
 source "build/ISAX/Kconfig"
 
-menu "Longnail configuration"
-	config LN_CELL_LIBRARY
-		string "Longnail cell library"
-endmenu
+source "LN_Kconfig"

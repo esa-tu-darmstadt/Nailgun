@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+
 import error
 import run_cmd
 
@@ -43,17 +44,17 @@ def select_core(kconfig_core):
         error.exit_error(f"No or more than one core selected in Kconfig: {kconfig_core}")
     kconfig_core = kconfig_core[0]
 
-    if (kconfig_core == "CONFIG_CORE_PICORV32"):
+    if (kconfig_core == "CORE_PICORV32"):
         return "PicoRV32"
-    elif (kconfig_core == "CONFIG_CORE_ORCA"):
+    elif (kconfig_core == "CORE_ORCA"):
         return "ORCA"
-    elif (kconfig_core == "CONFIG_CORE_PICCOLO"):
+    elif (kconfig_core == "CORE_PICCOLO"):
         return "Piccolo"
-    elif (kconfig_core == "CONFIG_CORE_CVA5"):
+    elif (kconfig_core == "CORE_CVA5"):
         return "CVA5"
-    elif (kconfig_core == "CONFIG_CORE_VEX_4S"):
+    elif (kconfig_core == "CORE_VEX_4S"):
         return "VexRiscv_4s"
-    elif (kconfig_core == "CONFIG_CORE_VEX_5S"):
+    elif (kconfig_core == "CORE_VEX_5S"):
         return "VexRiscv_5s"
     else:
         error.exit_error("No datasheet for selected core found!")

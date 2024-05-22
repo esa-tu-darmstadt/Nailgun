@@ -1,0 +1,38 @@
+menu "Longnail configuration"
+	config LN_CELL_LIBRARY
+		string "Longnail cell library"
+	config LN_OPTY_MODEL
+		string "Longnail operator type model"
+	config LN_CLOCK_PERIOD
+		string "Longnail target clock period"
+		default "20.0"
+	config LN_MAX_LOOP_UNROLL_FACTOR
+		int "Longnail max loop unroll factor"
+		default 16
+	config LN_SCHEDULE_TIMEOUT
+		int "Longnail scheduling timeout in seconds"
+		default 10
+	config LN_REFINE_TIMEOUT
+		int "Longnail schedule refinement timeout in seconds"
+		default 10
+	config LN_USE_COMMERCIAL_SOLVER
+		bool "Longnail use Gurobi's ILP solver"
+		default y
+	menu "Scheduling Algorithm"
+		config LN_SCHED_ALGO_MS
+			bool "Modulo Scheduling"
+			default n
+		config LN_SCHED_ALGO_PA
+			depends on LN_SCHED_ALGO_MS
+			bool "Predicate-aware"
+			default n
+		config LN_SCHED_ALGO_RA
+			depends on LN_SCHED_ALGO_MS
+			bool "Resource-aware"
+			default n
+		config LN_SCHED_ALGO_MI
+			depends on LN_SCHED_ALGO_MS
+			bool "Inter-Instruction sharing"
+			default n
+	endmenu
+endmenu
