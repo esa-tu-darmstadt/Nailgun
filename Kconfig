@@ -17,10 +17,10 @@ config CORE_PICCOLO
 	bool "Piccolo"
 
 config CORE_VEX_4S
-	bool "VexRISC-V (4-Stage)"
+	bool "VexRiscv (4-Stage)"
 
 config CORE_VEX_5S
-	bool "VexRISC-V (5-Stage)"
+	bool "VexRiscv (5-Stage)"
 
 endchoice
 
