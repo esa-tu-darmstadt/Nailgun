@@ -1,8 +1,23 @@
-menu "Longnail configuration"
+menu "Longnail HLS configuration"
 	config LN_CELL_LIBRARY
 		string "Longnail cell library"
-	config LN_OPTY_MODEL
-		string "Longnail operator type model"
+	choice
+		prompt "Longnail operator type model"
+		default LN_OPTY_NO_MODEL
+
+		config LN_OPTY_NO_MODEL
+			bool "No operator type model"
+
+		config LN_OPTY_OL2_MODEL
+			bool "OpenLANE 2 operator type model"
+
+		config LN_OPTY_CUSTOM_MODEL
+			bool "Custom operator type model"
+
+		config LN_OPTY_CUSTOM_MODEL_PATH
+			depends on LN_OPTY_CUSTOM_MODEL
+			string "Custom operator type model path"
+	endchoice
 	config LN_CLOCK_PERIOD
 		string "Longnail target clock period"
 		default "20.0"
