@@ -54,7 +54,7 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
         "-lower-lil-to-hw=forceUseMinIISolution=true",
         "-simplify-structure", "-cse", "-canonicalize",
         "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog",
-        "-export-split-verilog=dir-name=build/verilog", "-o /dev/null"
+        f"-export-split-verilog=dir-name={out_dir}", "-o /dev/null"
     ]
     longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_flags)
 
@@ -64,8 +64,7 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
 
 def build_longnail():
     # create build and tool directory
-    if not os.path.isdir("build"):
-        os.mkdir("build")
+    os.makedirs("build", exist_ok=True)
 
     # check that gradlew exists
     if not os.path.isfile("deps/longnail/circt/utils/get-or-tools.sh"):
@@ -105,7 +104,7 @@ def select_core_datasheet(kconfig_core):
         error.exit_error("No datasheet for selected core found!")
 
 
-def provide_isax_yaml():
-    filelist = open("build/verilog/filelist.f")
+def provide_isax_yaml(out_dir):
+    filelist = open(f"{out_dir}/filelist.f")
     yamls = [f[:-1] for f in filelist if f[-6:-1] == ".yaml"]
-    return "build/verilog/"+yamls[0]
+    return f"{out_dir}/"+yamls[0]

@@ -6,7 +6,7 @@ gen_config: clean_config
 menuconfig: gen_config
 	python3 -m menuconfig
 
-build:
+build: gen_config .config
 	python3 dispatch.py
 
 clean_config:
@@ -15,4 +15,7 @@ clean_config:
 clean:
 	rm -rf build
 
-.PHONY : build menuconfig gen_config clean clean_config
+mrproper: clean
+	rm -rf output*
+
+.PHONY : build menuconfig gen_config clean clean_config mrproper

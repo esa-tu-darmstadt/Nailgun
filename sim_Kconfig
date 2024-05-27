@@ -1,0 +1,11 @@
+config SIM_ENABLE
+	bool "Run simulation"
+	default n
+
+menu "Simulation configuration"
+	depends on SIM_ENABLE
+	config SIM_TB_PATH
+		string "Simulation test program path"
+	config SIM_TB_EXPECTED_PATH
+		string "Path to file containing the expected simulation output"
+endmenu

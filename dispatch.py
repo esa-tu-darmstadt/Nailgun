@@ -7,6 +7,7 @@ import kconfig
 import treenail
 import longnail
 import scaiev
+import simulation
 
 
 # generate mapping from ISAX config name to isax description file
@@ -24,6 +25,19 @@ def gen_isax_map():
                     error.exit_error(f"could not parse ISAX path.csv file found in: {root}")
     return isax_map
 
+def create_output_folder(base_path):
+    # Start with the base path
+    path = base_path
+    suffix = 1
+
+    # Check if the directory exists, and if so, add a suffix
+    while os.path.exists(path):
+        path = f"{base_path}_{suffix}"
+        suffix += 1
+
+    # Create the directory
+    os.makedirs(path)
+    return path
 
 if __name__ == "__main__":
     # Read in Kconfig & .config file
@@ -52,13 +66,19 @@ if __name__ == "__main__":
     treenail.build_treenail()
     treenail.run_treenail_batch(enabled_isaxes, isax_input_files)
 
+    # Package all results in an output folder
+    out_dir = create_output_folder("output")
+
     # LN mlir to .v
     longnail.build_longnail()
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     datasheet = longnail.select_core_datasheet(core_name)
-    longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms)
+    longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
 
     # SCAIE-V integrate into core
     scaiev.build_scaiev()
     scaiev_core_name = scaiev.select_core(core_name)
-    scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml())
+    scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
+
+    # Optionally run the simulation
+    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms)

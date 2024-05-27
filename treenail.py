@@ -6,10 +6,7 @@ import run_cmd
 
 def run_treenail(isax_tag, coredsl_file):
     # create build and tool directory
-    if not os.path.isdir("build"):
-        os.mkdir("build")
-    if not os.path.isdir("build/mlir"):
-        os.mkdir("build/mlir")
+    os.makedirs("build/mlir", exist_ok=True)
 
     print(f" - Mapping {coredsl_file} to build/mlir/{isax_tag}.mlir")
     run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o build/mlir/{isax_tag}.mlir", f"Treenail failed on {coredsl_file}", False)
