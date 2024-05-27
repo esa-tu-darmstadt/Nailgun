@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import kconfiglib
+import functools
 
 import error
 import kconfig
@@ -8,6 +9,7 @@ import treenail
 import longnail
 import scaiev
 import simulation
+import merge_core_descs
 
 
 # generate mapping from ISAX config name to isax description file
@@ -60,7 +62,25 @@ if __name__ == "__main__":
     # print enabled ISAXes
     print("Building <core> with ISAXes:")
     for isax,mlir in zip(enabled_isaxes, isax_input_files):
-        print(f" - {isax[12:-3]} (associated description: {mlir})")
+        print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
+
+    if len(enabled_isaxes) == 0:
+        error.exit_error("No ISAXes were selected, nothing to do!")
+    elif len(enabled_isaxes) > 1:
+        print(enabled_isaxes)
+        print(isax_input_files)
+        #TODO remove once we have a proper LN pass to correctly merge ISAXes!
+        merged_content = merge_core_descs.merge_files(isax_input_files)
+
+        os.makedirs("build/coredsl", exist_ok=True)
+        merged_tag = functools.reduce(lambda a, b: a + "_" + b, list(map(lambda x: x[len('ISAX_'):-len('_EN')], enabled_isaxes)))
+        merged_isax_file = f"build/coredsl/{merged_tag}.core_desc"
+        with open(merged_isax_file, "w") as merged_file:
+            merged_file.write(merged_content)
+
+        enabled_isaxes = [merged_tag]
+        isax_input_files = [merged_isax_file]
+        pass
 
     # TN coreDSL to mlir
     treenail.build_treenail()

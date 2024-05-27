@@ -22,12 +22,11 @@ if __name__ == "__main__":
 
     with open(os.path.join(kconfig_outdir, "Kconfig"), 'w') as file:
         file.write(f"""
-choice
-    prompt "ISAXes"
+menu "Select ISAXes"
 
 source "{kconfig_outdir}/*/Kconfig"
 
-endchoice
+endmenu
 """)
 
     # Generate KConfig files
