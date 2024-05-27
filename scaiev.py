@@ -33,17 +33,20 @@ def run_scaiev(core, isax_desc, out_dir):
     target_dir = os.path.abspath(f"{out_dir}/{core}")
     os.makedirs(target_dir, exist_ok=True)
 
+    isax_desc = os.path.abspath(isax_desc)
+    isax_dir = os.path.dirname(isax_desc)
+
     # Copy the unchanged core source file to our target directory
     copy_folder_contents(f"deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
-    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {os.path.abspath(isax_desc)} -o {os.path.abspath(out_dir)}", "SCAIEV failed")
-    run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir}", "Could not generate top module")
+    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed")
+    run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module")
     # The VexRiscv needs an extra build step!
     # TODO pretty much EVERY core needs extra build steps!
     if (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         # Patch the build system of VexRiscv
         patch_file = os.path.abspath("../patches/Vex5.patch")
-        run_cmd.run(target_dir, f"patch -p1 < {patch_file}", "Could not patch the VexRiscv sources")
+        run_cmd.run(target_dir, f"patch -p1 < {patch_file} || true", "Could not patch the VexRiscv sources")
         # Build VexRiscv
         run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v")
 
