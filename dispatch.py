@@ -67,8 +67,6 @@ if __name__ == "__main__":
     if len(enabled_isaxes) == 0:
         error.exit_error("No ISAXes were selected, nothing to do!")
     elif len(enabled_isaxes) > 1:
-        print(enabled_isaxes)
-        print(isax_input_files)
         #TODO remove once we have a proper LN pass to correctly merge ISAXes!
         merged_content = merge_core_descs.merge_files(isax_input_files)
 
