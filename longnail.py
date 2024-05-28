@@ -43,7 +43,9 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
         error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!")
 
     sched_algo = resolve_sched_algo(kconfig_syms)
-    optylib = resolve_opty_lib(kconfig_syms)
+    optylib = os.path.abspath(resolve_opty_lib(kconfig_syms))
+    out_dir = os.path.abspath(out_dir)
+    datasheet = os.path.abspath(datasheet)
 
     # collect flags to LN
     longnail_flags = [
@@ -58,8 +60,9 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
     ]
     longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_flags)
 
+    ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
-    run_cmd.run(".", f"./deps/longnail/build/bin/longnail-opt {longnail_flags_str} {isax_tags[0]}", f"Longnail failed")
+    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {os.path.abspath(isax_tags[0])}", f"Longnail failed", False)
 
 
 def build_longnail():
