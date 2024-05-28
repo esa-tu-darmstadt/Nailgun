@@ -12,7 +12,7 @@ import scaiev
 def prepare_gcc(yaml_file):
     # Create GCC patches
     patched_files_dir = os.path.abspath("deps/scaie-v-testbenches/Scenario-HLS-DAC/opcodes")
-    run_cmd.run(".", f"../tools/shady_gcc_patch_creator.py {yaml_file} {patched_files_dir}", "Could not patch gcc")
+    run_cmd.run(".", f"../tools/shady_gcc_patch_creator.py {yaml_file} {patched_files_dir}", "Could not patch gcc", False)
     # Rebuild GCC
     run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", False)
 

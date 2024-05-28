@@ -29,6 +29,7 @@ def copy_folder_contents(source_folder, target_folder):
             shutil.copytree(source_item, target_item, dirs_exist_ok=True)
 
 def run_scaiev(core, isax_desc, out_dir):
+    print(f" - Invoking SCAIEV")
     # create build and tool directory
     target_dir = os.path.abspath(f"{out_dir}/{core}")
     os.makedirs(target_dir, exist_ok=True)
@@ -39,8 +40,10 @@ def run_scaiev(core, isax_desc, out_dir):
     # Copy the unchanged core source file to our target directory
     copy_folder_contents(f"deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
-    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed")
+    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed", False)
+    print(f" - Creating wrapper module")
     run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module")
+    print(f" - Building the extended core")
     # The VexRiscv needs an extra build step!
     # TODO pretty much EVERY core needs extra build steps!
     if (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
