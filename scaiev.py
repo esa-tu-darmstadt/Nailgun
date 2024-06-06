@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import shutil
+import functools
 
 import error
 import run_cmd
@@ -17,10 +18,39 @@ def read_file_lines(filename):
     return lines
 
 def copy_folder_contents(source_folder, target_folder):
+    # Blacklist to workaround unnecessary files or simply broken symlinks due to non recursive clones
+    blacklist = [
+        # ORCA
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/orca/software", # broken symlinks
+        # PicoRV32
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/dhrystone", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/scripts", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/tests", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/firmware", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/picosoc", # unnecessary
+        # CVA5
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/formal", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/scripts", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/test_benches", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/examples", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/debug_module", # unnecessary
+        # VexRiscv
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/VexRiscv/.github", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/VexRiscv/doc", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/VexRiscv/scripts", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/VexRiscv/assets", # unnecessary
+        # Piccolo
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/Piccolo/Tests", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/Piccolo/src_Testbench", # unnecessary
+    ]
+
     # Iterate over the contents of the source folder
     for item in os.listdir(source_folder):
         source_item = os.path.join(source_folder, item)
         target_item = os.path.join(target_folder, item)
+
+        if source_item in blacklist:
+            continue
 
         # Copy file or directory to the target folder
         if os.path.isfile(source_item):
@@ -52,6 +82,19 @@ def run_scaiev(core, isax_desc, out_dir):
         run_cmd.run(target_dir, f"patch -p1 < {patch_file} || true", "Could not patch the VexRiscv sources")
         # Build VexRiscv
         run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v")
+    elif (core == "Piccolo"):
+        #TODO this is untested
+        build_target_dir = os.path.join(target_dir, "builds/RV32ACIMU_Piccolo_verilator")
+        run_cmd.run(build_target_dir, 'make clean', "Could not clean Piccolo build directory")
+        run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore make compile', "Could not compile Piccolo bluespec sources to verilog")
+        # TODO this probably does not yet work!
+    elif (core == "ORCA"):
+        #TODO this is untested
+        #TODO apply ORCA_src_patch.diff: https://gitlab.esa.informatik.tu-darmstadt.de/scale4edge/scaie-v-testbenches/-/blob/5b360d06d8449bf2f9083739162f462b96f02bb5/cores/Makefile#L24
+        # Things are getting wild
+        vhd_files = [s for s in read_file_lines(os.path.join(target_dir, "ip/orca/hdl/Filelist")) if not s.startswith("#")]
+        output_path = os.path.join(target_dir, "ORCA.v")
+        run_cmd.run(target_dir, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\"80000000\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \"{output_path}\""', "Could not compile ORCA vhd files to verilog")
 
 def select_coresrc_folder_name(core):
     if (core == "PicoRV32"):
