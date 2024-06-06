@@ -104,7 +104,7 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 def run_simulation(out_dir, core_name, kconfig_syms):
     if kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
-    print(f" - Running full core + ISAX simulation")
+    print(f"Running full core + ISAX simulation:")
     if not os.path.exists(kconfig_syms['SIM_TB_PATH'].str_value):
         error.exit_error("Simulation testbench path is missing!")
     if not os.path.exists(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value):
@@ -112,6 +112,9 @@ def run_simulation(out_dir, core_name, kconfig_syms):
     yaml_file_path = find_yaml_file(out_dir)
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
+    print(f" - Adding ISAX assembly support to GCC")
     prepare_gcc(yaml_file_path)
+    print(f" - Compiling assembly TB")
     instr_bin, data_bin = gcc_compile_tb(tb_path, core_name, out_dir)
+    print(f" - Start simulation")
     run_tb(out_dir, core_name, instr_bin, tb_expected_path)

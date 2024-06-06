@@ -32,7 +32,7 @@ def resolve_opty_lib(kconfig_syms):
 
 def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
     # gather src files
-    print(f" - Invoking Longnail HLS")
+    print(f"Invoking Longnail HLS")
     isax_tags = list(map(lambda a: f"build/mlir/{a}.mlir", isax_tags))
     # mlir_str = functools.reduce(lambda a, b: a+" "+b, isax_tags)
 

@@ -29,7 +29,7 @@ def copy_folder_contents(source_folder, target_folder):
             shutil.copytree(source_item, target_item, dirs_exist_ok=True)
 
 def run_scaiev(core, isax_desc, out_dir):
-    print(f" - Invoking SCAIEV")
+    print(f"Invoking SCAIEV:")
     # create build and tool directory
     target_dir = os.path.abspath(f"{out_dir}/{core}")
     os.makedirs(target_dir, exist_ok=True)

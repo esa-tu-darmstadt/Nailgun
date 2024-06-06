@@ -59,8 +59,11 @@ if __name__ == "__main__":
     except KeyError as ke:
         error.exit_error(f"Could not find .mlir file for {str(ke)}. Check your paths.csv.")
 
+    core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
+    scaiev_core_name = scaiev.select_core(core_name)
+
     # print enabled ISAXes
-    print("Building <core> with ISAXes:")
+    print(f"Building {scaiev_core_name} with ISAXes:")
     for isax,mlir in zip(enabled_isaxes, isax_input_files):
         print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
 
@@ -68,6 +71,7 @@ if __name__ == "__main__":
         error.exit_error("No ISAXes were selected, nothing to do!")
     elif len(enabled_isaxes) > 1:
         #TODO remove once we have a proper LN pass to correctly merge ISAXes!
+        print("Merging ISAXes")
         merged_content = merge_core_descs.merge_files(isax_input_files)
 
         os.makedirs("build/coredsl", exist_ok=True)
@@ -89,13 +93,11 @@ if __name__ == "__main__":
 
     # LN mlir to .v
     longnail.build_longnail()
-    core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     datasheet = longnail.select_core_datasheet(core_name)
     longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
 
     # SCAIE-V integrate into core
     scaiev.build_scaiev()
-    scaiev_core_name = scaiev.select_core(core_name)
     scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
 
     # Optionally run the simulation
