@@ -70,7 +70,7 @@ def run_scaiev(core, isax_desc, out_dir):
     # Copy the unchanged core source file to our target directory
     copy_folder_contents(f"deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
-    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed", False)
+    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed", False)
     print(f" - Creating wrapper module")
     run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module")
     print(f" - Building the extended core")
