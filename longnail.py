@@ -33,6 +33,7 @@ def resolve_opty_lib(kconfig_syms):
 def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
     # gather src files
     print(f"Invoking Longnail HLS")
+    isax_name = isax_tags[0][len("ISAX_"):-len("_EN")].lower()
     isax_tags = list(map(lambda a: f"build/mlir/{a}.mlir", isax_tags))
     # mlir_str = functools.reduce(lambda a, b: a+" "+b, isax_tags)
 
@@ -62,7 +63,9 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
 
     ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
-    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {os.path.abspath(isax_tags[0])}", f"Longnail failed", False)
+    isax_mlir = os.path.abspath(isax_tags[0])
+    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail failed", False)
+    return isax_name, isax_mlir
 
 
 def build_longnail():

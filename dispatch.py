@@ -94,11 +94,11 @@ if __name__ == "__main__":
     # LN mlir to .v
     longnail.build_longnail()
     datasheet = longnail.select_core_datasheet(core_name)
-    longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
+    isax_name, mlir_path = longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
 
     # SCAIE-V integrate into core
     scaiev.build_scaiev()
     scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
 
     # Optionally run the simulation
-    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms)
+    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path)
