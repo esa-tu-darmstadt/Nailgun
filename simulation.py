@@ -40,7 +40,7 @@ def prepare_llvm(mlir_path, version = "17"):
     run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version}", f"Failed to patch LLVM {version} to add support for the selected ISAXes", False)
     # Build LLVM
     build_dir = os.path.join(llvm_repo, "build")
-    run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", False)
+    run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", False, 200)
     return build_dir
 
 def prepare_gcc(yaml_file):
