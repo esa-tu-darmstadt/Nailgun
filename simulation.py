@@ -10,13 +10,30 @@ import scaiev
 
 
 def prepare_llvm(mlir_path, version = "17"):
-    #TODO this expects that the awesome_llvm repo was already setup (running all required build scripts and the run-test script to fetch the llvm versions)
     mlir_path = os.path.abspath(mlir_path)
     awesome_path = "deps/awesome_llvm"
     awesome_ln_bin = os.path.abspath(f"{awesome_path}/build/bin/longnail-opt")
 
     # Hard reset the llvm target repository
     llvm_repo = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/worktree/{version}")
+
+    # Ensure the llvm repo is setup
+    if not os.path.exists(llvm_repo):
+        # Clone llvm
+        run_cmd.run(".", f"git clone --depth=1 -b release/{version}.x https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", False)
+        # Configure cmake
+        ccache_path = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/ccache")
+        cmake_config = [
+			"-DLLVM_ENABLE_PROJECTS=clang",
+			"-DLLVM_TARGETS_TO_BUILD=RISCV",
+			"-DBUILD_SHARED_LIBS=ON",
+			"-DLLVM_CCACHE_BUILD=ON",
+			f"-DLLVM_CCACHE_DIR='{ccache_path}'",
+			"-DLLVM_CCACHE_MAXSIZE=25G",
+			"-DCMAKE_BUILD_TYPE=Debug",
+        ]
+        run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", False)
+
     run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", False)
     # Patch LLVM
     llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
