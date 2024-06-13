@@ -37,7 +37,8 @@ def prepare_llvm(mlir_path, version = "17"):
     run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", False)
     # Patch LLVM
     llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
-    run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version}", f"Failed to patch LLVM {version} to add support for the selected ISAXes", False)
+    pass_opts = "disableISelGen=true" # No ISel patterns for now
+    run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", False)
     # Build LLVM
     build_dir = os.path.join(llvm_repo, "build")
     run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", False, 200)
