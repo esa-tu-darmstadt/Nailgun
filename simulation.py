@@ -17,13 +17,13 @@ def prepare_llvm(mlir_path, version = "17"):
 
     # Hard reset the llvm target repository
     llvm_repo = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/worktree/{version}")
-    run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory")
+    run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", False)
     # Patch LLVM
     llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
-    run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version}", f"Failed to patch LLVM {version} to add support for the selected ISAXes")
+    run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version}", f"Failed to patch LLVM {version} to add support for the selected ISAXes", False)
     # Build LLVM
     build_dir = os.path.join(llvm_repo, "build")
-    run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}")
+    run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", False)
     return build_dir
 
 def prepare_gcc(yaml_file):
@@ -41,15 +41,15 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags):
     # Build elf file
     elf_file = os.path.join(bin_dir, "tb.elf")
     linker_file = os.path.abspath(f"deps/scaie-v-testbenches/cores/{scaiev.select_linker_file(core_name)}")
-    run_cmd.run("deps/scaie-v-testbenches/dep", f"{cc_path} {flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!")
+    run_cmd.run("deps/scaie-v-testbenches/dep", f"{cc_path} {flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", False)
     # Build instr bin file
     instr_bin_path = os.path.join(bin_dir, "core_name_instr.bin")
     instr_dump_flags = "-O binary -j .text.init -j .text"
-    run_cmd.run(".", f"{objcopy_path} {instr_dump_flags} {elf_file} {instr_bin_path}", "Failed to extract instruction section from elf file!")
+    run_cmd.run(".", f"{objcopy_path} {instr_dump_flags} {elf_file} {instr_bin_path}", "Failed to extract instruction section from elf file!", False)
     # Build data bin file
     data_bin_path = os.path.join(bin_dir, "core_name_data.bin")
     data_dump_flags = "-O binary -j .data -j .srodata -j .rodata -j .bss -j .sdata"
-    run_cmd.run(".", f"{objcopy_path} {data_dump_flags} {elf_file} {data_bin_path}", "Failed to extract data section from elf file!")
+    run_cmd.run(".", f"{objcopy_path} {data_dump_flags} {elf_file} {data_bin_path}", "Failed to extract data section from elf file!", False)
 
     return instr_bin_path, data_bin_path
 
