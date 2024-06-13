@@ -72,7 +72,7 @@ if __name__ == "__main__":
     elif len(enabled_isaxes) > 1:
         #TODO remove once we have a proper LN pass to correctly merge ISAXes!
         print("Merging ISAXes")
-        merged_content = merge_core_descs.merge_files(isax_input_files)
+        merged_content, isax_name = merge_core_descs.merge_files(isax_input_files)
 
         os.makedirs("build/coredsl", exist_ok=True)
         merged_tag = functools.reduce(lambda a, b: a + "_" + b, list(map(lambda x: x[len('ISAX_'):-len('_EN')], enabled_isaxes)))
@@ -94,7 +94,11 @@ if __name__ == "__main__":
     # LN mlir to .v
     longnail.build_longnail()
     datasheet = longnail.select_core_datasheet(core_name)
-    isax_name, mlir_path = longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
+    isax_name_2, mlir_path = longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
+
+    # No coredsl files were merged, use LN isax name result
+    if not isax_name:
+        isax_name = isax_name_2
 
     # SCAIE-V integrate into core
     scaiev.build_scaiev()

@@ -92,8 +92,12 @@ def merge_files(file_paths):
   }}
 """ if merged_sections['always'] else ""
 
+    # TODO do not hardcode sbox here, fuse the ISAX names
+    isax_name = "sbox"
+    # isax_name = "merged_instruction_set"
+
     return f"""
-InstructionSet merged_instruction_set {{
+InstructionSet {isax_name} {{
   architectural_state {{
     {merged_architectural_state}
   }}
@@ -106,4 +110,4 @@ InstructionSet merged_instruction_set {{
 
 {always_section}
 }}
-"""
+""", isax_name
