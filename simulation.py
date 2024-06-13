@@ -12,7 +12,7 @@ import scaiev
 def prepare_llvm(mlir_path, version = "17"):
     #TODO this expects that the awesome_llvm repo was already setup (running all required build scripts and the run-test script to fetch the llvm versions)
     mlir_path = os.path.abspath(mlir_path)
-    awesome_path = "deps/awesome_llvm2"
+    awesome_path = "deps/awesome_llvm"
     awesome_ln_bin = os.path.abspath(f"{awesome_path}/build/bin/longnail-opt")
 
     # Hard reset the llvm target repository
