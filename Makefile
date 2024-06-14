@@ -9,6 +9,11 @@ menuconfig: gen_config
 build: gen_config .config
 	python3 dispatch.py
 
+gen_ci_config: gen_config
+	python3 gen_ci_config.py
+
+ci: gen_ci_config build
+
 clean_config:
 	rm -rf build/ISAX
 
@@ -18,4 +23,4 @@ clean:
 mrproper: clean
 	rm -rf output*
 
-.PHONY : build menuconfig gen_config clean clean_config mrproper
+.PHONY : build menuconfig gen_config clean clean_config mrproper ci gen_ci_config
