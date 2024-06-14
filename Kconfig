@@ -2,7 +2,7 @@ mainmenu "NailGun ISAX integration config"
 
 choice
 	prompt "RISC-V core"
-	default CORE_PICORV32
+	default CORE_CVA5
 
 config CORE_PICORV32
 	bool "PicoRV32"

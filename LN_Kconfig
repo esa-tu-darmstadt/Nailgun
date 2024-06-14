@@ -32,7 +32,7 @@ menu "Longnail HLS configuration"
 		default 10
 	config LN_USE_COMMERCIAL_SOLVER
 		bool "Longnail use Gurobi's ILP solver"
-		default y
+		default n
 	menu "Scheduling Algorithm"
 		config LN_SCHED_ALGO_MS
 			bool "Modulo Scheduling"
