@@ -26,9 +26,9 @@ def resolve_opty_lib(kconfig_syms):
     if kconfig_syms['LN_OPTY_NO_MODEL'].str_value == "y":
         return ""
     if kconfig_syms['LN_OPTY_OL2_MODEL'].str_value == "y":
-        return "deps/longnail/opTyLibraries/OL2.yaml"
+        return os.path.abspath("deps/longnail/opTyLibraries/OL2.yaml")
     assert kconfig_syms['LN_OPTY_CUSTOM_MODEL'].str_value == "y"
-    return kconfig_syms['LN_OPTY_CUSTOM_MODEL_PATH'].str_value
+    return os.path.abspath(kconfig_syms['LN_OPTY_CUSTOM_MODEL_PATH'].str_value)
 
 def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
     # gather src files
@@ -44,7 +44,7 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
         error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!")
 
     sched_algo = resolve_sched_algo(kconfig_syms)
-    optylib = os.path.abspath(resolve_opty_lib(kconfig_syms))
+    optylib = resolve_opty_lib(kconfig_syms)
     out_dir = os.path.abspath(out_dir)
     datasheet = os.path.abspath(datasheet)
 
