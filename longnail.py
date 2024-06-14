@@ -64,7 +64,7 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
     ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
     isax_mlir = os.path.abspath(isax_tags[0])
-    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail failed", False)
+    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail failed", False, 200)
     return isax_name, isax_mlir
 
 
