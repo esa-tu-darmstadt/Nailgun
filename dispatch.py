@@ -63,6 +63,7 @@ if __name__ == "__main__":
     scaiev_core_name = scaiev.select_core(core_name)
 
     # print enabled ISAXes
+    isax_name = None
     print(f"Building {scaiev_core_name} with ISAXes:")
     for isax,mlir in zip(enabled_isaxes, isax_input_files):
         print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
