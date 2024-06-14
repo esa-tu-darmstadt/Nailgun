@@ -11,9 +11,10 @@ def run(dir, cmd, err_msg, output=True, n_lines=10):
     def proc_line(output_line):
         if output_line:
             decoded_line = output_line.decode("utf-8")
-            output_lines.append(decoded_line)
             if (output):
                 print(decoded_line, end='')
+            else:
+                output_lines.append(decoded_line)
 
     while proc.poll() is None:
         output_line = proc.stdout.readline()
@@ -24,7 +25,8 @@ def run(dir, cmd, err_msg, output=True, n_lines=10):
 
     if proc.wait() != 0:
         print(f"Running command: '{cmd}' failed")
-        print(f"Last {n_lines} lines of the output:")
-        for line in output_lines:
-            print(line, end='')
+        if not output:
+            print(f"Last {n_lines} lines of the output:")
+            for line in output_lines:
+                print(line, end='')
         error.exit_error(err_msg)
