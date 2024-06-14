@@ -72,12 +72,11 @@ def build_longnail():
     # create build and tool directory
     os.makedirs("build", exist_ok=True)
 
-    # check that gradlew exists
-    if not os.path.isfile("deps/longnail/circt/utils/get-or-tools.sh"):
-        error.exit_error("Longnail or its submodules are not cloned. Check out submodules in this repo!")
-
     # build longnail
     if not os.path.isfile("deps/longnail/build/bin/longnail-opt"):
+        # check that the submodules were fetched
+        if not os.path.isfile("deps/longnail/circt/utils/get-or-tools.sh"):
+            error.exit_error("Longnail or its submodules are not cloned. Check out submodules in this repo!")
         print("Building Longnail...")
         run_cmd.run("deps/longnail", "./circt/utils/get-or-tools.sh", "Gathering or-tools for CIRCT failed")
         run_cmd.run("deps/longnail", "chmod +x ./circt/utils/get-iverilog.sh && ./circt/utils/get-iverilog.sh", "Building iVerilog failed")
