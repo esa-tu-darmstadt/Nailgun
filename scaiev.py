@@ -89,12 +89,13 @@ def run_scaiev(core, isax_desc, out_dir):
         run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore make compile', "Could not compile Piccolo bluespec sources to verilog")
         # TODO this probably does not yet work!
     elif (core == "ORCA"):
-        #TODO this is untested
-        #TODO apply ORCA_src_patch.diff: https://gitlab.esa.informatik.tu-darmstadt.de/scale4edge/scaie-v-testbenches/-/blob/5b360d06d8449bf2f9083739162f462b96f02bb5/cores/Makefile#L24
         # Things are getting wild
+        patch_file = os.path.abspath("deps/scaie-v-testbenches/cores/ORCA_src_patch.diff")
+        run_cmd.run(".", f'patch -u -p0 -N --directory="{target_dir}" < {patch_file}', "Could not apply patch to ORCA")
         vhd_files = [s for s in read_file_lines(os.path.join(target_dir, "ip/orca/hdl/Filelist")) if not s.startswith("#")]
         output_path = os.path.join(target_dir, "ORCA.v")
-        run_cmd.run(target_dir, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\"80000000\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \"{output_path}\""', "Could not compile ORCA vhd files to verilog")
+        ip_path = os.path.join(target_dir, "ip/orca/hdl")
+        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog")
 
 def select_coresrc_folder_name(core):
     if (core == "PicoRV32"):
