@@ -99,7 +99,7 @@ def run_scaiev(core, isax_desc, out_dir):
 
 def select_coresrc_folder_name(core):
     if (core == "PicoRV32"):
-        return "picorv32"
+        return "PicoRV32"
     elif (core == "ORCA"):
         return "orca"
     elif (core == "Piccolo"):
