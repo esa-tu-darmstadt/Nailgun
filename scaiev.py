@@ -21,13 +21,13 @@ def copy_folder_contents(source_folder, target_folder):
     # Blacklist to workaround unnecessary files or simply broken symlinks due to non recursive clones
     blacklist = [
         # ORCA
-        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/orca/software", # broken symlinks
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/ORCA/software", # broken symlinks
         # PicoRV32
-        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/dhrystone", # unnecessary
-        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/scripts", # unnecessary
-        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/tests", # unnecessary
-        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/firmware", # unnecessary
-        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/picorv32/picosoc", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/PicoRV32/dhrystone", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/PicoRV32/scripts", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/PicoRV32/tests", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/PicoRV32/firmware", # unnecessary
+        "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/PicoRV32/picosoc", # unnecessary
         # CVA5
         "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/formal", # unnecessary
         "deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/CVA5/scripts", # unnecessary
@@ -90,17 +90,17 @@ def run_scaiev(core, isax_desc, out_dir):
     elif (core == "ORCA"):
         # Things are getting wild
         patch_file = os.path.abspath("deps/scaie-v-testbenches/cores/ORCA_src_patch.diff")
-        run_cmd.run(".", f'patch -u -p0 -N --directory="{target_dir}" < {patch_file}', "Could not apply patch to ORCA")
+        run_cmd.run(".", f'patch -u -p0 -N --directory="{target_dir}" < {patch_file}', "Could not apply patch to ORCA", False)
         vhd_files = [s for s in read_file_lines(os.path.join(target_dir, "ip/orca/hdl/Filelist")) if not s.startswith("#")]
         output_path = os.path.join(target_dir, "ORCA.v")
         ip_path = os.path.join(target_dir, "ip/orca/hdl")
-        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog")
+        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog", False)
 
 def select_coresrc_folder_name(core):
     if (core == "PicoRV32"):
-        return "PicoRV32"
+        return core
     elif (core == "ORCA"):
-        return "orca"
+        return core
     elif (core == "Piccolo"):
         return core
     elif (core == "CVA5"):
