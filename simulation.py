@@ -88,7 +88,7 @@ def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name):
     return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags)
 
 def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
-    tb_srcs, core_srcs, top_module = scaiev.select_tb_wrapper_srcs(core_name)
+    tb_srcs, core_srcs, top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
     # Add absolute paths to the tb wrapper srcs
     wrapper_base = os.path.abspath("deps/scaie-v-testbenches/cores")
     tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), tb_srcs))
@@ -127,6 +127,8 @@ EXTRA_ARGS += --assert
 EXTRA_ARGS += --trace-fst --trace --trace-structs --trace-underscore
 # Use more than one core to compile the simulation models
 BUILD_ARGS += -j$(shell nproc)
+
+{extra_makefile_opts}
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 """)
