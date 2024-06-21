@@ -138,7 +138,8 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
         f"EXPECTED={tb_expected_path}",
     ] + scaiev.select_tb_env_vars(core_name)
 
-    run_cmd.run(sim_dir, f"{functools.reduce(lambda a, b: a + ' ' + b, env_vars)} make sim", "Failed to run the simulation!")
+    results_xml_path = os.path.join(sim_dir, "results.xml")
+    run_cmd.run(sim_dir, f"{functools.reduce(lambda a, b: a + ' ' + b, env_vars)} make sim && ! grep -nri 'Test failed' {results_xml_path}", "The simulation failed!")
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
