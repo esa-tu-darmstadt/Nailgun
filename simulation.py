@@ -83,8 +83,9 @@ def gcc_compile_tb(tb_path, core_name, out_dir):
 def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name):
     clang_path = os.path.join(llvm_build_path, "bin", "clang")
     objcopy_path = os.path.join(llvm_build_path, "bin", "llvm-objcopy")
+    startup_asm = os.path.abspath("startup.s")
     #TODO zicsr?
-    flags = f'--target="riscv32-none-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32im_x{isax_name}0p1" -nostdlib -O3'
+    flags = f'--target="riscv32-none-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32im_x{isax_name}0p1" -nostdlib -O3 {startup_asm}'
     return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags)
 
 def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
