@@ -141,7 +141,7 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
     results_xml_path = os.path.join(sim_dir, "results.xml")
     # We ALWAYS want colors, lol
-    run_cmd.run(sim_dir, f"COCOTB_ANSI_OUTPUT=1 {functools.reduce(lambda a, b: a + ' ' + b, env_vars)} make sim && ! grep -nri 'Test failed' {results_xml_path}", "The simulation failed!")
+    run_cmd.run(sim_dir, f"OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 {functools.reduce(lambda a, b: a + ' ' + b, env_vars)} make sim && ! grep -nri 'Test failed' {results_xml_path}", "The simulation failed!")
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
