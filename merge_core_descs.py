@@ -93,8 +93,7 @@ def merge_files(file_paths):
 """ if merged_sections['always'] else ""
 
     # TODO do not hardcode sbox here, fuse the ISAX names
-    isax_name = "sbox"
-    # isax_name = "merged_instruction_set"
+    isax_name = "merged"
 
     return f"""
 InstructionSet {isax_name} {{
