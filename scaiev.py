@@ -73,8 +73,7 @@ def run_scaiev(core, isax_desc, out_dir):
     print(f" - Creating wrapper module")
     run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module")
     print(f" - Building the extended core")
-    # The VexRiscv needs an extra build step!
-    # TODO pretty much EVERY core needs extra build steps!
+    # Perform extra build steps that are required for the target core!
     if (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         # Patch the build system of VexRiscv
         patch_file = os.path.abspath("../patches/Vex5.patch")
@@ -82,11 +81,9 @@ def run_scaiev(core, isax_desc, out_dir):
         # Build VexRiscv
         run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", False)
     elif (core == "Piccolo"):
-        #TODO this is untested
         build_target_dir = os.path.join(target_dir, "builds/RV32ACIMU_Piccolo_verilator")
         run_cmd.run(build_target_dir, 'make clean', "Could not clean Piccolo build directory", False)
         run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore make compile', "Could not compile Piccolo bluespec sources to verilog", False)
-        # TODO this probably does not yet work!
     elif (core == "ORCA"):
         # Things are getting wild
         patch_file = os.path.abspath("deps/scaie-v-testbenches/cores/ORCA_src_patch.diff")
