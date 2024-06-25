@@ -108,7 +108,7 @@ def select_coresrc_folder_name(core):
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return "VexRiscv"
     else:
-        error.exit_error("No datasheet for selected core found!")
+        error.exit_error(f"No core source folder for selected core '{core}' found!")
 
 def select_wrapper_gen(core):
     if (core == "PicoRV32"):
@@ -122,7 +122,7 @@ def select_wrapper_gen(core):
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return "Vex_maketop.py"
     else:
-        error.exit_error("No datasheet for selected core found!")
+        error.exit_error(f"No wrapper for selected core '{core}' found!")
 
 def select_linker_file(core):
     if (core == "PicoRV32"):
@@ -353,4 +353,4 @@ def select_core(kconfig_core):
     elif (kconfig_core == "CORE_VEX_5S"):
         return "VexRiscv_5s"
     else:
-        error.exit_error("No datasheet for selected core found!")
+        error.exit_error(f"No datasheet for selected core '{kconfig_core}' found!")

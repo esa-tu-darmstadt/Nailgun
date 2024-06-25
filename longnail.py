@@ -106,7 +106,7 @@ def select_core_datasheet(kconfig_core):
     elif (kconfig_core == "CORE_CVA5"):
         return "deps/benchmarks/CVA5.yaml"
     else:
-        error.exit_error("No datasheet for selected core found!")
+        error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!")
 
 
 def provide_isax_yaml(out_dir):
