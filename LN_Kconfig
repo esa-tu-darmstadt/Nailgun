@@ -9,7 +9,7 @@ menu "Longnail HLS configuration"
 			bool "No operator type model"
 
 		config LN_OPTY_OL2_MODEL
-			bool "OpenLANE 2 operator type model"
+			bool "OpenLANE 2 SKY130 operator type model"
 
 		config LN_OPTY_CUSTOM_MODEL
 			bool "Custom operator type model"
