@@ -31,7 +31,7 @@ def merge_architectural_state(states):
         for line in lines:
             stripped_line = line.strip()
             if "register unsigned<" in stripped_line:
-                if "> PC;" in stripped_line:
+                if "> PC" in stripped_line:
                     if has_pc:
                         continue
                     else:
