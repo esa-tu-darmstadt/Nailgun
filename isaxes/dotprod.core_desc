@@ -1,7 +1,7 @@
 
 InstructionSet dotprod {
   architectural_state {
-    register unsigned<32> X[32];
+    register unsigned<32> X[32] [[is_main_reg]];
   }
 
   instructions {

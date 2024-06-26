@@ -2,7 +2,7 @@
 
 InstructionSet sparkle {
   architectural_state {
-    register unsigned<32> X[32];
+    register unsigned<32> X[32] [[is_main_reg]];
 
     const register unsigned<8> ROT_0[4] = {31, 17, 0, 24};
     const register unsigned<8> ROT_1[4] = {24, 17, 31, 16};

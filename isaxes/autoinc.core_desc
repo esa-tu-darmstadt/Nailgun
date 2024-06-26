@@ -4,7 +4,7 @@
 
 InstructionSet autoinc {
   architectural_state {
-    register unsigned<32> X[32];
+    register unsigned<32> X[32] [[is_main_reg]];
     extern unsigned<8> MEM[0x100000000];
     register unsigned<32> ADDR;
   }

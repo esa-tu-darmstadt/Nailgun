@@ -1,7 +1,7 @@
 
 InstructionSet indirectjmp {
   architectural_state {
-    register unsigned<32> X[32];
+    register unsigned<32> X[32] [[is_main_reg]];
     register unsigned<32> PC;
     extern unsigned<8> MEM[33'h100000000];
   }
