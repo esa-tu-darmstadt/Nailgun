@@ -8,9 +8,9 @@ InstructionSet brimm {
 
   instructions {
     cv_beqimm {
-      encoding: imm12_12[0:0] :: imm12_10_5[5:0] :: imm5[4:0] :: rs1[4:0] :: 3'b101 :: imm12_4_1[3:0] :: imm12_11[0:0] :: 7'b0001011;
+      encoding: imm12[11:11] :: imm12[9:4] :: imm5[4:0] :: rs1[4:0] :: 3'b101 :: imm12[3:0] :: imm12[10:10] :: 7'b0001011;
       behavior: {
-        signed<13> imm_shift = (signed)(imm12_12 :: imm12_11 :: imm12_10_5 :: imm12_4_1 :: 1'b0);
+        signed<13> imm_shift = (signed)(imm12 :: 1'b0);
         if (X[rs1] == (signed)imm5)
           PC = (unsigned<32>)(PC + imm_shift);
       }
