@@ -39,6 +39,10 @@ if __name__ == "__main__":
     if skip_llvm_build:
         kconf.syms["SIM_SKIP_AWESOME_LLVM"].set_value(skip_llvm_build)
 
+    cell_library = os.getenv("LN_CELL_LIBRARY")
+    if cell_library:
+        kconf.syms["LN_CELL_LIBRARY"].set_value(cell_library)
+
     ol2_optylib = os.getenv("USE_OL2_MODEL")
     if ol2_optylib:
         kconf.syms["LN_OPTY_OL2_MODEL"].set_value(ol2_optylib)
@@ -67,6 +71,4 @@ if __name__ == "__main__":
         kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
         kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
 
-
     kconf.write_config(".config")
-
