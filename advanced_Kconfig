@@ -1,0 +1,18 @@
+menu "Advanced Options"
+	config SIM_SKIP_AWESOME_LLVM
+		bool "Skip patching and rebuilding clang"
+		default n
+	config SIM_AWESOME_LLVM_VERSION
+		string "LLVM / clang version to use"
+		default "17"
+
+	config MLIR_ENTRY_POINT
+		bool "Use CoreDSL MLIR dialect as entrypoint"
+		default n
+
+	menu "MLIR entrypoint settings"
+		depends on MLIR_ENTRY_POINT
+		config MLIR_ENTRY_POINT_PATH
+			string "Path to mlir file"
+	endmenu
+endmenu

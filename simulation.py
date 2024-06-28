@@ -9,7 +9,7 @@ import run_cmd
 import scaiev
 
 
-def prepare_llvm(mlir_path, version = "17"):
+def prepare_llvm(mlir_path, version, rebuild):
     mlir_path = os.path.abspath(mlir_path)
     awesome_path = "deps/awesome_llvm"
     awesome_ln_bin = os.path.abspath(f"{awesome_path}/build/bin/longnail-opt")
@@ -33,15 +33,19 @@ def prepare_llvm(mlir_path, version = "17"):
 			"-DCMAKE_BUILD_TYPE=Debug",
         ]
         run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", False)
+        rebuild = True # The desired version did not exists -> force rebuild
 
-    run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", False)
-    # Patch LLVM
-    llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
-    pass_opts = "disableISelGen=true" # No ISel patterns for now
-    run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", False, 200)
-    # Build LLVM
     build_dir = os.path.join(llvm_repo, "build")
-    run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", False, 200)
+
+    if rebuild:
+        run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", False)
+        # Patch LLVM
+        llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
+        pass_opts = "disableISelGen=true" # No ISel patterns for now
+        run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", False, 200)
+        # Build LLVM
+        run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", False, 200)
+
     return build_dir
 
 def prepare_gcc(yaml_file):
@@ -172,7 +176,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path):
         print(f" - Start simulation")
     else:
         print(f" - Adding ISAX support to clang")
-        llvm_build_dir = prepare_llvm(mlir_path)
+        llvm_build_dir = prepare_llvm(mlir_path, kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value, kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y")
         print(f" - Compiling assembly TB")
         instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name)
         print(f" - Start simulation")

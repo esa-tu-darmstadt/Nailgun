@@ -8,13 +8,17 @@ def run_treenail(isax_tag, coredsl_file):
     # create build and tool directory
     os.makedirs("build/mlir", exist_ok=True)
 
+    out_path = os.path.abspath(f"build/mlir/{isax_tag}.mlir")
     print(f" - Mapping {coredsl_file} to build/mlir/{isax_tag}.mlir")
-    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o build/mlir/{isax_tag}.mlir", f"Treenail failed on {coredsl_file}", False)
+    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o {out_path}", f"Treenail failed on {coredsl_file}", False)
+    return out_path
 
 def run_treenail_batch(isax_tags, coredsl_files):
     print("Running Treenail:")
+    mlir_paths = []
     for tag, file in zip(isax_tags, coredsl_files):
-        run_treenail(tag, file)
+        mlir_paths.append(run_treenail(tag, file))
+    return mlir_paths
 
 def build_treenail():
     # check that gradlew exists

@@ -27,3 +27,4 @@ endchoice
 source "build/ISAX/Kconfig"
 source "LN_Kconfig"
 source "sim_Kconfig"
+source "advanced_Kconfig"

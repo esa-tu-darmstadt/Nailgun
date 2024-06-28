@@ -2,6 +2,7 @@
 import os
 import kconfiglib
 import functools
+import re
 
 import error
 import kconfig
@@ -57,37 +58,45 @@ if __name__ == "__main__":
     try:
         isax_input_files = list(map(lambda x: isax_file_mapping[x], enabled_isaxes))
     except KeyError as ke:
-        error.exit_error(f"Could not find .mlir file for {str(ke)}. Check your paths.csv.")
+        error.exit_error(f"Could not find .core_desc file for {str(ke)}. Check your paths.csv.")
 
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     scaiev_core_name = scaiev.select_core(core_name)
 
     # print enabled ISAXes
     isax_name = None
-    print(f"Building {scaiev_core_name} with ISAXes:")
-    for isax,mlir in zip(enabled_isaxes, isax_input_files):
-        print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
+    mlir_paths = None
+    if kconf.syms["MLIR_ENTRY_POINT"].str_value != "y":
+        print(f"Building {scaiev_core_name} with ISAXes:")
+        for isax,mlir in zip(enabled_isaxes, isax_input_files):
+            print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
 
-    if len(enabled_isaxes) == 0:
-        error.exit_error("No ISAXes were selected, nothing to do!")
-    elif len(enabled_isaxes) > 1:
-        #TODO remove once we have a proper LN pass to correctly merge ISAXes!
-        print("Merging ISAXes")
-        merged_content, isax_name = merge_core_descs.merge_files(isax_input_files)
+        if len(enabled_isaxes) == 0:
+            error.exit_error("No ISAXes were selected, nothing to do!")
+        elif len(enabled_isaxes) > 1:
+            #TODO remove once we have a proper LN pass to correctly merge ISAXes!
+            print("Merging ISAXes")
+            merged_content, isax_name = merge_core_descs.merge_files(isax_input_files)
 
-        os.makedirs("build/coredsl", exist_ok=True)
-        merged_tag = functools.reduce(lambda a, b: a + "_" + b, list(map(lambda x: x[len('ISAX_'):-len('_EN')], enabled_isaxes)))
-        merged_isax_file = f"build/coredsl/{merged_tag}.core_desc"
-        with open(merged_isax_file, "w") as merged_file:
-            merged_file.write(merged_content)
+            os.makedirs("build/coredsl", exist_ok=True)
+            merged_tag = functools.reduce(lambda a, b: a + "_" + b, list(map(lambda x: x[len('ISAX_'):-len('_EN')], enabled_isaxes)))
+            merged_isax_file = f"build/coredsl/{merged_tag}.core_desc"
+            with open(merged_isax_file, "w") as merged_file:
+                merged_file.write(merged_content)
 
-        enabled_isaxes = [merged_tag]
-        isax_input_files = [merged_isax_file]
-        pass
+            enabled_isaxes = [merged_tag]
+            isax_input_files = [merged_isax_file]
+            pass
 
-    # TN coreDSL to mlir
-    treenail.build_treenail()
-    treenail.run_treenail_batch(enabled_isaxes, isax_input_files)
+        # TN coreDSL to mlir
+        treenail.build_treenail()
+        mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files)
+    else:
+        # use the MLIR entry point path
+        path = kconf.syms["MLIR_ENTRY_POINT_PATH"].str_value
+        if not os.path.exists(path):
+            error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!")
+        mlir_paths = [ os.path.abspath(path) ]
 
     # Package all results in an output folder
     out_dir = create_output_folder("output")
@@ -95,11 +104,22 @@ if __name__ == "__main__":
     # LN mlir to .v
     longnail.build_longnail()
     datasheet = longnail.select_core_datasheet(core_name)
-    isax_name_2, mlir_path = longnail.run_longnail(enabled_isaxes, datasheet, kconf.syms, out_dir)
+    mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
 
-    # No coredsl files were merged, use LN isax name result
+    # No coredsl files were merged, extract the isax name directly from the used mlir file
     if not isax_name:
-        isax_name = isax_name_2
+        # Read the entire file into one string variable
+        with open(mlir_path, 'r') as file:
+            mlir_text = file.read()
+        # Define the regex pattern
+        pattern = r'module\s+@(\w+)\s*\{'
+        # Search for the pattern
+        match = re.search(pattern, mlir_text)
+        # Extract the module name if found
+        if match:
+            isax_name = match.group(1)
+        else:
+            error.exit_error("Could not extract the module's ISAX name")
 
     # SCAIE-V integrate into core
     scaiev.build_scaiev()

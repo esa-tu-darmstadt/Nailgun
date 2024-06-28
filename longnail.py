@@ -30,12 +30,10 @@ def resolve_opty_lib(kconfig_syms):
     assert kconfig_syms['LN_OPTY_CUSTOM_MODEL'].str_value == "y"
     return os.path.abspath(kconfig_syms['LN_OPTY_CUSTOM_MODEL_PATH'].str_value)
 
-def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
+def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     # gather src files
-    print(f"Invoking Longnail HLS")
-    isax_name = isax_tags[0][len("ISAX_"):-len("_EN")].lower()
-    isax_tags = list(map(lambda a: f"build/mlir/{a}.mlir", isax_tags))
-    # mlir_str = functools.reduce(lambda a, b: a+" "+b, isax_tags)
+    assert len(mlir_paths) == 1
+    #TODO implement LN based mlir file merging!
 
     # check inputs
     try:
@@ -63,9 +61,9 @@ def run_longnail(isax_tags, datasheet, kconfig_syms, out_dir):
 
     ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
-    isax_mlir = os.path.abspath(isax_tags[0])
+    isax_mlir = mlir_paths[0]
     run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail failed", False, 200)
-    return isax_name, isax_mlir
+    return isax_mlir
 
 
 def build_longnail():
