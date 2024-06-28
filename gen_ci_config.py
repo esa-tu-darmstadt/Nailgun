@@ -27,9 +27,46 @@ if __name__ == "__main__":
         kconf.syms["SIM_TB_PATH"].set_value(tb_path)
         kconf.syms["SIM_TB_EXPECTED_PATH"].set_value(tb_expected_path)
 
-    #TODO add option to specify the scheduling algorithm
+    commercial_solver_en = os.getenv("LN_USE_COMMERCIAL_SOLVER")
+    if commercial_solver_en:
+        kconf.syms["LN_USE_COMMERCIAL_SOLVER"].set_value(commercial_solver_en)
+
+    llvm_ver = os.getenv("AWESOME_LLVM_VERSION")
+    if llvm_ver:
+        kconf.syms["SIM_AWESOME_LLVM_VERSION"].set_value(llvm_ver)
+
+    skip_llvm_build = os.getenv("SKIP_AWESOME_LLVM")
+    if skip_llvm_build:
+        kconf.syms["SIM_SKIP_AWESOME_LLVM"].set_value(skip_llvm_build)
+
+    ol2_optylib = os.getenv("USE_OL2_MODEL")
+    if ol2_optylib:
+        kconf.syms["LN_OPTY_OL2_MODEL"].set_value(ol2_optylib)
+
+    custom_opty_model_path = os.getenv("LN_OPTY_CUSTOM_MODEL_PATH")
+    if custom_opty_model_path:
+        kconf.syms["LN_OPTY_CUSTOM_MODEL"].set_value("y")
+        kconf.syms["LN_OPTY_CUSTOM_MODEL_PATH"].set_value(custom_opty_model_path)
+
     
-    kconf.syms["LN_USE_COMMERCIAL_SOLVER"].set_value("y")
+    ms = os.getenv("LN_SCHED_ALGO_MS")
+    if ms and ms == "y":
+        kconf.syms["LN_SCHED_ALGO_MS"].set_value(ms)
+        pa = os.getenv("LN_SCHED_ALGO_PA")
+        if pa and pa == "y":
+            kconf.syms["LN_SCHED_ALGO_PA"].set_value(pa)
+        ra = os.getenv("LN_SCHED_ALGO_RA")
+        if ra and ra == "y":
+            kconf.syms["LN_SCHED_ALGO_RA"].set_value(ra)
+        mi = os.getenv("LN_SCHED_ALGO_MI")
+        if mi and mi == "y":
+            kconf.syms["LN_SCHED_ALGO_MI"].set_value(mi)
+
+    mlir_path = os.getenv("MLIR_ENTRY_POINT_PATH")
+    if mlir_path:
+        kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
+        kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
+
 
     kconf.write_config(".config")
 
