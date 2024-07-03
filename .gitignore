@@ -4,3 +4,4 @@ build
 *.dot
 *.dot.stats
 output*
+*.txt
