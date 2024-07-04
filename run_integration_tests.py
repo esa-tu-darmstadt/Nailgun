@@ -34,40 +34,36 @@ for core in cores:
     for cmd in command_templates:
         commands.append(f'CORE="{core}" {cmd}')
 
-# Dictionary to store the exit codes of each command
-results = {}
-
 # File to collect the outputs
 output_file = "integration_test_outputs.txt"
 
 # Run each command and store its exit code
+all_success = True
 with open(output_file, "w") as file:
     for command in commands:
+        exit_code = None
+        print(f"Command: '{command}' ", end="", flush=True)
         file.write(f"Running command: {command}\n")
         file.write("="*80 + "\n")
         try:
             completed_process = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-            results[command] = completed_process.returncode
+            exit_code = completed_process.returncode
             file.write("STDOUT:\n")
             file.write(completed_process.stdout + "\n")
             file.write("="*80 + "\n")
             file.write("STDERR:\n")
             file.write(completed_process.stderr + "\n")
         except subprocess.CalledProcessError as e:
-            results[command] = e.returncode
+            exit_code = e.returncode
             file.write(e.stdout + "\n")
             file.write(e.stderr + "\n")
         file.write("="*80 + "\n\n\n\n\n\n")
 
-# Print the summary
-print("Summary of command execution:")
-all_success = True
-for command, exit_code in results.items():
-    if exit_code == 0:
-        print(f"Command: '{command}' succeeded.")
-    else:
-        print(f"Command: '{command}' failed with exit code {exit_code}.")
-        all_success = False
+        if exit_code == 0:
+            print(f"succeeded.", flush=True)
+        else:
+            print(f"failed with exit code {exit_code}.", flush=True)
+            all_success = False
 
 # Exit with a non-zero code if any command failed
 if not all_success:
