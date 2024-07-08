@@ -43,7 +43,7 @@ for core in cores:
 output_file = "integration_test_outputs.txt"
 
 # Run each command and store its exit code
-all_success = True
+failed = 0
 with open(output_file, "w") as file:
     for command in commands:
         exit_code = None
@@ -68,8 +68,10 @@ with open(output_file, "w") as file:
             print(f"succeeded.", flush=True)
         else:
             print(f"failed with exit code {exit_code}.", flush=True)
-            all_success = False
+            failed += 1
+
+print(f"Summary: {len(commands) - failed}/{len(commands)} integration tests succeeded.")
 
 # Exit with a non-zero code if any command failed
-if not all_success:
+if failed != 0:
     exit(1)
