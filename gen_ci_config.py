@@ -47,6 +47,10 @@ if __name__ == "__main__":
     if ol2_optylib:
         kconf.syms["LN_OPTY_OL2_MODEL"].set_value(ol2_optylib)
 
+    clk_period = os.getenv("CLOCK_TIME")
+    if clk_period:
+        kconf.syms["LN_CLOCK_PERIOD"].set_value(clk_period)
+
     custom_opty_model_path = os.getenv("LN_OPTY_CUSTOM_MODEL_PATH")
     if custom_opty_model_path:
         kconf.syms["LN_OPTY_CUSTOM_MODEL"].set_value("y")

@@ -21,7 +21,7 @@ command_templates = [
     'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
     # MLIR entrypoint tests
     # complex ISAX
-    'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/complex.S" TB_EXPECTED_PATH="../custom_tbs/complex_expected.txt" USE_OL2_MODEL="y" make ci',
+    'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/complex.S" TB_EXPECTED_PATH="../custom_tbs/complex_expected.txt" USE_OL2_MODEL="y" CLOCK_TIME="150.0" make ci',
     # vector ISAX
     'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/vector.S" TB_EXPECTED_PATH="../custom_tbs/vector_expected.txt" USE_OL2_MODEL="y" make ci',
 ]
