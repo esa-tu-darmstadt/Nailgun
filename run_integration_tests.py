@@ -16,7 +16,7 @@ command_templates = [
     'ISAXES="SPARKLE" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
     'ISAXES="SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
     'ISAXES="SQRT_STALL" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
-    'ISAXES="ZOL" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
+    'ISAXES="ZOL" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
     'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt" make ci',
     'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
     # MLIR entrypoint tests
