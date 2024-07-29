@@ -75,4 +75,9 @@ if __name__ == "__main__":
         kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
         kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
 
-    kconf.write_config(".config")
+    # Write the generated .config file
+    config_out_path = os.getenv("CONFIG_PATH")
+    if config_out_path:
+        kconf.write_config(config_out_path)
+    else:
+        kconf.write_config(".config")

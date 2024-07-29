@@ -45,7 +45,11 @@ def create_output_folder(base_path):
 if __name__ == "__main__":
     # Read in Kconfig & .config file
     kconf = kconfiglib.Kconfig("Kconfig")
-    kconf.load_config(".config")
+    config_path = os.getenv("CONFIG_PATH")
+    if config_path:
+        kconf.load_config(config_path)
+    else:
+        kconf.load_config(".config")
 
     # get list of enabled ISAXes
     enabled_isaxes = kconfig.extract_kconfig_enabled(kconfig.extract_enabled_isax_from_config(kconf.syms))
@@ -99,7 +103,13 @@ if __name__ == "__main__":
         mlir_paths = [ os.path.abspath(path) ]
 
     # Package all results in an output folder
-    out_dir = create_output_folder("output")
+    out_dir = os.getenv("OUTPUT_PATH")
+    if out_dir:
+        if not os.path.exists(out_dir):
+            error.exit_error(f"Explicitly specified output path {out_dir} does not exist!")
+        out_dir = os.path.abspath(out_dir)
+    else:
+        out_dir = create_output_folder("output")
 
     # LN mlir to .v
     longnail.build_longnail()
