@@ -22,5 +22,6 @@ clean:
 
 mrproper: clean
 	rm -rf output*
+	rm -rf test_results
 
 .PHONY : build menuconfig gen_config clean clean_config mrproper ci gen_ci_config

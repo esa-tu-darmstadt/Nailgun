@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 import subprocess
 import gzip
+import os
+import concurrent.futures
+import shutil
 
 # List of integration tests to run
 commands = [
@@ -40,37 +43,58 @@ for core in cores:
     for cmd in command_templates:
         commands.append(f'CORE="{core}" {cmd}')
 
-# File to collect the outputs
-output_file = "integration_test_outputs.txt.gz"
+integration_test_working_dir = os.path.abspath("test_results")
+if os.path.exists(integration_test_working_dir):
+    shutil.rmtree(integration_test_working_dir)
+logs_dir = os.path.join(integration_test_working_dir, "logs")
+os.makedirs(logs_dir)
 
-# Run each command and store its exit code
-failed = 0
-with gzip.open(output_file, "w") as file:
-    for command in commands:
+def run_test(command, id):
+    kconfig_out_file = os.path.join(integration_test_working_dir, f".config_test_{id}")
+    output_folder = os.path.join(integration_test_working_dir, f"output_test_{id}")
+    # create the output folder
+    os.makedirs(output_folder)
+
+    cmd_env_prefix = f"CONFIG_PATH={kconfig_out_file} OUTPUT_PATH={output_folder} "
+    output_file = os.path.join(logs_dir, f"integration_test_{id}.log.gz")
+    with gzip.open(output_file, "w") as file:
         exit_code = None
-        print(f"Command: '{command}' ", end="", flush=True)
-        file.write(f"Running command: {command}\n")
-        file.write("="*80 + "\n")
-        try:
-            completed_process = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-            exit_code = completed_process.returncode
-            file.write("STDOUT:\n")
-            file.write(completed_process.stdout + "\n")
-            file.write("="*80 + "\n")
-            file.write("STDERR:\n")
-            file.write(completed_process.stderr + "\n")
-        except subprocess.CalledProcessError as e:
-            exit_code = e.returncode
-            file.write(e.stdout + "\n")
-            file.write(e.stderr + "\n")
-        file.write("="*80 + "\n\n\n\n\n\n")
+        file.write(f"Running command: {cmd_env_prefix}{command}\n".encode("utf-8"))
+        file.write(("="*80 + "\n\n\n").encode("utf-8"))
+        completed_process = subprocess.run(
+            cmd_env_prefix + command, shell=True, stdout=file, stderr=subprocess.STDOUT)
+        exit_code = completed_process.returncode
+        return exit_code == 0, command, id
 
-        if exit_code == 0:
-            print(f"succeeded.", flush=True)
-        else:
-            print(f"failed with exit code {exit_code}.", flush=True)
-            failed += 1
 
+def run_tests(jobs):
+    if len(jobs) == 0:
+        return []
+
+    # Use the maximum number of threads available on the system
+    # num_threads = min(len(jobs), os.cpu_count())
+    # TODO FIXME: awesome_llvm can not yet be used in parallel, until then we can only use one thread!
+    num_threads = 1
+
+    results = []
+    # Create a ThreadPoolExecutor with the desired number of threads
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        # Submit tasks to the executor and store the Future objects
+        futures = [executor.submit(run_test, job, id) for id, job in enumerate(jobs)]
+
+        # Wait for all jobs to complete
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            results.append(result)
+    return results
+
+
+results = run_tests(commands)
+failed = 0
+for succ, cmd, id in results:
+    if not succ:
+        failed += 1
+        print(f"Test {id} failed, cmd: '{cmd}'")
 print(f"Summary: {len(commands) - failed}/{len(commands)} integration tests succeeded.")
 
 # Exit with a non-zero code if any command failed
