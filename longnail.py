@@ -81,8 +81,6 @@ def build_longnail():
             error.exit_error("Longnail or its submodules are not cloned. Check out submodules in this repo!")
         print("Building Longnail...")
         run_cmd.run("deps/longnail", "./circt/utils/get-or-tools.sh", "Gathering or-tools for CIRCT failed")
-        run_cmd.run("deps/longnail", "chmod +x ./circt/utils/get-iverilog.sh && ./circt/utils/get-iverilog.sh", "Building iVerilog failed")
-        run_cmd.run("deps/longnail", "sed -i '/^VERILATOR_VER=/c\VERILATOR_VER=5.012' ./circt/utils/get-verilator.sh && chmod +x ./circt/utils/get-verilator.sh && ./circt/utils/get-verilator.sh", "Building dependencies failed")
         run_cmd.run("deps/longnail", "./build_circt.sh", "Building CIRCT failed")
         run_cmd.run("deps/longnail", "./build_longnail.sh", "Longnail build failed")
 
