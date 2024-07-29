@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import subprocess
+import gzip
 
 # List of integration tests to run
 commands = [
@@ -40,11 +41,11 @@ for core in cores:
         commands.append(f'CORE="{core}" {cmd}')
 
 # File to collect the outputs
-output_file = "integration_test_outputs.txt"
+output_file = "integration_test_outputs.txt.gz"
 
 # Run each command and store its exit code
 failed = 0
-with open(output_file, "w") as file:
+with gzip.open(output_file, "w") as file:
     for command in commands:
         exit_code = None
         print(f"Command: '{command}' ", end="", flush=True)
