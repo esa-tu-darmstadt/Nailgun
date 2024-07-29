@@ -69,18 +69,14 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail failed", False, 200)
     return isax_mlir
 
-
 def build_longnail():
     # create build and tool directory
     os.makedirs("build", exist_ok=True)
 
     # build longnail
     if not os.path.isfile("deps/longnail/build/bin/longnail-opt"):
-        # check that the submodules were fetched
-        if not os.path.isfile("deps/longnail/circt/utils/get-or-tools.sh"):
-            error.exit_error("Longnail or its submodules are not cloned. Check out submodules in this repo!")
         print("Building Longnail...")
-        run_cmd.run("deps/longnail", "./circt/utils/get-or-tools.sh", "Gathering or-tools for CIRCT failed")
+        run_cmd.run("deps/longnail", "OR_TOOLS_VER=9.8 ./build_deps.sh", "Gathering deps for CIRCT failed")
         run_cmd.run("deps/longnail", "./build_circt.sh", "Building CIRCT failed")
         run_cmd.run("deps/longnail", "./build_longnail.sh", "Longnail build failed")
 
