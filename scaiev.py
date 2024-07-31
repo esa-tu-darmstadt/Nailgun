@@ -79,7 +79,7 @@ def run_scaiev(core, isax_desc, out_dir):
         patch_file = os.path.abspath("../patches/Vex5.patch")
         run_cmd.run(target_dir, f"patch -p1 < {patch_file} || true", "Could not patch the VexRiscv sources", False)
         # Build VexRiscv
-        run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", False)
+        run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", False, 100)
     elif (core == "Piccolo"):
         build_target_dir = os.path.join(target_dir, "builds/RV32ACIMU_Piccolo_verilator")
         run_cmd.run(build_target_dir, 'make clean', "Could not clean Piccolo build directory", False)
