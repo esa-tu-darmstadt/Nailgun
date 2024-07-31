@@ -63,21 +63,16 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     longnail_schedule_flags = [
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
-        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file}\"", 
+        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file}\"",
         f"-o {sched_sol_mlir_file}",
     ]
-    longnail_hw_gen_flags = [
-        "-lower-lil-to-hw=forceUseMinIISolution=true" if force_min_II_solutions else f"-lower-lil-to-hw=solutionSelection={sol_selection_file}",
-        "-simplify-structure", "-cse", "-canonicalize",
-        "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-hw-legalize-modules",
-        f"-export-split-verilog=dir-name={out_dir}", "-o /dev/null"
-    ]
 
-    longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_schedule_flags)
 
     ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
     isax_mlir = mlir_paths[0]
+    longnail_flags_str = functools.reduce(
+        lambda a, b: a+" "+b, longnail_schedule_flags)
     run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", False, 200)
 
     if not force_min_II_solutions and os.path.exists(sched_sol_kconf_file):
@@ -101,10 +96,20 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
         sol_sel_to_yaml.convert_selection_to_yaml(kconf, sol_selection_file)
         # Note this is optional:
         kconf.write_config(sched_sol_config_file)
+    else:
+        force_min_II_solutions = True
 
-    longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_hw_gen_flags)
+    longnail_hw_gen_flags = [
+        "-lower-lil-to-hw=forceUseMinIISolution=true" if force_min_II_solutions else f"-lower-lil-to-hw=solutionSelection={sol_selection_file}",
+        "-simplify-structure", "-cse", "-canonicalize",
+        "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-hw-legalize-modules",
+        f"-export-split-verilog=dir-name={out_dir}", "-o /dev/null"
+    ]
+    longnail_flags_str = functools.reduce(
+        lambda a, b: a+" "+b, longnail_hw_gen_flags)
     run_cmd.run("build", f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", False, 200)
     return isax_mlir
+
 
 def build_longnail():
     # create build and tool directory
@@ -113,9 +118,12 @@ def build_longnail():
     # build longnail
     if not os.path.isfile("deps/longnail/build/bin/longnail-opt"):
         print("Building Longnail...")
-        run_cmd.run("deps/longnail", "OR_TOOLS_VER=9.8 ./build_deps.sh", "Gathering deps for CIRCT failed")
-        run_cmd.run("deps/longnail", "./build_circt.sh", "Building CIRCT failed")
-        run_cmd.run("deps/longnail", "./build_longnail.sh", "Longnail build failed")
+        run_cmd.run("deps/longnail", "OR_TOOLS_VER=9.8 ./build_deps.sh",
+                    "Gathering deps for CIRCT failed")
+        run_cmd.run("deps/longnail", "./build_circt.sh",
+                    "Building CIRCT failed")
+        run_cmd.run("deps/longnail", "./build_longnail.sh",
+                    "Longnail build failed")
 
 
 # Selects the core datasheet file based on selected core
