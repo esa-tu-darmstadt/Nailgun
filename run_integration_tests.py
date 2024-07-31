@@ -49,9 +49,12 @@ if os.path.exists(integration_test_working_dir):
 logs_dir = os.path.join(integration_test_working_dir, "logs")
 os.makedirs(logs_dir)
 
+
 def run_test(command, id):
-    kconfig_out_file = os.path.join(integration_test_working_dir, f".config_test_{id}")
-    output_folder = os.path.join(integration_test_working_dir, f"output_test_{id}")
+    kconfig_out_file = os.path.join(
+        integration_test_working_dir, f".config_test_{id}")
+    output_folder = os.path.join(
+        integration_test_working_dir, f"output_test_{id}")
     # create the output folder
     os.makedirs(output_folder)
 
@@ -61,9 +64,11 @@ def run_test(command, id):
         exit_code = None
         file.write(f"Running command: {cmd_env_prefix}{command}\n".encode("utf-8"))
         file.write(("="*80 + "\n\n\n").encode("utf-8"))
-        completed_process = subprocess.run(
-            cmd_env_prefix + command, shell=True, stdout=file, stderr=subprocess.STDOUT)
-        exit_code = completed_process.returncode
+        with subprocess.Popen(
+                cmd_env_prefix + command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+            shutil.copyfileobj(process.stdout, file)
+            process.wait()
+            exit_code = process.returncode
         return exit_code == 0, command, id
 
 
@@ -80,7 +85,8 @@ def run_tests(jobs):
     # Create a ThreadPoolExecutor with the desired number of threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         # Submit tasks to the executor and store the Future objects
-        futures = [executor.submit(run_test, job, id) for id, job in enumerate(jobs)]
+        futures = [executor.submit(run_test, job, id)
+                   for id, job in enumerate(jobs)]
 
         # Wait for all jobs to complete
         for future in concurrent.futures.as_completed(futures):
