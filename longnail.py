@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import os
 import functools
+import kconfiglib
+import menuconfig
+import shutil
+import tempfile
 
 import error
 import run_cmd
-import error
+import sol_sel_to_yaml
 
 
 def resolve_sched_algo(kconfig_syms):
@@ -50,23 +54,56 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     else:
         library = ""
 
-    # collect flags to LN
-    longnail_flags = [
+    sched_sol_mlir_file = os.path.join(out_dir, "scheduling_solutions.mlir")
+    sched_sol_kconf_file = os.path.join(out_dir, "Kconfig")
+    sched_sol_config_file = os.path.join(out_dir, ".config")
+    sol_selection_file = os.path.join(out_dir, "selected_solutions.yaml")
+    force_min_II_solutions = kconfig_syms['LN_FORCE_MIN_II_SOLUTIONS'].str_value == "y"
+
+    longnail_schedule_flags = [
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
-        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value}\"",
-        #TODO implement another step to select the solution
-        "-lower-lil-to-hw=forceUseMinIISolution=true",
+        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file}\"", 
+        f"-o {sched_sol_mlir_file}",
+    ]
+    longnail_hw_gen_flags = [
+        "-lower-lil-to-hw=forceUseMinIISolution=true" if force_min_II_solutions else f"-lower-lil-to-hw=solutionSelection={sol_selection_file}",
         "-simplify-structure", "-cse", "-canonicalize",
-        "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog",
+        "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-hw-legalize-modules",
         f"-export-split-verilog=dir-name={out_dir}", "-o /dev/null"
     ]
-    longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_flags)
+
+    longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_schedule_flags)
 
     ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
     isax_mlir = mlir_paths[0]
-    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail failed", False, 200)
+    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", False, 200)
+
+    if not force_min_II_solutions and os.path.exists(sched_sol_kconf_file):
+        kconf = kconfiglib.Kconfig(sched_sol_kconf_file)
+
+        # Backup the current .config file to a temporary directory
+        temp_dir = tempfile.mkdtemp()
+        original_config_path = '.config'
+        backup_config_path = os.path.join(temp_dir, '.config_backup')
+        shutil.move(original_config_path, backup_config_path)
+
+        # open menu config to let the user select the desired solutions
+        menuconfig.menuconfig(kconf)
+
+        # Restore the .config file
+        shutil.move(backup_config_path, original_config_path)
+        # Clean up the temporary directory
+        shutil.rmtree(temp_dir)
+
+        # Then convert the selection to a yaml file for longnail to process
+        sol_sel_to_yaml.convert_selection_to_yaml(kconf, sol_selection_file)
+        # Note this is optional:
+        kconf.write_config(sched_sol_config_file)
+
+    longnail_flags_str = functools.reduce(lambda a, b: a+" "+b, longnail_hw_gen_flags)
+    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", False, 200)
     return isax_mlir
 
 def build_longnail():

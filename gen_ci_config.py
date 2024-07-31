@@ -75,6 +75,10 @@ if __name__ == "__main__":
         kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
         kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
 
+    # The CI can not perform user interactions -> we must skip the solution selection process
+    # TODO allow specifying a yaml file that contains the selections instead -> better automatization
+    kconf.syms["LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")
+
     # Write the generated .config file
     config_out_path = os.getenv("CONFIG_PATH")
     if config_out_path:

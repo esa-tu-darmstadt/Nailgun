@@ -33,6 +33,9 @@ menu "Longnail HLS configuration"
 	config LN_USE_COMMERCIAL_SOLVER
 		bool "Longnail use Gurobi's ILP solver"
 		default n
+	config LN_FORCE_MIN_II_SOLUTIONS
+		bool "Longnail always use min II solution"
+		default n
 	menu "Scheduling Algorithm"
 		config LN_SCHED_ALGO_MS
 			bool "Modulo Scheduling"
