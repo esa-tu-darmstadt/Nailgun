@@ -36,6 +36,9 @@ menu "Longnail HLS configuration"
 	config LN_FORCE_MIN_II_SOLUTIONS
 		bool "Longnail always use min II solution"
 		default n
+	config LN_PREDEFINED_SOLUTION_SELECTION
+		depends on !LN_FORCE_MIN_II_SOLUTIONS
+		string "Longnail apply predefined solution selection"
 	menu "Scheduling Algorithm"
 		config LN_SCHED_ALGO_MS
 			bool "Modulo Scheduling"
@@ -51,6 +54,14 @@ menu "Longnail HLS configuration"
 		config LN_SCHED_ALGO_MI
 			depends on LN_SCHED_ALGO_MS
 			bool "Inter-Instruction sharing"
+			default n
+	endmenu
+	menu "Debugging"
+		config LN_DEBUG_SCHEDULING
+			bool "Enable scheduling debug messages"
+			default n
+		config LN_DEBUG_HWGEN
+			bool "Enable hw-gen debug messages"
 			default n
 	endmenu
 endmenu

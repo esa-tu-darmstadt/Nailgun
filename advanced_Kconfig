@@ -12,6 +12,9 @@ menu "Advanced Options"
 
 	menu "MLIR entrypoint settings"
 		depends on MLIR_ENTRY_POINT
+		config MLIR_ENTRY_POINT_IS_SCHEDULED
+			bool "Instructions are already scheduled?"
+			default n
 		config MLIR_ENTRY_POINT_PATH
 			string "Path to mlir file"
 	endmenu
