@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 USER_ERROR = 1
-INTERNAL_ERROR = 1
+INTERNAL_ERROR = 2
 TN_BASE = 50
 LN_BASE = 100
 SCAIEV_BASE = 150
