@@ -2,8 +2,8 @@
 
 InstructionSet zol {
   architectural_state {
-    register unsigned<32> X[32];
-    register unsigned<32> PC;
+    register unsigned<32> X[32] [[is_main_reg]];
+    register unsigned<32> PC [[is_pc]];
 
     register unsigned<32> ZOLSTARTPC;
     register unsigned<32> ZOLENDPC;
