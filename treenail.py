@@ -10,7 +10,7 @@ def run_treenail(isax_tag, coredsl_file):
 
     out_path = os.path.abspath(f"build/mlir/{isax_tag}.mlir")
     print(f" - Mapping {coredsl_file} to build/mlir/{isax_tag}.mlir")
-    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o {out_path}", f"Treenail failed on {coredsl_file}", False)
+    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o {out_path}", f"Treenail failed on {coredsl_file}", error.TN_BASE + 4, False)
     return out_path
 
 def run_treenail_batch(isax_tags, coredsl_files):
@@ -23,11 +23,11 @@ def run_treenail_batch(isax_tags, coredsl_files):
 def build_treenail():
     # check that gradlew exists
     if not os.path.isfile("deps/treenail/gradlew"):
-        error.exit_error("Treenail is not cloned. Check out submodules in this repo!")
+        error.exit_error("Treenail is not cloned. Check out submodules in this repo!", error.USER_ERROR)
 
     # build treenail
     if not os.path.isfile("./deps/treenail/app/build/install/app/bin/app"):
         print("Building Treenail...")
-        run_cmd.run("deps/treenail", "./gradlew build", "Could not build treenail")
-        run_cmd.run("deps/treenail", "./gradlew test", "Treenail failed tests")
-        run_cmd.run("deps/treenail", "./gradlew install", "Treenail could not be installed")
+        run_cmd.run("deps/treenail", "./gradlew build", "Could not build treenail", error.TN_BASE + 1)
+        run_cmd.run("deps/treenail", "./gradlew test", "Treenail failed tests", error.TN_BASE + 2)
+        run_cmd.run("deps/treenail", "./gradlew install", "Treenail could not be installed", error.TN_BASE + 3)

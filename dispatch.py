@@ -25,7 +25,7 @@ def gen_isax_map():
                     current_map = { line.split(";")[0]:line.split(";")[1].replace("\n","") for line in csvfile}
                     isax_map = {**isax_map, **current_map}
                 except:
-                    error.exit_error(f"could not parse ISAX path.csv file found in: {root}")
+                    error.exit_error(f"could not parse ISAX path.csv file found in: {root}", error.INTERNAL_ERROR)
     return isax_map
 
 def create_output_folder(base_path):
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     try:
         isax_input_files = list(map(lambda x: isax_file_mapping[x], enabled_isaxes))
     except KeyError as ke:
-        error.exit_error(f"Could not find .core_desc file for {str(ke)}. Check your paths.csv.")
+        error.exit_error(f"Could not find .core_desc file for {str(ke)}. Check your paths.csv.", error.INTERNAL_ERROR)
 
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     scaiev_core_name = scaiev.select_core(core_name)
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
 
         if len(enabled_isaxes) == 0:
-            error.exit_error("No ISAXes were selected, nothing to do!")
+            error.exit_error("No ISAXes were selected, nothing to do!", error.USER_ERROR)
         elif len(enabled_isaxes) > 1:
             #TODO remove once we have a proper LN pass to correctly merge ISAXes!
             print("Merging ISAXes")
@@ -99,14 +99,14 @@ if __name__ == "__main__":
         # use the MLIR entry point path
         path = kconf.syms["MLIR_ENTRY_POINT_PATH"].str_value
         if not os.path.exists(path):
-            error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!")
+            error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!", error.USER_ERROR)
         mlir_paths = [ os.path.abspath(path) ]
 
     # Package all results in an output folder
     out_dir = os.getenv("OUTPUT_PATH")
     if out_dir:
         if not os.path.exists(out_dir):
-            error.exit_error(f"Explicitly specified output path {out_dir} does not exist!")
+            error.exit_error(f"Explicitly specified output path {out_dir} does not exist!", error.USER_ERROR)
         out_dir = os.path.abspath(out_dir)
     else:
         out_dir = create_output_folder("output")
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         if match:
             isax_name = match.group(1)
         else:
-            error.exit_error("Could not extract the module's ISAX name")
+            error.exit_error("Could not extract the module's ISAX name", error.INTERNAL_ERROR)
 
     # SCAIE-V integrate into core
     scaiev.build_scaiev()

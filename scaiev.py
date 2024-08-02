@@ -69,29 +69,29 @@ def run_scaiev(core, isax_desc, out_dir):
     # Copy the unchanged core source file to our target directory
     copy_folder_contents(f"deps/scaie-v/EclipseWork/SCAIEV/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
-    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed", False)
+    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed", error.SCAIEV_BASE + 2)
     print(f" - Creating wrapper module")
-    run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module")
+    run_cmd.run("deps/scaie-v-testbenches/cores", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module", error.SCAIEV_BASE + 3)
     print(f" - Building the extended core")
     # Perform extra build steps that are required for the target core!
     if (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         # Patch the build system of VexRiscv
         patch_file = os.path.abspath("../patches/Vex5.patch")
-        run_cmd.run(target_dir, f"patch -p1 < {patch_file} || true", "Could not patch the VexRiscv sources", False)
+        run_cmd.run(target_dir, f"patch -p1 < {patch_file} || true", "Could not patch the VexRiscv sources", error.SCAIEV_BASE + 4, False)
         # Build VexRiscv
-        run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", False, 100)
+        run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", error.SCAIEV_BASE + 5, False, 100)
     elif (core == "Piccolo"):
         build_target_dir = os.path.join(target_dir, "builds/RV32ACIMU_Piccolo_verilator")
-        run_cmd.run(build_target_dir, 'make clean', "Could not clean Piccolo build directory", False)
-        run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore make compile', "Could not compile Piccolo bluespec sources to verilog", False)
+        run_cmd.run(build_target_dir, 'make clean', "Could not clean Piccolo build directory", error.SCAIEV_BASE + 6, False)
+        run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore make compile', "Could not compile Piccolo bluespec sources to verilog", error.SCAIEV_BASE + 7, False)
     elif (core == "ORCA"):
         # Things are getting wild
         patch_file = os.path.abspath("deps/scaie-v-testbenches/cores/ORCA_src_patch.diff")
-        run_cmd.run(".", f'patch -u -p0 -N --directory="{target_dir}" < {patch_file}', "Could not apply patch to ORCA", False)
+        run_cmd.run(".", f'patch -u -p0 -N --directory="{target_dir}" < {patch_file}', "Could not apply patch to ORCA", error.SCAIEV_BASE + 8, False)
         vhd_files = [s for s in read_file_lines(os.path.join(target_dir, "ip/orca/hdl/Filelist")) if not s.startswith("#")]
         output_path = os.path.join(target_dir, "ORCA.v")
         ip_path = os.path.join(target_dir, "ip/orca/hdl")
-        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog", False)
+        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog", error.SCAIEV_BASE + 9, False)
 
 def select_coresrc_folder_name(core):
     if (core == "PicoRV32"):
@@ -105,7 +105,7 @@ def select_coresrc_folder_name(core):
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return "VexRiscv"
     else:
-        error.exit_error(f"No core source folder for selected core '{core}' found!")
+        error.exit_error(f"No core source folder for selected core '{core}' found!", error.INTERNAL_ERROR)
 
 def select_wrapper_gen(core):
     if (core == "PicoRV32"):
@@ -119,7 +119,7 @@ def select_wrapper_gen(core):
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return "Vex_maketop.py"
     else:
-        error.exit_error(f"No wrapper for selected core '{core}' found!")
+        error.exit_error(f"No wrapper for selected core '{core}' found!", error.INTERNAL_ERROR)
 
 def select_linker_file(core):
     if (core == "PicoRV32"):
@@ -135,7 +135,7 @@ def select_linker_file(core):
     elif core == "VexRiscv_5s":
         return f"Vex5_link.ld"
     else:
-        error.exit_error("No linker file found for the selected core!")
+        error.exit_error("No linker file found for the selected core!", error.INTERNAL_ERROR)
 
 def find_verilog_srcs(source_folder):
     # Blacklist unnecessary files, ones that might break the build
@@ -177,7 +177,7 @@ EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", ""
     else:
-        error.exit_error("No testbench wrapper found for the selected core!")
+        error.exit_error("No testbench wrapper found for the selected core!", error.INTERNAL_ERROR)
 
 def select_tb_env_vars(core):
     if (core == "PicoRV32"):
@@ -323,18 +323,18 @@ def select_tb_env_vars(core):
             "CTRL_BASE=80200000",
         ]
     else:
-        error.exit_error("No testbench env vars found for the selected core!")
+        error.exit_error("No testbench env vars found for the selected core!", error.INTERNAL_ERROR)
 
 def build_scaiev():
     # build scaiev
     if not os.path.isfile("./deps/scaie-v/EclipseWork/SCAIEV/target/SCAIEV-0.0.1-SNAPSHOT.jar"):
         print("Building SCAIE-V...")
-        run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", "mvn package", "Could not build SCAIE-V")
+        run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", "mvn package", "Could not build SCAIE-V", error.SCAIEV_BASE + 1)
 
 # Selects the core
 def select_core(kconfig_core):
     if len(kconfig_core) != 1:
-        error.exit_error(f"No or more than one core selected in Kconfig: {kconfig_core}")
+        error.exit_error(f"No or more than one core selected in Kconfig: {kconfig_core}", error.USER_ERROR)
     kconfig_core = kconfig_core[0]
 
     if (kconfig_core == "CORE_PICORV32"):
@@ -350,4 +350,4 @@ def select_core(kconfig_core):
     elif (kconfig_core == "CORE_VEX_5S"):
         return "VexRiscv_5s"
     else:
-        error.exit_error(f"No datasheet for selected core '{kconfig_core}' found!")
+        error.exit_error(f"No datasheet for selected core '{kconfig_core}' found!", error.INTERNAL_ERROR)

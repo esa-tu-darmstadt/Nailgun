@@ -69,7 +69,7 @@ def run_test(command, id):
             shutil.copyfileobj(process.stdout, file)
             process.wait()
             exit_code = process.returncode
-        return exit_code == 0, command, id
+        return exit_code, command, id
 
 
 def run_tests(jobs):
@@ -97,10 +97,10 @@ def run_tests(jobs):
 
 results = run_tests(commands)
 failed = 0
-for succ, cmd, id in results:
-    if not succ:
+for exit_code, cmd, id in results:
+    if exit_code != 0:
         failed += 1
-        print(f"Test {id} failed, cmd: '{cmd}'")
+        print(f"Test {id} failed with exit code {exit_code}, cmd: '{cmd}'")
 print(f"Summary: {len(commands) - failed}/{len(commands)} integration tests succeeded.")
 
 # Exit with a non-zero code if any command failed

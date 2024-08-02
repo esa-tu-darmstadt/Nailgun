@@ -47,7 +47,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     try:
         float(kconfig_syms['LN_CLOCK_PERIOD'].str_value)
     except ValueError:
-        error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!")
+        error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!", error.USER_ERROR)
 
     sched_algo = resolve_sched_algo(kconfig_syms)
     optylib = resolve_opty_lib(kconfig_syms)
@@ -79,7 +79,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     if not skip_scheduling:
         longnail_flags_str = functools.reduce(
             lambda a, b: a+" "+b, longnail_schedule_flags)
-        run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", False, 200)
+        run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4,  False, 200)
     else:
         sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
 
@@ -120,7 +120,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     longnail_flags_str = functools.reduce(
         lambda a, b: a+" "+b, longnail_hw_gen_flags)
-    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", False, 200)
+    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 5, False, 200)
     return isax_mlir
 
 
@@ -132,11 +132,11 @@ def build_longnail():
     if not os.path.isfile("deps/longnail/build/bin/longnail-opt"):
         print("Building Longnail...")
         run_cmd.run("deps/longnail", "OR_TOOLS_VER=9.8 ./build_deps.sh",
-                    "Gathering deps for CIRCT failed")
+                    "Gathering deps for CIRCT failed", error.LN_BASE + 1)
         run_cmd.run("deps/longnail", "./build_circt.sh",
-                    "Building CIRCT failed")
+                    "Building CIRCT failed", error.LN_BASE + 2)
         run_cmd.run("deps/longnail", "./build_longnail.sh",
-                    "Longnail build failed")
+                    "Longnail build failed", error.LN_BASE + 3)
 
 
 # Selects the core datasheet file based on selected core
@@ -144,7 +144,7 @@ def build_longnail():
 def select_core_datasheet(kconfig_core):
     if len(kconfig_core) != 1:
         error.exit_error(
-            f"No or more than one core selected in Kconfig: {kconfig_core}")
+            f"No or more than one core selected in Kconfig: {kconfig_core}", error.USER_ERROR)
     kconfig_core = kconfig_core[0]
 
     if (kconfig_core == "CORE_PICORV32"):
@@ -160,7 +160,7 @@ def select_core_datasheet(kconfig_core):
     elif (kconfig_core == "CORE_CVA5"):
         return "deps/benchmarks/CVA5.yaml"
     else:
-        error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!")
+        error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!", error.USER_ERROR)
 
 
 def provide_isax_yaml(out_dir):
