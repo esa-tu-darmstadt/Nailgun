@@ -77,21 +77,6 @@ if __name__ == "__main__":
 
         if len(enabled_isaxes) == 0:
             error.exit_error("No ISAXes were selected, nothing to do!", error.USER_ERROR)
-        elif len(enabled_isaxes) > 1:
-            #TODO remove once we have a proper LN pass to correctly merge ISAXes!
-            print("Merging ISAXes")
-            merged_content, isax_name = merge_core_descs.merge_files(isax_input_files)
-
-            os.makedirs("build/coredsl", exist_ok=True)
-            merged_tag = functools.reduce(lambda a, b: a + "_" + b, list(map(lambda x: x[len('ISAX_'):-len('_EN')], enabled_isaxes)))
-            merged_isax_file = f"build/coredsl/{merged_tag}.core_desc"
-            with open(merged_isax_file, "w") as merged_file:
-                merged_file.write(merged_content)
-
-            enabled_isaxes = [merged_tag]
-            isax_input_files = [merged_isax_file]
-            pass
-
         # TN coreDSL to mlir
         treenail.build_treenail()
         mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files)
