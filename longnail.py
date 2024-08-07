@@ -38,10 +38,18 @@ def resolve_opty_lib(kconfig_syms):
 
 def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     # gather src files
-    assert len(mlir_paths) == 1
-    # TODO implement LN based mlir file merging!
-
     skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
+
+    longnail_schedule_flags = []
+    isax_mlir = mlir_paths[0]
+    if len(mlir_paths) > 1:
+        isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
+        with open(isax_mlir, "w") as isax_mlir_file:
+            for f in mlir_paths:
+                with open(f, "r") as fo:
+                    isax_mlir_file.write(fo.read())
+            os.fsync(isax_mlir_file)
+        longnail_schedule_flags.append("-merge-multiple-isaxes")
 
     # check inputs
     try:
@@ -64,18 +72,17 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     sol_selection_file = os.path.join(out_dir, "selected_solutions.yaml")
     force_min_II_solutions = kconfig_syms['LN_FORCE_MIN_II_SOLUTIONS'].str_value == "y"
 
-    longnail_schedule_flags = [
+    longnail_schedule_flags.extend([
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
         f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file}\"",
         f"-o {sched_sol_mlir_file}",
-    ]
+    ])
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":
         longnail_schedule_flags.append("-debug-only=hw-sched")
 
     ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
-    isax_mlir = mlir_paths[0]
     if not skip_scheduling:
         longnail_flags_str = functools.reduce(
             lambda a, b: a+" "+b, longnail_schedule_flags)
