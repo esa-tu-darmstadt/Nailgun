@@ -52,14 +52,14 @@ os.makedirs(logs_dir)
 
 def run_test(command, id):
     kconfig_out_file = os.path.join(
-        integration_test_working_dir, f".config_test_{id}")
+        integration_test_working_dir, f".config_test_{id:03}")
     output_folder = os.path.join(
-        integration_test_working_dir, f"output_test_{id}")
+        integration_test_working_dir, f"output_test_{id:03}")
     # create the output folder
     os.makedirs(output_folder)
 
     cmd_env_prefix = f"CONFIG_PATH={kconfig_out_file} OUTPUT_PATH={output_folder} "
-    output_file = os.path.join(logs_dir, f"integration_test_{id}.log.gz")
+    output_file = os.path.join(logs_dir, f"integration_test_{id:03}.log.gz")
     with gzip.open(output_file, "w") as file:
         exit_code = None
         file.write(f"Running command: {cmd_env_prefix}{command}\n".encode("utf-8"))
