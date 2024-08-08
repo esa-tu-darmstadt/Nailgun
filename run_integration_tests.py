@@ -12,22 +12,22 @@ commands = [
 
 # Integration tests that are run for EVERY available core
 command_templates = [
-    'ISAXES="AUTOINC" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
-    'ISAXES="BRIMM" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
-    'ISAXES="DOTPROD" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
-    'ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
-    'ISAXES="SBOX" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt" make ci',
-    'ISAXES="SPARKLE" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
-    'ISAXES="SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
-    'ISAXES="SQRT_STALL" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
-    'ISAXES="ZOL" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt" make ci',
-    'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt" make ci',
-    'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt" make ci',
+    'ISAXES="AUTOINC" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"',
+    'ISAXES="BRIMM" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"',
+    'ISAXES="DOTPROD" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"',
+    'ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"',
+    'ISAXES="SBOX" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt"',
+    'ISAXES="SPARKLE" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"',
+    'ISAXES="SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt"',
+    'ISAXES="SQRT_STALL" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt"',
+    'ISAXES="ZOL" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"',
+    'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt"',
+    'ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt"',
     # MLIR entrypoint tests
     # complex ISAX
-    'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/complex.S" TB_EXPECTED_PATH="../custom_tbs/complex_expected.txt" USE_OL2_MODEL="y" CLOCK_TIME="150.0" make ci',
+    'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/complex.S" TB_EXPECTED_PATH="../custom_tbs/complex_expected.txt" USE_OL2_MODEL="y" CLOCK_TIME="150.0"',
     # vector ISAX
-    'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/vector.S" TB_EXPECTED_PATH="../custom_tbs/vector_expected.txt" USE_OL2_MODEL="y" make ci',
+    'LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_EN="y" TB_PATH="../custom_tbs/vector.S" TB_EXPECTED_PATH="../custom_tbs/vector_expected.txt" USE_OL2_MODEL="y"',
 ]
 
 cores = [
@@ -59,13 +59,22 @@ def run_test(command, id):
     os.makedirs(output_folder)
 
     cmd_env_prefix = f"CONFIG_PATH={kconfig_out_file} OUTPUT_PATH={output_folder} "
+    cmd_postfix_gen_conf = " make gen_ci_config"
+    cmd_postfix_run = " python3 dispatch.py"
     output_file = os.path.join(logs_dir, f"integration_test_{id:03}.log.gz")
     with gzip.open(output_file, "w") as file:
         exit_code = None
-        file.write(f"Running command: {cmd_env_prefix}{command}\n".encode("utf-8"))
+        file.write(f"Running command: {cmd_env_prefix}{command} make ci\n".encode("utf-8"))
         file.write(("="*80 + "\n\n\n").encode("utf-8"))
         with subprocess.Popen(
-                cmd_env_prefix + command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+                cmd_env_prefix + command + cmd_postfix_gen_conf, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+            shutil.copyfileobj(process.stdout, file)
+            process.wait()
+            exit_code = process.returncode
+            if exit_code != 0:
+                return exit_code, command, id
+        with subprocess.Popen(
+                cmd_env_prefix + command + cmd_postfix_run, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
             shutil.copyfileobj(process.stdout, file)
             process.wait()
             exit_code = process.returncode
