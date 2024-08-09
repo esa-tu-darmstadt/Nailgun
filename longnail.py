@@ -72,10 +72,14 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     sol_selection_file = os.path.join(out_dir, "selected_solutions.yaml")
     force_min_II_solutions = kconfig_syms['LN_FORCE_MIN_II_SOLUTIONS'].str_value == "y"
 
+    verbose = "false"
+    if kconfig_syms['LN_VERBOSE_SCHEDULING'].str_value == "y":
+        verbose = "true"
+
     longnail_schedule_flags.extend([
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
-        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file}\"",
+        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
         f"-o {sched_sol_mlir_file}",
     ])
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":

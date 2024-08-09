@@ -60,6 +60,9 @@ menu "Longnail HLS configuration"
 		config LN_DEBUG_SCHEDULING
 			bool "Enable scheduling debug messages"
 			default n
+		config LN_VERBOSE_SCHEDULING
+			bool "Enable verbose ILP solver messages"
+			default n
 		config LN_DEBUG_HWGEN
 			bool "Enable hw-gen debug messages"
 			default n
