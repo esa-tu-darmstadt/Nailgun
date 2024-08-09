@@ -40,16 +40,17 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     # gather src files
     skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
 
-    longnail_schedule_flags = []
+    ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     isax_mlir = mlir_paths[0]
     if len(mlir_paths) > 1:
+        concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
         isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
-        with open(isax_mlir, "w") as isax_mlir_file:
+        with open(concated_isax_mlir, "w") as isax_mlir_file:
             for f in mlir_paths:
                 with open(f, "r") as fo:
                     isax_mlir_file.write(fo.read())
             os.fsync(isax_mlir_file)
-        longnail_schedule_flags.append("-merge-multiple-isaxes")
+        run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, False, 200)
 
     # check inputs
     try:
@@ -76,16 +77,15 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     if kconfig_syms['LN_VERBOSE_SCHEDULING'].str_value == "y":
         verbose = "true"
 
-    longnail_schedule_flags.extend([
+    longnail_schedule_flags = [
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
         f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
         f"-o {sched_sol_mlir_file}",
-    ])
+    ]
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":
         longnail_schedule_flags.append("-debug-only=hw-sched")
 
-    ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
     # execute LN
     if not skip_scheduling:
         longnail_flags_str = functools.reduce(
