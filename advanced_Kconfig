@@ -1,8 +1,10 @@
 menu "Advanced Options"
 	config SIM_SKIP_AWESOME_LLVM
+		depends on SIM_ENABLE
 		bool "Skip patching and rebuilding clang"
 		default n
 	config SIM_AWESOME_LLVM_VERSION
+		depends on SIM_ENABLE
 		string "LLVM / clang version to use"
 		default "17"
 
