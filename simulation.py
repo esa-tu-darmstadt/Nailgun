@@ -10,6 +10,10 @@ import scaiev
 
 
 def prepare_llvm(mlir_path, version, rebuild):
+    ccache_size = "25G"
+    if os.getenv("AWESOME_CCACHE_SIZE"):
+        ccache_size = os.getenv("AWESOME_CCACHE_SIZE")
+
     mlir_path = os.path.abspath(mlir_path)
     awesome_path = "deps/awesome_llvm"
     awesome_ln_bin = os.path.abspath(f"{awesome_path}/build/bin/longnail-opt")
@@ -29,7 +33,7 @@ def prepare_llvm(mlir_path, version, rebuild):
 			"-DBUILD_SHARED_LIBS=ON",
 			"-DLLVM_CCACHE_BUILD=ON",
 			f"-DLLVM_CCACHE_DIR='{ccache_path}'",
-			"-DLLVM_CCACHE_MAXSIZE=25G",
+			f"-DLLVM_CCACHE_MAXSIZE={ccache_size}",
 			"-DCMAKE_BUILD_TYPE=Debug",
         ]
         run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", error.AWESOME_BASE + 2, False)
