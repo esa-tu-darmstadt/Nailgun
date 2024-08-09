@@ -90,7 +90,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     if not skip_scheduling:
         longnail_flags_str = functools.reduce(
             lambda a, b: a+" "+b, longnail_schedule_flags)
-        run_cmd.run("build", f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4,  False, 200)
+        run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, False, 200)
     else:
         sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
 
@@ -131,7 +131,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     longnail_flags_str = functools.reduce(
         lambda a, b: a+" "+b, longnail_hw_gen_flags)
-    run_cmd.run("build", f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 5, False, 200)
+    run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 5, False, 200)
     return isax_mlir
 
 
