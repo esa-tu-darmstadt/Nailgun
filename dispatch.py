@@ -10,7 +10,6 @@ import treenail
 import longnail
 import scaiev
 import simulation
-import merge_core_descs
 
 
 # generate mapping from ISAX config name to isax description file
