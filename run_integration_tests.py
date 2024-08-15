@@ -109,7 +109,7 @@ failed = 0
 for exit_code, cmd, id in results:
     if exit_code != 0:
         failed += 1
-        print(f"Test {id} failed with exit code {exit_code}, cmd: '{cmd}'")
+        print(f"Test {id} failed with exit code {exit_code}, cmd: '{cmd} make ci'")
 print(f"Summary: {len(commands) - failed}/{len(commands)} integration tests succeeded.")
 
 # Exit with a non-zero code if any command failed
