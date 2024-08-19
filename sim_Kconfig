@@ -8,4 +8,6 @@ menu "Simulation configuration"
 		string "Simulation test program path"
 	config SIM_TB_EXPECTED_PATH
 		string "Expected simulation output"
+	config SIM_TB_COMPILE_FLAGS
+		string "Additional TB compile flags"
 endmenu

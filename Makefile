@@ -6,10 +6,10 @@ gen_config: clean_config
 menuconfig: gen_config
 	python3 -m menuconfig
 
-build: gen_config
+build:
 	python3 dispatch.py
 
-gen_ci_config: gen_config
+gen_ci_config:
 	python3 gen_ci_config.py
 
 ci: gen_ci_config build

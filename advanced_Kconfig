@@ -1,4 +1,7 @@
 menu "Advanced Options"
+	config ONLY_PATCH_CC
+		bool "ONLY run HLS and add compiler support for the ISAXes"
+		default n
 	config SIM_SKIP_AWESOME_LLVM
 		depends on SIM_ENABLE
 		bool "Skip patching and rebuilding clang"
@@ -7,6 +10,14 @@ menu "Advanced Options"
 		depends on SIM_ENABLE
 		string "LLVM / clang version to use"
 		default "17"
+	config SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME
+		depends on SIM_ENABLE
+		bool "Overwrite the clang ISAX extension name"
+		default n
+	config SIM_AWESOME_LLVM_ISAX_NAME
+		depends on SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME
+		string "ISAX name"
+		default "merged"
 
 	config MLIR_ENTRY_POINT
 		bool "Use CoreDSL MLIR dialect as entrypoint"

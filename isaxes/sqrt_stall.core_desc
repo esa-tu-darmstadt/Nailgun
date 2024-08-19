@@ -1,6 +1,6 @@
 // Source: https://github.com/chmike/fpsqrt/blob/master/fpsqrt.c
 
-InstructionSet sqrt {
+InstructionSet sqrt_stall {
   architectural_state {
     register unsigned<32> X[32] [[is_main_reg]];
   }

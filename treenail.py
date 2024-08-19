@@ -4,20 +4,21 @@ import os
 import error
 import run_cmd
 
-def run_treenail(isax_tag, coredsl_file):
+def run_treenail(isax_tag, coredsl_file, out_dir):
     # create build and tool directory
-    os.makedirs("build/mlir", exist_ok=True)
+    mlir_dir = os.path.join(out_dir, "mlir")
+    os.makedirs(mlir_dir, exist_ok=True)
 
-    out_path = os.path.abspath(f"build/mlir/{isax_tag}.mlir")
-    print(f" - Mapping {coredsl_file} to build/mlir/{isax_tag}.mlir")
+    out_path = os.path.abspath(os.path.join(mlir_dir, f"{isax_tag}.mlir"))
+    print(f" - Mapping {coredsl_file} to {out_path}")
     run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o {out_path}", f"Treenail failed on {coredsl_file}", error.TN_BASE + 4, False)
     return out_path
 
-def run_treenail_batch(isax_tags, coredsl_files):
+def run_treenail_batch(isax_tags, coredsl_files, out_dir):
     print("Running Treenail:")
     mlir_paths = []
     for tag, file in zip(isax_tags, coredsl_files):
-        mlir_paths.append(run_treenail(tag, file))
+        mlir_paths.append(run_treenail(tag, file, out_dir))
     return mlir_paths
 
 def build_treenail():

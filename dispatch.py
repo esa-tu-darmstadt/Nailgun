@@ -66,8 +66,16 @@ if __name__ == "__main__":
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     scaiev_core_name = scaiev.select_core(core_name)
 
+    # Package all results in an output folder
+    out_dir = os.getenv("OUTPUT_PATH")
+    if out_dir:
+        if not os.path.exists(out_dir):
+            error.exit_error(f"Explicitly specified output path {out_dir} does not exist!", error.USER_ERROR)
+        out_dir = os.path.abspath(out_dir)
+    else:
+        out_dir = create_output_folder("output")
+
     # print enabled ISAXes
-    isax_name = None
     mlir_paths = None
     if kconf.syms["MLIR_ENTRY_POINT"].str_value != "y":
         print(f"Building {scaiev_core_name} with ISAXes:")
@@ -78,7 +86,7 @@ if __name__ == "__main__":
             error.exit_error("No ISAXes were selected, nothing to do!", error.USER_ERROR)
         # TN coreDSL to mlir
         treenail.build_treenail()
-        mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files)
+        mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files, out_dir)
     else:
         # use the MLIR entry point path
         path = kconf.syms["MLIR_ENTRY_POINT_PATH"].str_value
@@ -86,38 +94,34 @@ if __name__ == "__main__":
             error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!", error.USER_ERROR)
         mlir_paths = [ os.path.abspath(path) ]
 
-    # Package all results in an output folder
-    out_dir = os.getenv("OUTPUT_PATH")
-    if out_dir:
-        if not os.path.exists(out_dir):
-            error.exit_error(f"Explicitly specified output path {out_dir} does not exist!", error.USER_ERROR)
-        out_dir = os.path.abspath(out_dir)
-    else:
-        out_dir = create_output_folder("output")
-
     # LN mlir to .v
     longnail.build_longnail()
     datasheet = longnail.select_core_datasheet(core_name)
     mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
 
-    # No coredsl files were merged, extract the isax name directly from the used mlir file
-    if not isax_name:
-        # Read the entire file into one string variable
-        with open(mlir_path, 'r') as file:
-            mlir_text = file.read()
-        # Define the regex pattern
-        pattern = r'module\s+@(\w+)\s*\{'
-        # Search for the pattern
-        match = re.search(pattern, mlir_text)
-        # Extract the module name if found
-        if match:
-            isax_name = match.group(1)
-        else:
-            error.exit_error("Could not extract the module's ISAX name", error.INTERNAL_ERROR)
+    # Extract the isax name directly from the used mlir file
+    # Read the entire file into one string variable
+    with open(mlir_path, 'r') as file:
+        mlir_text = file.read()
+    # Define the regex pattern
+    pattern = r'module\s+@(\w+)\s*\{'
+    # Search for the pattern
+    match = re.search(pattern, mlir_text)
+    # Extract the module name if found
+    if match:
+        isax_name = match.group(1)
+    else:
+        error.exit_error("Could not extract the module's ISAX name", error.INTERNAL_ERROR)
+
+    if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
+        isax_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
+
+    only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
 
     # SCAIE-V integrate into core
-    scaiev.build_scaiev()
-    scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
+    if not only_add_cc_support:
+        scaiev.build_scaiev()
+        scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
 
     # Optionally run the simulation
-    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path)
+    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)

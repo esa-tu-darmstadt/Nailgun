@@ -75,6 +75,19 @@ if __name__ == "__main__":
         kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
         kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
 
+    only_add_cc_support = os.getenv("ONLY_PATCH_CC")
+    if only_add_cc_support:
+        kconf.syms["ONLY_PATCH_CC"].set_value(only_add_cc_support)
+
+    isax_name = os.getenv("CLANG_EXT_ISAX_NAME")
+    if isax_name:
+        kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].set_value("y")
+        kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].set_value(isax_name)
+
+    tb_flags = os.getenv("TB_CPP_FLAGS")
+    if tb_flags:
+        kconf.syms["SIM_TB_COMPILE_FLAGS"].set_value(tb_flags)
+
     # The CI can not perform user interactions -> we must skip the solution selection process
     # TODO allow specifying a yaml file that contains the selections instead -> better automatization
     kconf.syms["LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")

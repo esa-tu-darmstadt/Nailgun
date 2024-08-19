@@ -59,7 +59,7 @@ def prepare_gcc(yaml_file):
     # Rebuild GCC
     run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
-def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, error_code_base):
+def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, additional_flags, error_code_base):
     # Create the output directory
     bin_dir = os.path.abspath(os.path.join(out_dir, "tb_bin"))
     os.makedirs(bin_dir, exist_ok=False)
@@ -67,7 +67,7 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, error_
     # Build elf file
     elf_file = os.path.join(bin_dir, "tb.elf")
     linker_file = os.path.abspath(f"deps/scaie-v-testbenches/cores/{scaiev.select_linker_file(core_name)}")
-    run_cmd.run("deps/scaie-v-testbenches/dep", f"{cc_path} {flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
+    run_cmd.run("deps/scaie-v-testbenches/dep", f"{cc_path} {flags} {additional_flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
     # Build instr bin file
     instr_bin_path = os.path.join(bin_dir, "core_name_instr.bin")
     instr_dump_flags = "-O binary -j .text.init -j .text"
@@ -79,22 +79,22 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, error_
 
     return instr_bin_path, data_bin_path
 
-def gcc_compile_tb(tb_path, core_name, out_dir):
+def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
     objcopy_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
     arch_flags = "-march=rv32im_zicsr -mabi=ilp32"
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags}"
 
-    return compile_tb(tb_path, core_name, out_dir, gcc_path, objcopy_path, flags, error.GCC_BASE + 2)
+    return compile_tb(tb_path, core_name, out_dir, gcc_path, objcopy_path, flags, additional_flags, error.GCC_BASE + 2)
 
-def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name):
+def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags):
     clang_path = os.path.join(llvm_build_path, "bin", "clang")
     objcopy_path = os.path.join(llvm_build_path, "bin", "llvm-objcopy")
     startup_asm = os.path.abspath("startup.s")
     #TODO zicsr?
     flags = f'--target="riscv32-none-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32im_x{isax_name}0p1" -nostdlib -O3 {startup_asm}'
-    return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags, error.AWESOME_BASE + 5)
+    return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags, additional_flags, error.AWESOME_BASE + 5)
 
 def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
     tb_srcs, core_srcs, top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
@@ -161,28 +161,35 @@ def find_yaml_file(out_dir):
     else:
         return None
 
-def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path):
-    if kconfig_syms['SIM_ENABLE'].str_value != "y":
+def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_add_cc_support):
+    if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
-    print(f"Running full core + ISAX simulation:")
-    if not os.path.exists(kconfig_syms['SIM_TB_PATH'].str_value):
-        error.exit_error("Simulation testbench path is missing!", error.USER_ERROR)
-    if not os.path.exists(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value):
-        error.exit_error("Simulation testbench expected output path is missing!", error.USER_ERROR)
+    if not only_add_cc_support:
+        print(f"Running full core + ISAX simulation:")
+        if not os.path.exists(kconfig_syms['SIM_TB_PATH'].str_value):
+            error.exit_error("Simulation testbench path is missing!", error.USER_ERROR)
+        if not os.path.exists(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value):
+            error.exit_error("Simulation testbench expected output path is missing!", error.USER_ERROR)
+    else:
+        print(f"Only adding ISAX compiler support")
     yaml_file_path = find_yaml_file(out_dir)
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
+    additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     if tb_path.endswith(".s") or tb_path.endswith(".S"):
         print(f" - Adding ISAX assembly support to GCC")
-        prepare_gcc(yaml_file_path)
-        print(f" - Compiling assembly TB")
-        instr_bin, data_bin = gcc_compile_tb(tb_path, core_name, out_dir)
-        print(f" - Start simulation")
+        if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
+            prepare_gcc(yaml_file_path)
+        if not only_add_cc_support:
+            print(f" - Compiling assembly TB")
+            instr_bin, data_bin = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags)
     else:
         print(f" - Adding ISAX support to clang")
         llvm_build_dir = prepare_llvm(mlir_path, kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value, kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y")
-        print(f" - Compiling assembly TB")
-        instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name)
-        print(f" - Start simulation")
+        if not only_add_cc_support:
+            print(f" - Compiling assembly TB")
+            instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags)
 
-    run_tb(out_dir, core_name, instr_bin, tb_expected_path)
+    if not only_add_cc_support:
+        print(f" - Start simulation")
+        run_tb(out_dir, core_name, instr_bin, tb_expected_path)
