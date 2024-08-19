@@ -7,7 +7,7 @@ menu "Advanced Options"
 		bool "Skip patching and rebuilding clang"
 		default n
 	config SIM_AWESOME_LLVM_VERSION
-		depends on SIM_ENABLE
+		depends on SIM_ENABLE || ONLY_PATCH_CC
 		string "LLVM / clang version to use"
 		default "17"
 	config SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME
