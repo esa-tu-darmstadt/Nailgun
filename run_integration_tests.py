@@ -23,9 +23,9 @@ parallelizable_commands = [
 
 # Integration tests that are run for EVERY available core
 command_templates = [
-    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"', True),
+    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="../custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="../custom_tbs/autoinc_expected.txt"', True),
     ('ISAXES="BRIMM" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"', True),
-    ('ISAXES="DOTPROD" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"', True),
+    ('ISAXES="DOTPROD" SIM_EN="y" TB_PATH="../custom_tbs/dotprod.cpp" TB_EXPECTED_PATH="../custom_tbs/dotprod_expected.txt"', True),
     ('ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"', True),
     ('ISAXES="SBOX" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt"', True),
     ('ISAXES="SPARKLE" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"', True),
