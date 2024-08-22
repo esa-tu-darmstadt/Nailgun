@@ -137,6 +137,22 @@ def select_linker_file(core):
     else:
         error.exit_error("No linker file found for the selected core!", error.INTERNAL_ERROR)
 
+def select_compiler_extensions(core):
+    if (core == "PicoRV32"):
+        return "i" # No multiply unit
+    elif (core == "ORCA"):
+        return "im"
+    elif (core == "Piccolo"):
+        return "imac"
+    elif (core == "CVA5"):
+        return "im"
+    elif core == "VexRiscv_4s":
+        return "i" # No multiply unit
+    elif core == "VexRiscv_5s":
+        return "im"
+    else:
+        error.exit_error("No supported compiler extensions found for the selected core!", error.INTERNAL_ERROR)
+
 def find_verilog_srcs(source_folder):
     # Blacklist unnecessary files, ones that might break the build
     blacklist = [

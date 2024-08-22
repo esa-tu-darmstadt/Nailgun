@@ -28,13 +28,29 @@ def prepare_llvm(mlir_path, version, rebuild):
         # Configure cmake
         ccache_path = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/ccache")
         cmake_config = [
-			"-DLLVM_ENABLE_PROJECTS=clang",
-			"-DLLVM_TARGETS_TO_BUILD=RISCV",
-			"-DBUILD_SHARED_LIBS=ON",
-			"-DLLVM_CCACHE_BUILD=ON",
-			f"-DLLVM_CCACHE_DIR='{ccache_path}'",
-			f"-DLLVM_CCACHE_MAXSIZE={ccache_size}",
-			"-DCMAKE_BUILD_TYPE=Debug",
+            "-DLLVM_ENABLE_PROJECTS=clang",
+            "-DLLVM_TARGETS_TO_BUILD=RISCV",
+            # When using enable runtimes, a default target triple is required
+            "-DLLVM_DEFAULT_TARGET_TRIPLE=riscv32-unknown-elf",
+            "-DLLVM_ENABLE_RUNTIMES=compiler-rt",
+            # We need compiler-rt as a baremetal version!
+            "-DCOMPILER_RT_BAREMETAL_BUILD=ON",
+            # We are only interested in the builtins for software mul / div support
+            "-DCOMPILER_RT_BUILD_BUILTINS=ON",
+            "-DCOMPILER_RT_BUILD_MEMPROF=OFF",
+            "-DCOMPILER_RT_BUILD_LIBFUZZER=OFF",
+            "-DCOMPILER_RT_BUILD_PROFILE=OFF",
+            "-DCOMPILER_RT_BUILD_SANITIZERS=OFF",
+            "-DCOMPILER_RT_BUILD_XRAY=OFF",
+            # "-DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON",
+            # "-DLIBCXX_USE_COMPILER_RT=YES",
+            # "-DLIBCXXABI_USE_COMPILER_RT=YES",
+            # "-DCLANG_DEFAULT_RTLIB=compiler-rt",
+            "-DBUILD_SHARED_LIBS=ON",
+            "-DLLVM_CCACHE_BUILD=ON",
+            f"-DLLVM_CCACHE_DIR='{ccache_path}'",
+            f"-DLLVM_CCACHE_MAXSIZE={ccache_size}",
+            "-DCMAKE_BUILD_TYPE=Debug",
         ]
         run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", error.AWESOME_BASE + 2, False)
         rebuild = True # The desired version did not exists -> force rebuild
@@ -80,20 +96,22 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, additi
     return instr_bin_path, data_bin_path
 
 def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
+    supported_core_exts = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
     objcopy_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
-    arch_flags = "-march=rv32im_zicsr -mabi=ilp32"
+    arch_flags = f"-march=rv32{supported_core_exts} -mabi=ilp32"
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags}"
 
     return compile_tb(tb_path, core_name, out_dir, gcc_path, objcopy_path, flags, additional_flags, error.GCC_BASE + 2)
 
-def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags):
-    clang_path = os.path.join(llvm_build_path, "bin", "clang")
+def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version):
+    supported_core_exts = scaiev.select_compiler_extensions(core_name)
+    clang_path = os.path.join(llvm_build_path, "bin", "clang++")
     objcopy_path = os.path.join(llvm_build_path, "bin", "llvm-objcopy")
     startup_asm = os.path.abspath("startup.s")
-    #TODO zicsr?
-    flags = f'--target="riscv32-none-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32im_x{isax_name}0p1" -nostdlib -O3 {startup_asm}'
+    compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', 'riscv32-unknown-elf')}"
+    flags = f'--target="riscv32-unknown-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {compiler_rt_flags}'
     return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags, additional_flags, error.AWESOME_BASE + 5)
 
 def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
@@ -165,31 +183,32 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
     if not only_add_cc_support:
-        print(f"Running full core + ISAX simulation:")
+        print("Running full core + ISAX simulation:")
         if not os.path.exists(kconfig_syms['SIM_TB_PATH'].str_value):
             error.exit_error("Simulation testbench path is missing!", error.USER_ERROR)
         if not os.path.exists(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value):
             error.exit_error("Simulation testbench expected output path is missing!", error.USER_ERROR)
     else:
-        print(f"Only adding ISAX compiler support")
+        print("Only adding ISAX compiler support")
     yaml_file_path = find_yaml_file(out_dir)
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     if tb_path.endswith(".s") or tb_path.endswith(".S"):
-        print(f" - Adding ISAX assembly support to GCC")
+        print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
             prepare_gcc(yaml_file_path)
         if not only_add_cc_support:
-            print(f" - Compiling assembly TB")
+            print(" - Compiling assembly TB")
             instr_bin, data_bin = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags)
     else:
-        print(f" - Adding ISAX support to clang")
-        llvm_build_dir = prepare_llvm(mlir_path, kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value, kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y")
+        print(" - Adding ISAX support to clang")
+        llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
+        llvm_build_dir = prepare_llvm(mlir_path, llvm_version, kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y")
         if not only_add_cc_support:
-            print(f" - Compiling assembly TB")
-            instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags)
+            print(" - Compiling assembly TB")
+            instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version)
 
     if not only_add_cc_support:
-        print(f" - Start simulation")
+        print(" - Start simulation")
         run_tb(out_dir, core_name, instr_bin, tb_expected_path)
