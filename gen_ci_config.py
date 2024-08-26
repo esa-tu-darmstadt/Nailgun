@@ -75,6 +75,11 @@ if __name__ == "__main__":
         kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
         kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
 
+        mlir_scheduled = os.getenv("MLIR_ENTRY_POINT_IS_SCHEDULED")
+        if mlir_scheduled:
+            kconf.syms[f"MLIR_ENTRY_POINT_IS_SCHEDULED"].set_value("y")
+
+
     only_add_cc_support = os.getenv("ONLY_PATCH_CC")
     if only_add_cc_support:
         kconf.syms["ONLY_PATCH_CC"].set_value(only_add_cc_support)
@@ -88,9 +93,13 @@ if __name__ == "__main__":
     if tb_flags:
         kconf.syms["SIM_TB_COMPILE_FLAGS"].set_value(tb_flags)
 
-    # The CI can not perform user interactions -> we must skip the solution selection process
-    # TODO allow specifying a yaml file that contains the selections instead -> better automatization
-    kconf.syms["LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")
+    ln_scheduling_config = os.getenv("LN_PREDEFINED_SOLUTION_SELECTION")
+    if ln_scheduling_config:
+        kconf.syms[f"LN_PREDEFINED_SOLUTION_SELECTION"].set_value(ln_scheduling_config)
+    else:
+        # The CI can not perform user interactions -> we must skip the solution selection process if no solution selection is given
+        kconf.syms[f"LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")
+
 
     # Write the generated .config file
     config_out_path = os.getenv("CONFIG_PATH")
