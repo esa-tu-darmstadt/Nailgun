@@ -24,9 +24,9 @@ parallelizable_commands = [
 # Integration tests that are run for EVERY available core
 command_templates = [
     ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="../custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="../custom_tbs/autoinc_expected.txt"', True),
-    ('ISAXES="BRIMM" SIM_EN="y" TB_PATH="../custom_tbs/brimm.cpp" TB_EXPECTED_PATH="../custom_tbs/brimm_expected.txt"', True),
+    ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="BRIMM" SIM_EN="y" TB_PATH="../custom_tbs/brimm.cpp" TB_EXPECTED_PATH="../custom_tbs/brimm_expected.txt"', True),
     ('ISAXES="DOTPROD" SIM_EN="y" TB_PATH="../custom_tbs/dotprod.cpp" TB_EXPECTED_PATH="../custom_tbs/dotprod_expected.txt"', True),
-    ('ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="../custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="../custom_tbs/indirectjmp_expected.txt"', True),
+    ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="../custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="../custom_tbs/indirectjmp_expected.txt"', True),
     ('ISAXES="SBOX" SIM_EN="y" TB_PATH="../custom_tbs/sbox.cpp" TB_EXPECTED_PATH="../custom_tbs/sbox_expected.txt"', True),
     ('ISAXES="SPARKLE" SIM_EN="y" TB_PATH="../custom_tbs/dummy.S" TB_EXPECTED_PATH="../custom_tbs/dummy_expected.txt"', True),
     ('ISAXES="SQRT" SIM_EN="y" TB_PATH="../custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="../custom_tbs/sqrt_expected.txt"', True),
