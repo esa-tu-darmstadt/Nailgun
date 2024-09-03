@@ -26,19 +26,24 @@ def deduplicate_files(directory):
     :param directory: Path to the directory to process
     """
     seen_files = {}
+    deduplicate_mapping = {}
     for root, _, files in os.walk(directory):
         for file in files:
             if file.startswith("config_"):
                 file_path = os.path.join(root, file)
                 file_checksum = calculate_checksum(file_path)
 
-                if file_checksum in seen_files:
+                if ".old" in file:
+                    os.remove(file_path)
+                elif file_checksum in seen_files:
                     # If checksum is already seen, delete the file
                     # print(f"Duplicate found: {file_path} (matches {seen_files[file_checksum]})")
                     os.remove(file_path)
+                    deduplicate_mapping[file] = seen_files[file_checksum]
                 else:
                     # Otherwise, store the checksum and file path
-                    seen_files[file_checksum] = file_path
+                    seen_files[file_checksum] = file
+    return deduplicate_mapping
 
 
 def write_config_for_choice(kconf, choice, choice_value, out_dir):
@@ -74,7 +79,7 @@ def gen_solution_selections(kconfig_filename, out_dir):
             write_config_for_choice(kconf, choice, sym, out_dir)
     
     # Deduplicate generated config files
-    deduplicate_files(out_dir)
+    return deduplicate_files(out_dir)
 
 if __name__ == "__main__":
     kconfig_filename = sys.argv[1]  # Replace with the path to your Kconfig file
