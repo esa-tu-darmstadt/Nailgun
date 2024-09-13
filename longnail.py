@@ -158,18 +158,20 @@ def select_core_datasheet(kconfig_core):
             f"No or more than one core selected in Kconfig: {kconfig_core}", error.USER_ERROR)
     kconfig_core = kconfig_core[0]
 
+    datasheet_folder = "deps/longnail/datasheets"
+
     if (kconfig_core == "CORE_PICORV32"):
-        return "deps/longnail/datasheets/PicoRV32.yaml"
+        return f"{datasheet_folder}/PicoRV32.yaml"
     elif (kconfig_core == "CORE_ORCA"):
-        return "deps/longnail/datasheets/ORCA.yaml"
+        return f"{datasheet_folder}/ORCA.yaml"
     elif (kconfig_core == "CORE_PICCOLO"):
-        return "deps/longnail/datasheets/Piccolo.yaml"
+        return f"{datasheet_folder}/Piccolo.yaml"
     elif (kconfig_core == "CORE_VEX_4S"):
-        return "deps/longnail/datasheets/VexRiscv_4s.yaml"
+        return f"{datasheet_folder}/VexRiscv_4s.yaml"
     elif (kconfig_core == "CORE_VEX_5S"):
-        return "deps/longnail/datasheets/VexRiscv_5s.yaml"
+        return f"{datasheet_folder}/VexRiscv_5s.yaml"
     elif (kconfig_core == "CORE_CVA5"):
-        return "deps/benchmarks/CVA5.yaml"
+        return f"{datasheet_folder}/CVA5.yaml"
     else:
         error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!", error.USER_ERROR)
 
