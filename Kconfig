@@ -1,30 +1,7 @@
 mainmenu "NailGun ISAX integration config"
 
-choice
-	prompt "RISC-V core"
-	default CORE_CVA5
-
-config CORE_PICORV32
-	bool "PicoRV32"
-
-config CORE_CVA5
-	bool "CVA5"
-
-config CORE_ORCA
-	bool "ORCA"
-
-config CORE_PICCOLO
-	bool "Piccolo"
-
-config CORE_VEX_4S
-	bool "VexRiscv (4-Stage)"
-
-config CORE_VEX_5S
-	bool "VexRiscv (5-Stage)"
-
-endchoice
-
+source "configs/cores_Kconfig"
 source "build/ISAX/Kconfig"
-source "LN_Kconfig"
-source "sim_Kconfig"
-source "advanced_Kconfig"
+source "configs/LN_Kconfig"
+source "configs/sim_Kconfig"
+source "configs/advanced_Kconfig"

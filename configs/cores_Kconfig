@@ -1,0 +1,23 @@
+choice
+	prompt "RISC-V core"
+	default CORE_CVA5
+
+config CORE_PICORV32
+	bool "PicoRV32"
+
+config CORE_CVA5
+	bool "CVA5"
+
+config CORE_ORCA
+	bool "ORCA"
+
+config CORE_PICCOLO
+	bool "Piccolo"
+
+config CORE_VEX_4S
+	bool "VexRiscv (4-Stage)"
+
+config CORE_VEX_5S
+	bool "VexRiscv (5-Stage)"
+
+endchoice
