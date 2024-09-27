@@ -105,7 +105,7 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, additi
     # Build elf file
     elf_file = os.path.join(bin_dir, "tb.elf")
     linker_file = scaiev.select_linker_file(core_name)
-    run_cmd.run("deps/scaie-v-testbenches/dep", f"{cc_path} {flags} {additional_flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
+    run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
     # Build instr bin file
     instr_bin_path = os.path.join(bin_dir, "core_name_instr.bin")
     instr_dump_flags = "-O binary -j .text.init -j .text"
