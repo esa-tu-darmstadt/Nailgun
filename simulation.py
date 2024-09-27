@@ -168,12 +168,19 @@ def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
     # Convert the absolute verilog_srcs paths to relative paths from the sim directory
     verilog_srcs = [os.path.relpath(p, sim_dir) for p in verilog_srcs]
 
+    env_vars = [
+        f"TESTPROG={os.path.relpath(instr_bin_path[:-len('_instr.bin')], sim_dir)}",
+        f"EXPECTED={os.path.relpath(tb_expected_path, sim_dir)}",
+    ] + scaiev.select_tb_env_vars(core_name)
+
+    newline = "\n"
+
     # Create a makefile to run the simulation
     sim_mk = os.path.join(sim_dir, "Makefile")
     with open(sim_mk, 'w') as f:
         f.write(f"""
 
-VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)} 
+VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
 TOPLEVEL = {top_module}
 MODULE = test_default
@@ -189,17 +196,16 @@ BUILD_ARGS += -j$(shell nproc)
 
 {extra_makefile_opts}
 
+# test_default.py configuration settings
+PLUSARGS = ""
+{newline.join([f'PLUSARGS += "+{var}"' for var in env_vars])}
+
 include $(shell cocotb-config --makefiles)/Makefile.sim
 """)
 
-    env_vars = [
-        f"TESTPROG={instr_bin_path[:-len('_instr.bin')]}",
-        f"EXPECTED={tb_expected_path}",
-    ] + scaiev.select_tb_env_vars(core_name)
-
     results_xml_path = os.path.join(sim_dir, "results.xml")
     # We ALWAYS want colors, lol
-    run_cmd.run(sim_dir, f"OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 {functools.reduce(lambda a, b: a + ' ' + b, env_vars)} make sim && ! grep -nri 'Test failed' {results_xml_path}", "The simulation failed!", error.SIM_BASE + 1)
+    run_cmd.run(sim_dir, f"OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", "The simulation failed!", error.SIM_BASE + 1)
 
 def find_yaml_file(out_dir):
     # Construct the search pattern

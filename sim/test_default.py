@@ -42,16 +42,16 @@ async def run_test(dut):
     # -> https://github.com/verilator/verilator/issues/3919
     clk = dut.clk
     rst = dut.rst
-    trap = dut.trap if ("HAS_TRAP_PIN" in os.environ) else None
+    trap = dut.trap if ("HAS_TRAP_PIN" in cocotb.plusargs) else None
 
     cocotb.start_soon(Clock(clk, CLK_PERIOD, units='ns').start())
     cocotb.start_soon(clock_print(clk))
 
-    NUM_BUSSI = int(os.environ["NUM_BUSSI"])
+    NUM_BUSSI = int(cocotb.plusargs["NUM_BUSSI"])
     memsi = []
     for i_bussi in range(NUM_BUSSI):
-        bussi_type = os.environ["BUSSI%d_TYPE" % i_bussi]
-        bussi_signame = os.environ["BUSSI%d_SIGNAME" % i_bussi]
+        bussi_type = cocotb.plusargs["BUSSI%d_TYPE" % i_bussi]
+        bussi_signame = cocotb.plusargs["BUSSI%d_SIGNAME" % i_bussi]
         match bussi_type:
             case "AXI4":
                 memsi.append(AXI4Slave(dut, bussi_signame, clk, HierarchicalMemView([]), big_endian=False))
@@ -62,21 +62,21 @@ async def run_test(dut):
 
     #NOTE: Expects that IMEM and DMEM are not the same memories (i.e. on a different bus or with disjoint address ranges)
 
-    IMEM_BUSIDX=int(os.environ["IMEM_BUSIDX"])
-    IMEM_BASE=int(os.environ["IMEM_BASE"], 16)
-    EXCEPTION_BASE = int(os.environ["EXCEPTION_BASE"], 16) if ("EXCEPTION_BASE" in os.environ) else None
+    IMEM_BUSIDX=int(cocotb.plusargs["IMEM_BUSIDX"])
+    IMEM_BASE=int(cocotb.plusargs["IMEM_BASE"], 16)
+    EXCEPTION_BASE = int(cocotb.plusargs["EXCEPTION_BASE"], 16) if ("EXCEPTION_BASE" in cocotb.plusargs) else None
 
-    DMEM_BUSIDX=int(os.environ["DMEM_BUSIDX"])
-    DMEM_BASE=int(os.environ["DMEM_BASE"], 16)
-    DMEM_SIZE=int(os.environ["DMEM_SIZE"], 16)
-    DMEM_RESULTS_OFFS=int(os.environ["DMEM_RESULTS_OFFS"], 16)
+    DMEM_BUSIDX=int(cocotb.plusargs["DMEM_BUSIDX"])
+    DMEM_BASE=int(cocotb.plusargs["DMEM_BASE"], 16)
+    DMEM_SIZE=int(cocotb.plusargs["DMEM_SIZE"], 16)
+    DMEM_RESULTS_OFFS=int(cocotb.plusargs["DMEM_RESULTS_OFFS"], 16)
 
-    CTRL_BUSIDX=int(os.environ["CTRL_BUSIDX"])
-    CTRL_BASE=int(os.environ["CTRL_BASE"], 16)
+    CTRL_BUSIDX=int(cocotb.plusargs["CTRL_BUSIDX"])
+    CTRL_BASE=int(cocotb.plusargs["CTRL_BASE"], 16)
 
 
-    TESTPROG = os.environ["TESTPROG"]
-    EXPECTED = os.environ["EXPECTED"]
+    TESTPROG = cocotb.plusargs["TESTPROG"]
+    EXPECTED = cocotb.plusargs["EXPECTED"]
 
     with open(TESTPROG+"_instr.bin", "rb") as f:
         instr_mem = bytearray(f.read())
