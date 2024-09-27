@@ -448,6 +448,12 @@ class AXI4Slave(BusDriver):
                 # Next write beat: Incremented address (assuming incr mode) by beat byte size (2**awsize), then aligned by 2**awsize - 1.
                 next_addr = self.burst_nextaddr(_awaddr, _awburst, _awlen, bytes_in_beat)
                 self._aw_requests[0] = (next_addr, _awlen - 1, _awsize, _awburst, _awprot, _awid)
+            if __debug__ or True:
+                print(
+                    "(WADDR) %08x\n" % _awaddr +
+                    "WDATA   %s\n" % ' '.join([('%02x' % _byte) for _byte in word]) +
+                    "WSTRB   %s\n" % str(wstrb) +
+                    "WLAST   %d\n" % wlast)
 
 
 
@@ -476,16 +482,16 @@ class AXI4Slave(BusDriver):
 
             self._aw_requests.append((_awaddr, _awlen, _awsize, _awburst, _awprot, _awid))
 
-#            if __debug__ or True:
-#                print(
-#                    "AWADDR  %08x\n" % _awaddr +
-#                    "AWLEN   %d\n" % _awlen +
-#                    "AWSIZE  %d\n" % _awsize +
-#                    "AWBURST %d\n" % _awburst +
-#                    "AWPROT %d\n" % _awprot +
-#                    "AWID %d\n" % _awid +
-#                    "BURST_LENGTH %d\n" % burst_length +
-#                    "Bytes in beat %d\n" % bytes_in_beat)
+            if __debug__ or True:
+                print(
+                    "AWADDR  %08x\n" % _awaddr +
+                    "AWLEN   %d\n" % _awlen +
+                    "AWSIZE  %d\n" % _awsize +
+                    "AWBURST %d\n" % _awburst +
+                    "AWPROT %d\n" % _awprot +
+                    "AWID %d\n" % _awid +
+                    "BURST_LENGTH %d\n" % burst_length +
+                    "Bytes in beat %d\n" % bytes_in_beat)
 
     @cocotb.coroutine
     async def _read_data(self):
@@ -528,10 +534,10 @@ class AXI4Slave(BusDriver):
                     self.bus.RID.value = _arid
                 if self._has_burst:
                     self.bus.RLAST.value = rlast
-#                print(
-#                    "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
-#                    "RID    %d\n" % _arid +
-#                    "RLAST  %d\n" % rlast)
+                print(
+                    "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
+                    "RID    %d\n" % _arid +
+                    "RLAST  %d\n" % rlast)
 
                 while True:
                     await ReadOnly()
@@ -573,12 +579,12 @@ class AXI4Slave(BusDriver):
             if __debug__ or True:
                 burst_length = _arlen + 1
                 bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
-#                print(
-#                    "ARADDR  %08x\n" % _araddr +
-#                    "ARLEN   %d\n" % _arlen +
-#                    "ARSIZE  %d\n" % _arsize +
-#                    "ARBURST %d\n" % _arburst +
-#                    "ARPROT %d\n" % _arprot +
-#                    "BURST_LENGTH %d\n" % burst_length +
-#                    "Bytes in beat %d\n" % bytes_in_beat)
+                print(
+                    "ARADDR  %08x\n" % _araddr +
+                    "ARLEN   %d\n" % _arlen +
+                    "ARSIZE  %d\n" % _arsize +
+                    "ARBURST %d\n" % _arburst +
+                    "ARPROT %d\n" % _arprot +
+                    "BURST_LENGTH %d\n" % burst_length +
+                    "Bytes in beat %d\n" % bytes_in_beat)
 

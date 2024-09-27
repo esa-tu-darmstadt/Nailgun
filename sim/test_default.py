@@ -16,7 +16,7 @@ TIMEOUT_PERIODS = 1e6 # Number of clock periods until timeout
 def clock_print(clk):
     while True:
         yield RisingEdge(clk)
-#        print ("-", flush=True)
+        print ("-", flush=True)
 
 class ConfigException(Exception):
     pass
@@ -104,17 +104,19 @@ async def run_test(dut):
     event_irq = Event('core_irq')
 
     def check_instr_read(addr_begin, addr_end, big_endian):
-#        if addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
-#            print("instruction read %08x" % addr_begin)
+        if addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
+            print("instruction read %08x" % addr_begin)
         if (EXCEPTION_BASE is not None) and addr_begin == EXCEPTION_BASE:
             raise CoreExceptionException("The core fetched the exception handler address 0x%08x" % addr_begin)
         return None
 
     def check_data_read(addr_begin, addr_end, big_endian):
-#        if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
-#            print("data read %08x" % addr_begin)
+        if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
+            print("data read %08x" % addr_begin)
         return None
     def check_data_write(addr_begin, addr_end, word, wstrb):
+        if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
+            print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
         return False
 
     def check_ctrl_write(addr_begin, addr_end, word, wstrb):
@@ -123,7 +125,7 @@ async def run_test(dut):
                 # Handle IRQ write
                 event_irq.set()
                 return True
- #           print("check_ctrl_write: Unexpected write to IRQ")
+            print("check_ctrl_write: Unexpected write to IRQ")
             return False
         return False
     def check_ctrl_read(addr_begin, addr_end, big_endian):
@@ -141,13 +143,13 @@ async def run_test(dut):
     ctrl_memview = MemView(read_cb=check_ctrl_read, write_cb=check_ctrl_write)
     memsi[CTRL_BUSIDX].memview.children.append(ctrl_memview)
 
-#    print("Setting rst")
+    print("Setting rst")
 
     rst.value = 1
     await Timer(CLK_PERIOD * 10, units='ns')
     rst.value = 0
 
-#    print("Reset done")
+    print("Reset done")
 
     # Make sure the trap output stabilizes before sampling it.
     await Timer(CLK_PERIOD * 5, units='ns')
@@ -163,11 +165,11 @@ async def run_test(dut):
     if (trap is not None) and trap.value == 1:
         raise CoreExceptionException("The core set its trap pin")
 
-#    print("expected_data: " + str(expected_data))
+    print("expected_data: " + str(expected_data))
     for i in range(0, len(expected_data), 4):
         got = data_mem[DMEM_RESULTS_OFFS+i:DMEM_RESULTS_OFFS+i+4]
         expected = expected_data[i:i+4]
-#        print("got: 0x" + str(got.hex()) + ", expected: 0x" + str(expected.hex()))
+        print("got: 0x" + str(got.hex()) + ", expected: 0x" + str(expected.hex()))
         if got != expected:
             with open("outputs_got.txt", "w") as f:
                 dump_32bithex(f, data_mem[DMEM_RESULTS_OFFS:DMEM_RESULTS_OFFS+len(expected_data)])

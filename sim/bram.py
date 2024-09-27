@@ -50,8 +50,8 @@ class BRAMSlave(BusDriver):
 
                 self.memview.write(_st,_end,word,wstrb)
 
-#                if __debug__ or True:
-#                    print("BRAM write - addr %08x, din %08x, we %s" % (_st, int(self.bus.din), str(wstrb)))
+                if __debug__ or True:
+                    print("BRAM write - addr %08x, din %08x, we %s" % (_st, int(self.bus.din), str(wstrb)))
 
 
             _st = int(self.bus.addr)
@@ -62,5 +62,5 @@ class BRAMSlave(BusDriver):
             read_val = self.memview.read(_st,_end, self.bus.dout.value.n_bits, self.big_endian)
             self.bus.dout.value = read_val
 
-#            if __debug__ or True:
-#                print("BRAM read - addr %08x, data %08x\n" % (_st, read_val.integer))
+            if __debug__ or True:
+                print("BRAM read - addr %08x, data %08x\n" % (_st, read_val.integer))
