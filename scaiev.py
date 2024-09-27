@@ -122,20 +122,12 @@ def select_wrapper_gen(core):
         error.exit_error(f"No wrapper for selected core '{core}' found!", error.INTERNAL_ERROR)
 
 def select_linker_file(core):
-    if (core == "PicoRV32"):
-        return "picorv32_link.ld"
-    elif (core == "ORCA"):
-        return f"{core}_link.ld"
-    elif (core == "Piccolo"):
-        return f"{core}_link.ld"
-    elif (core == "CVA5"):
-        return f"{core}_link.ld"
-    elif core == "VexRiscv_4s":
-        return f"Vex4_link.ld"
-    elif core == "VexRiscv_5s":
-        return f"Vex5_link.ld"
-    else:
-        error.exit_error("No linker file found for the selected core!", error.INTERNAL_ERROR)
+    base_path = os.abspath(os.path.join("sim", "linker_scripts"))
+    ld_file = os.path.join(base_path, f"{core}_link.ld")
+    if not os.path.exists(ld_file):
+        error.exit_error(f"No linker file found for '{core}'! Expected path: {ld_file}", error.INTERNAL_ERROR)
+
+    return ld_file
 
 def select_compiler_extensions(core):
     if (core == "PicoRV32"):

@@ -104,7 +104,7 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, additi
 
     # Build elf file
     elf_file = os.path.join(bin_dir, "tb.elf")
-    linker_file = os.path.abspath(f"deps/scaie-v-testbenches/cores/{scaiev.select_linker_file(core_name)}")
+    linker_file = scaiev.select_linker_file(core_name)
     run_cmd.run("deps/scaie-v-testbenches/dep", f"{cc_path} {flags} {additional_flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
     # Build instr bin file
     instr_bin_path = os.path.join(bin_dir, "core_name_instr.bin")
@@ -132,7 +132,7 @@ def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, add
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
     objcopy_path = os.path.join(llvm_build_path, "bin", "llvm-objcopy")
-    startup_asm = os.path.abspath("startup.s")
+    startup_asm = os.path.abspath(os.path.join("sim", "startup.s"))
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', 'riscv32-unknown-elf')}"
     flags = f'--target="riscv32-unknown-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {compiler_rt_flags}'
     return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags, additional_flags, error.AWESOME_BASE + 5)
