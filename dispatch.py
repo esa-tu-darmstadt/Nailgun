@@ -90,6 +90,5 @@ if __name__ == "__main__":
         scaiev.build_scaiev()
         scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir)
 
-    if mlir_path and isax_name:
-        # Optionally run the simulation
-        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
+    # Optionally run the simulation
+    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)

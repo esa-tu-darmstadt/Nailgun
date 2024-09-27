@@ -9,20 +9,42 @@ import run_cmd
 import scaiev
 
 
+def get_awesome_path():
+    return "deps/awesome_llvm"
+
+def llvm_repo_exists(version):
+    llvm_repo = os.path.abspath(f"{get_awesome_path()}/compiler-patcher/build-tests/llvm-project/worktree/{version}")
+
+    # Ensure the llvm repo is setup
+    return os.path.exists(llvm_repo), llvm_repo
+
+def llvm_build_dir(llvm_repo):
+    return os.path.join(llvm_repo, "build")
+
+def check_clang_exists(version):
+    llvm_exists, llvm_repo = llvm_repo_exists(version)
+
+    if not llvm_exists:
+        return llvm_exists
+
+    llvm_build_path = llvm_build_dir(llvm_repo)
+    clang_path = os.path.join(llvm_build_path, "bin", "clang++")
+    return os.path.exists(clang_path), clang_path
+
 def prepare_llvm(mlir_path, version, rebuild):
     ccache_size = "25G"
     if os.getenv("AWESOME_CCACHE_SIZE"):
         ccache_size = os.getenv("AWESOME_CCACHE_SIZE")
 
     mlir_path = os.path.abspath(mlir_path)
-    awesome_path = "deps/awesome_llvm"
+    awesome_path = get_awesome_path()
     awesome_ln_bin = os.path.abspath(f"{awesome_path}/build/bin/longnail-opt")
 
     # Hard reset the llvm target repository
-    llvm_repo = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/worktree/{version}")
+    llvm_exists, llvm_repo = llvm_repo_exists(version)
 
     # Ensure the llvm repo is setup
-    if not os.path.exists(llvm_repo):
+    if not llvm_exists:
         # Clone llvm
         run_cmd.run(".", f"git clone --depth=1 -b release/{version}.x https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.AWESOME_BASE + 1, False)
         # Configure cmake
@@ -55,7 +77,7 @@ def prepare_llvm(mlir_path, version, rebuild):
         run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", error.AWESOME_BASE + 2, False)
         rebuild = True # The desired version did not exists -> force rebuild
 
-    build_dir = os.path.join(llvm_repo, "build")
+    build_dir = llvm_build_dir(llvm_repo)
 
     if rebuild:
         run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", error.AWESOME_BASE + 3, False)
@@ -107,7 +129,8 @@ def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
 
 def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version):
     supported_core_exts = scaiev.select_compiler_extensions(core_name)
-    clang_path = os.path.join(llvm_build_path, "bin", "clang++")
+    clang_exists, clang_path = check_clang_exists(llvm_version)
+    assert clang_exists
     objcopy_path = os.path.join(llvm_build_path, "bin", "llvm-objcopy")
     startup_asm = os.path.abspath("startup.s")
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', 'riscv32-unknown-elf')}"
@@ -202,11 +225,18 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             print(" - Compiling assembly TB")
             instr_bin, data_bin = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags)
     else:
-        print(" - Adding ISAX support to clang")
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
-        llvm_build_dir = prepare_llvm(mlir_path, llvm_version, kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y")
+        clang_exists, _ = check_clang_exists(llvm_version)
+        skip_clang_build = kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value == "y" and clang_exists
+        if (not skip_clang_build) and (not mlir_path):
+            error.exit_error("Patching clang requires a ISAX MLIR input file!", error.USER_ERROR)
+
+        print(" - Adding ISAX support to clang")
+        llvm_build_dir = prepare_llvm(mlir_path, llvm_version, not skip_clang_build)
         if not only_add_cc_support:
-            print(" - Compiling assembly TB")
+            print(" - Compiling C++ TB")
+            if not isax_name:
+                error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
             instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version)
 
     if not only_add_cc_support:
