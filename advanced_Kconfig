@@ -19,9 +19,19 @@ menu "Advanced Options"
 		string "ISAX name"
 		default "merged"
 
-	config MLIR_ENTRY_POINT
-		bool "Use CoreDSL MLIR dialect as entrypoint"
-		default n
+	choice
+		prompt "Alternate Entrypoint"
+		default DEFAULT_ENTRY_POINT
+
+		config DEFAULT_ENTRY_POINT
+			bool "None"
+
+		config MLIR_ENTRY_POINT
+			bool "Use a MLIR file as entrypoint"
+
+		config SV_ENTRY_POINT
+			bool "Use (System-)Verilog ISAX as entrypoint"
+	endchoice
 
 	menu "MLIR entrypoint settings"
 		depends on MLIR_ENTRY_POINT
@@ -30,5 +40,13 @@ menu "Advanced Options"
 			default n
 		config MLIR_ENTRY_POINT_PATH
 			string "Path to mlir file"
+	endmenu
+
+	menu "SV entrypoint settings"
+		depends on SV_ENTRY_POINT
+		config SV_ENTRY_POINT_PATH
+			string "Path to SV file"
+		config SV_ENTRY_POINT_ISAX_YAML_PATH
+			string "Path to ISAX YAML file"
 	endmenu
 endmenu

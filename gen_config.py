@@ -24,7 +24,7 @@ if __name__ == "__main__":
         file.write(f"""
 menu "Select ISAXes"
 
-depends on !MLIR_ENTRY_POINT
+depends on DEFAULT_ENTRY_POINT
 
 source "{kconfig_outdir}/*/Kconfig"
 
