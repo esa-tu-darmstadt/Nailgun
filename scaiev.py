@@ -122,7 +122,7 @@ def select_wrapper_gen(core):
         error.exit_error(f"No wrapper for selected core '{core}' found!", error.INTERNAL_ERROR)
 
 def select_linker_file(core):
-    base_path = os.abspath(os.path.join("sim", "linker_scripts"))
+    base_path = os.path.abspath(os.path.join("sim", "linker_scripts"))
     ld_file = os.path.join(base_path, f"{core}_link.ld")
     if not os.path.exists(ld_file):
         error.exit_error(f"No linker file found for '{core}'! Expected path: {ld_file}", error.INTERNAL_ERROR)
