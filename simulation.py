@@ -165,6 +165,9 @@ def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
     for file in py_files:
         shutil.copy(file, sim_dir)
 
+    # Convert the absolute verilog_srcs paths to relative paths from the sim directory
+    verilog_srcs = [os.path.relpath(p, sim_dir) for p in verilog_srcs]
+
     # Create a makefile to run the simulation
     sim_mk = os.path.join(sim_dir, "Makefile")
     with open(sim_mk, 'w') as f:
