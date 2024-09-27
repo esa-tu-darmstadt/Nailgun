@@ -335,9 +335,8 @@ def select_tb_env_vars(core):
 
 def build_scaiev():
     # build scaiev
-    if not os.path.isfile("./deps/scaie-v/EclipseWork/SCAIEV/target/SCAIEV-0.0.1-SNAPSHOT.jar"):
-        print("Building SCAIE-V...")
-        run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", "mvn package", "Could not build SCAIE-V", error.SCAIEV_BASE + 1)
+    print("Building SCAIE-V...")
+    run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", "mvn package", "Could not build SCAIE-V", error.SCAIEV_BASE + 1)
 
 # Selects the core
 def select_core(kconfig_core):
