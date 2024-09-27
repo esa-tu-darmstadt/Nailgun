@@ -65,7 +65,7 @@ class MemView():
 # MemView backed by a bytearray, with optional callbacks.
 class BytearrayMemView(MemView):
     def __init__(self, memory : bytearray, memory_section_offs=0, memory_section_len=-1, memory_baseaddr=0,
-            read_cb=None, write_cb=None):
+            read_cb=None, write_cb=None, auto_resize=False):
         MemView.__init__(self, read_cb, write_cb)
         self.memory = memory
         self.memory_section_offs = memory_section_offs
@@ -73,6 +73,7 @@ class BytearrayMemView(MemView):
             memory_section_len = len(memory) - memory_section_offs
         self.memory_section_len = memory_section_len
         self.memory_baseaddr = memory_baseaddr
+        self.auto_resize = auto_resize
 
     def _write(self, _st, _end, word : bytes, wstrb) -> bool | MemViewError:
         base_res = MemView._write(self,_st,_end,word,wstrb)
@@ -80,10 +81,16 @@ class BytearrayMemView(MemView):
             return True
         if _st < self.memory_baseaddr or _end > self.memory_baseaddr + self.memory_section_len:
             return MemViewError("Write to address 0x%08x: Out of range [%08x,%08x)" % (_st, self.memory_baseaddr, self.memory_baseaddr + self.memory_section_len))
+        memoryarr_startoffs = _st - self.memory_baseaddr + self.memory_section_offs
+        memoryarr_endoffs = _end - self.memory_baseaddr + self.memory_section_offs
+        if memoryarr_endoffs > len(self.memory):
+            if not self.auto_resize:
+                return MemViewError("Write to address 0x%08x out of bounds of backing array (%08x > %08x)" % (_st, memoryarr_endoffs, len(self.memory)))
+            self.memory += bytearray(memoryarr_endoffs - len(self.memory))
         for i in range(len(wstrb)):
             if wstrb[i] == 0:
-                word[i] = self.memory[_st - self.memory_baseaddr + self.memory_section_offs + i]
-        self.memory[_st - self.memory_baseaddr + self.memory_section_offs : _end - self.memory_baseaddr + self.memory_section_offs] = word
+                word[i] = self.memory[memoryarr_startoffs + i]
+        self.memory[memoryarr_startoffs : memoryarr_endoffs] = word
         return True
 
     def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
@@ -94,7 +101,11 @@ class BytearrayMemView(MemView):
         word = BinaryValue(n_bits=(_end-_st)*8, bigEndian=big_endian)
         if _st < self.memory_baseaddr or _end > self.memory_baseaddr + self.memory_section_len:
             return MemViewError("Read from address 0x%08x: Out of range [%08x,%08x)" % (_st, self.memory_baseaddr, self.memory_baseaddr + self.memory_section_len))
-        word.buff = bytes(self.memory[_st - self.memory_baseaddr + self.memory_section_offs : _end - self.memory_baseaddr + self.memory_section_offs])
+        memoryarr_startoffs = _st - self.memory_baseaddr + self.memory_section_offs
+        memoryarr_endoffs = _end - self.memory_baseaddr + self.memory_section_offs
+        if memoryarr_endoffs > len(self.memory):
+            return MemViewError("Read from address 0x%08x: Out of bounds of backing array (%08x > %08x)" % (_st, memoryarr_endoffs, len(self.memory)))
+        word.buff = bytes(self.memory[memoryarr_startoffs : memoryarr_endoffs])
         return word
 
 # MemView backed by several child MemViews, with optional callbacks.

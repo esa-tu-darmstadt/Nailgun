@@ -97,7 +97,7 @@ def prepare_gcc(yaml_file):
     # Rebuild GCC
     run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
-def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, additional_flags, error_code_base):
+def compile_tb(tb_path, core_name, out_dir, cc_path, flags, additional_flags, error_code_base):
     # Create the output directory
     bin_dir = os.path.abspath(os.path.join(out_dir, "tb_bin"))
     os.makedirs(bin_dir, exist_ok=False)
@@ -106,38 +106,28 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objcopy_path, flags, additi
     elf_file = os.path.join(bin_dir, "tb.elf")
     linker_file = scaiev.select_linker_file(core_name)
     run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
-    # Build instr bin file
-    instr_bin_path = os.path.join(bin_dir, "core_name_instr.bin")
-    instr_dump_flags = "-O binary -j .text.init -j .text"
-    run_cmd.run(".", f"{objcopy_path} {instr_dump_flags} {elf_file} {instr_bin_path}", "Failed to extract instruction section from elf file!", error_code_base + 2, False)
-    # Build data bin file
-    data_bin_path = os.path.join(bin_dir, "core_name_data.bin")
-    data_dump_flags = "-O binary -j .data -j .srodata -j .rodata -j .bss -j .sdata"
-    run_cmd.run(".", f"{objcopy_path} {data_dump_flags} {elf_file} {data_bin_path}", "Failed to extract data section from elf file!", error_code_base + 3, False)
 
-    return instr_bin_path, data_bin_path
+    return elf_file
 
 def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
     supported_core_exts = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
-    objcopy_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
     arch_flags = f"-march=rv32{supported_core_exts} -mabi=ilp32"
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags}"
 
-    return compile_tb(tb_path, core_name, out_dir, gcc_path, objcopy_path, flags, additional_flags, error.GCC_BASE + 2)
+    return compile_tb(tb_path, core_name, out_dir, gcc_path, flags, additional_flags, error.GCC_BASE + 2)
 
 def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version):
     supported_core_exts = scaiev.select_compiler_extensions(core_name)
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
-    objcopy_path = os.path.join(llvm_build_path, "bin", "llvm-objcopy")
     startup_asm = os.path.abspath(os.path.join("sim", "startup.s"))
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', 'riscv32-unknown-elf')}"
     flags = f'--target="riscv32-unknown-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {compiler_rt_flags}'
-    return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags, additional_flags, error.AWESOME_BASE + 5)
+    return compile_tb(tb_path, core_name, out_dir, clang_path, flags, additional_flags, error.AWESOME_BASE + 5)
 
-def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
+def run_tb(out_dir, core_name, elf_file, tb_expected_path):
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
@@ -169,7 +159,7 @@ def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
     verilog_srcs = [os.path.relpath(p, sim_dir) for p in verilog_srcs]
 
     env_vars = [
-        f"TESTPROG={os.path.relpath(instr_bin_path[:-len('_instr.bin')], sim_dir)}",
+        f"TESTPROG={os.path.relpath(elf_file[:-len('.elf')], sim_dir)}",
         f"EXPECTED={os.path.relpath(tb_expected_path, sim_dir)}",
     ] + scaiev.select_tb_env_vars(core_name)
 
@@ -238,7 +228,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             prepare_gcc(yaml_file_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
-            instr_bin, data_bin = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags)
+            elf_file = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags)
     else:
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
         clang_exists, _ = check_clang_exists(llvm_version)
@@ -252,8 +242,8 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             print(" - Compiling C++ TB")
             if not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
-            instr_bin, data_bin = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version)
+            elf_file = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version)
 
     if not only_add_cc_support:
         print(" - Start simulation")
-        run_tb(out_dir, core_name, instr_bin, tb_expected_path)
+        run_tb(out_dir, core_name, elf_file, tb_expected_path)

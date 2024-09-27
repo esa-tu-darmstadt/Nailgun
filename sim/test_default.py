@@ -8,6 +8,7 @@ from cocotb.triggers import Timer, RisingEdge, FallingEdge, Event, with_timeout,
 from amba import AXI4Slave
 from bram import BRAMSlave
 from memutil import MemView, HierarchicalMemView, BytearrayMemView
+from TestLoader import TestLoader
 
 CLK_PERIOD = 1 # Length of a clock period in ns
 TIMEOUT_PERIODS = 1e6 # Number of clock periods until timeout
@@ -74,18 +75,24 @@ async def run_test(dut):
     CTRL_BUSIDX=int(cocotb.plusargs["CTRL_BUSIDX"])
     CTRL_BASE=int(cocotb.plusargs["CTRL_BASE"], 16)
 
+    IMEM_SIZE = 0x10000000
+    if DMEM_BASE > IMEM_BASE:
+        IMEM_SIZE = DMEM_BASE - IMEM_BASE
+    if CTRL_BASE > IMEM_BASE:
+        IMEM_SIZE = min(IMEM_SIZE, CTRL_BASE - IMEM_BASE)
 
     TESTPROG = cocotb.plusargs["TESTPROG"]
     EXPECTED = cocotb.plusargs["EXPECTED"]
 
-    with open(TESTPROG+"_instr.bin", "rb") as f:
-        instr_mem = bytearray(f.read())
-        instr_mem += bytearray([0] * 4096)
-    with open(TESTPROG+"_data.bin", "rb") as f:
-        data_mem = bytearray(f.read())
-        if len(data_mem) > DMEM_SIZE:
-            raise InputBinaryException("Data file (0x%08x bytes) larger than DMEM_SIZE (0x%08x bytes)" % (len(data_mem), DMEM_SIZE))
-        data_mem += bytearray([0] * (DMEM_SIZE - len(data_mem)))
+    #with open(TESTPROG+"_instr.bin", "rb") as f:
+    #    instr_mem = bytearray(f.read())
+    #    instr_mem += bytearray([0] * 4096)
+    #with open(TESTPROG+"_data.bin", "rb") as f:
+    #    data_mem = bytearray(f.read())
+    #    if len(data_mem) > DMEM_SIZE:
+    #        raise InputBinaryException("Data file (0x%08x bytes) larger than DMEM_SIZE (0x%08x bytes)" % (len(data_mem), DMEM_SIZE))
+    #    data_mem += bytearray([0] * (DMEM_SIZE - len(data_mem)))
+    instr_mem = bytearray()
     if EXPECTED.endswith(".bin"):
         with open(EXPECTED, "rb") as f:
             expected_data = bytearray(f.read())
@@ -98,24 +105,26 @@ async def run_test(dut):
                 line_lstrip = line.lstrip()
                 if len(line_lstrip) != 0 and line_lstrip[0] != '#':
                     expected_data += bytearray(int(line_lstrip, 16).to_bytes(4, byteorder='little'))
-    if len(data_mem) - DMEM_RESULTS_OFFS < len(expected_data):
+    if DMEM_SIZE - DMEM_RESULTS_OFFS < len(expected_data):
         raise InputBinaryException("Expected results file is larger than the physical data memory section")
 
     event_irq = Event('core_irq')
 
+    testStarted = False
+
     def check_instr_read(addr_begin, addr_end, big_endian):
-        if addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
+        if testStarted and addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
             print("instruction read %08x" % addr_begin)
         if (EXCEPTION_BASE is not None) and addr_begin == EXCEPTION_BASE:
             raise CoreExceptionException("The core fetched the exception handler address 0x%08x" % addr_begin)
         return None
 
     def check_data_read(addr_begin, addr_end, big_endian):
-        if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
+        if testStarted and addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
             print("data read %08x" % addr_begin)
         return None
     def check_data_write(addr_begin, addr_end, word, wstrb):
-        if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
+        if testStarted and addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
             print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
         return False
 
@@ -134,22 +143,32 @@ async def run_test(dut):
             return bytes([0] * (addr_end - addr_begin))
         return None
 
-    instr_memview = BytearrayMemView(instr_mem, 0, len(instr_mem), IMEM_BASE, read_cb=check_instr_read)
+    instr_mem = bytearray()
+    instr_memview = BytearrayMemView(instr_mem, 0, IMEM_SIZE, IMEM_BASE, read_cb=check_instr_read, auto_resize=True)
     memsi[IMEM_BUSIDX].memview.children.append(instr_memview)
 
-    data_memview = BytearrayMemView(data_mem, 0, len(data_mem), DMEM_BASE, read_cb=check_data_read, write_cb=check_data_write)
+    data_mem = bytearray(DMEM_SIZE)
+    data_memview = BytearrayMemView(data_mem, 0, DMEM_SIZE, DMEM_BASE, read_cb=check_data_read, write_cb=check_data_write)
     memsi[DMEM_BUSIDX].memview.children.append(data_memview)
 
     ctrl_memview = MemView(read_cb=check_ctrl_read, write_cb=check_ctrl_write)
     memsi[CTRL_BUSIDX].memview.children.append(ctrl_memview)
 
-    print("Setting rst")
+    elfLoader = TestLoader(dut._log, [instr_memview, data_memview], [(IMEM_BASE,IMEM_BASE+IMEM_SIZE),(DMEM_BASE,DMEM_BASE+DMEM_SIZE)])
+    elfLoader.load_test_case(TESTPROG+".elf")
+
+    #Append to end of instruction memory, needed as cores tend to prefetch instructions
+    instr_mem += bytearray(min(IMEM_SIZE-len(instr_mem),4*32))
+
+    testStarted = True
+
+    dut._log.info("Setting rst")
 
     rst.value = 1
     await Timer(CLK_PERIOD * 10, units='ns')
     rst.value = 0
 
-    print("Reset done")
+    dut._log.info("Reset done")
 
     # Make sure the trap output stabilizes before sampling it.
     await Timer(CLK_PERIOD * 5, units='ns')
@@ -165,11 +184,11 @@ async def run_test(dut):
     if (trap is not None) and trap.value == 1:
         raise CoreExceptionException("The core set its trap pin")
 
-    print("expected_data: " + str(expected_data))
+    dut._log.info("expected_data: " + str(expected_data))
     for i in range(0, len(expected_data), 4):
         got = data_mem[DMEM_RESULTS_OFFS+i:DMEM_RESULTS_OFFS+i+4]
         expected = expected_data[i:i+4]
-        print("got: 0x" + str(got.hex()) + ", expected: 0x" + str(expected.hex()))
+        dut._log.info("got: 0x" + str(got.hex()) + ", expected: 0x" + str(expected.hex()))
         if got != expected:
             with open("outputs_got.txt", "w") as f:
                 dump_32bithex(f, data_mem[DMEM_RESULTS_OFFS:DMEM_RESULTS_OFFS+len(expected_data)])
