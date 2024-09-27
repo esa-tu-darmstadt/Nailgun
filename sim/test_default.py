@@ -43,7 +43,7 @@ async def run_test(dut):
     clk = dut.clk
     rst = dut.rst
     trap = dut.trap if ("HAS_TRAP_PIN" in os.environ) else None
-    
+
     cocotb.start_soon(Clock(clk, CLK_PERIOD, units='ns').start())
     cocotb.start_soon(clock_print(clk))
 
@@ -59,9 +59,9 @@ async def run_test(dut):
                 memsi.append(BRAMSlave(dut, bussi_signame, clk, HierarchicalMemView([]), big_endian=False))
             case _:
                 raise ConfigException("Unknown BusSI type " + bussi_type)
-        
+
     #NOTE: Expects that IMEM and DMEM are not the same memories (i.e. on a different bus or with disjoint address ranges)
-    
+
     IMEM_BUSIDX=int(os.environ["IMEM_BUSIDX"])
     IMEM_BASE=int(os.environ["IMEM_BASE"], 16)
     EXCEPTION_BASE = int(os.environ["EXCEPTION_BASE"], 16) if ("EXCEPTION_BASE" in os.environ) else None
@@ -73,11 +73,11 @@ async def run_test(dut):
 
     CTRL_BUSIDX=int(os.environ["CTRL_BUSIDX"])
     CTRL_BASE=int(os.environ["CTRL_BASE"], 16)
-    
-    
+
+
     TESTPROG = os.environ["TESTPROG"]
     EXPECTED = os.environ["EXPECTED"]
-    
+
     with open(TESTPROG+"_instr.bin", "rb") as f:
         instr_mem = bytearray(f.read())
         instr_mem += bytearray([0] * 4096)
@@ -100,9 +100,9 @@ async def run_test(dut):
                     expected_data += bytearray(int(line_lstrip, 16).to_bytes(4, byteorder='little'))
     if len(data_mem) - DMEM_RESULTS_OFFS < len(expected_data):
         raise InputBinaryException("Expected results file is larger than the physical data memory section")
-    
+
     event_irq = Event('core_irq')
-    
+
     def check_instr_read(addr_begin, addr_end, big_endian):
 #        if addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
 #            print("instruction read %08x" % addr_begin)
@@ -131,7 +131,7 @@ async def run_test(dut):
         if addr_begin >= CTRL_BASE and addr_end <= CTRL_BASE+16:
             return bytes([0] * (addr_end - addr_begin))
         return None
-    
+
     instr_memview = BytearrayMemView(instr_mem, 0, len(instr_mem), IMEM_BASE, read_cb=check_instr_read)
     memsi[IMEM_BUSIDX].memview.children.append(instr_memview)
 
@@ -140,15 +140,15 @@ async def run_test(dut):
 
     ctrl_memview = MemView(read_cb=check_ctrl_read, write_cb=check_ctrl_write)
     memsi[CTRL_BUSIDX].memview.children.append(ctrl_memview)
-    
+
 #    print("Setting rst")
-    
+
     rst.value = 1
     await Timer(CLK_PERIOD * 10, units='ns')
     rst.value = 0
-    
+
 #    print("Reset done")
-    
+
     # Make sure the trap output stabilizes before sampling it.
     await Timer(CLK_PERIOD * 5, units='ns')
 
@@ -157,12 +157,12 @@ async def run_test(dut):
         if trap.value == 1:
             raise CoreExceptionException("The core set its trap pin")
         core_done_trigger = First(core_done_trigger, RisingEdge(trap))
-    
+
     await with_timeout(core_done_trigger, TIMEOUT_PERIODS * CLK_PERIOD, timeout_unit='ns')
-    
+
     if (trap is not None) and trap.value == 1:
         raise CoreExceptionException("The core set its trap pin")
-    
+
 #    print("expected_data: " + str(expected_data))
     for i in range(0, len(expected_data), 4):
         got = data_mem[DMEM_RESULTS_OFFS+i:DMEM_RESULTS_OFFS+i+4]
@@ -174,4 +174,4 @@ async def run_test(dut):
             with open("outputs_expected.txt", "w") as f:
                 dump_32bithex(f, expected_data)
             raise ResultMismatchException("At 0x%X: Got 0x%08x, expected 0x%08x. Wrote complete results to outputs_got.txt and outputs_expected.txt." % (i, struct.unpack('<L', got)[0], struct.unpack('<L', expected)[0]))
-    
+

@@ -29,10 +29,10 @@ class MemView():
     def __init__(self, read_cb=None, write_cb=None):
         self._read_cb = read_cb
         self._write_cb = write_cb
-    
+
     def _write(self, _st, _end, word : BinaryValue, wstrb : BinaryValue) -> bool | MemViewError:
         return (self._write_cb is not None) and self._write_cb(_st,_end,word,wstrb)
-    
+
     def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
         if self._read_cb is None:
             return None
@@ -51,7 +51,7 @@ class MemView():
             raise MemViewError("Write to address 0x%08x failed: No matching handler" % _st)
         if isinstance(res, MemViewError):
             raise res
-    
+
     # Public: Reads a word from the memory view. Can raise a MemViewError.
     # n_word_bits: The number of bits the output word has (must be a multiple of 8).
     def read(self, _st, _end, n_word_bits, big_endian : bool = False) -> BinaryValue:
@@ -61,7 +61,7 @@ class MemView():
         if isinstance(res, MemViewError):
             raise res
         return _extend_word(_st, res, n_word_bits, big_endian)
-    
+
 # MemView backed by a bytearray, with optional callbacks.
 class BytearrayMemView(MemView):
     def __init__(self, memory : bytearray, memory_section_offs=0, memory_section_len=-1, memory_baseaddr=0,
@@ -73,7 +73,7 @@ class BytearrayMemView(MemView):
             memory_section_len = len(memory) - memory_section_offs
         self.memory_section_len = memory_section_len
         self.memory_baseaddr = memory_baseaddr
-    
+
     def _write(self, _st, _end, word : bytes, wstrb) -> bool | MemViewError:
         base_res = MemView._write(self,_st,_end,word,wstrb)
         if base_res == True:
@@ -85,7 +85,7 @@ class BytearrayMemView(MemView):
                 word[i] = self.memory[_st - self.memory_baseaddr + self.memory_section_offs + i]
         self.memory[_st - self.memory_baseaddr + self.memory_section_offs : _end - self.memory_baseaddr + self.memory_section_offs] = word
         return True
-    
+
     def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
         base_res = MemView._read(self,_st,_end,n_word_bits,big_endian)
         if isinstance(base_res, BinaryValue):
@@ -103,7 +103,7 @@ class HierarchicalMemView(MemView):
             read_cb=None, write_cb=None):
         MemView.__init__(self, read_cb, write_cb)
         self.children = children
-    
+
     def _write(self, _st, _end, word : bytes, wstrb) -> bool | MemViewError:
         base_res = MemView._write(self,_st,_end,word,wstrb)
         if base_res == True:
@@ -113,7 +113,7 @@ class HierarchicalMemView(MemView):
             if child_res == True:
                 return True
         return False
-    
+
     def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
         base_res = MemView._read(self,_st,_end,n_word_bits,big_endian)
         if isinstance(base_res, BinaryValue):

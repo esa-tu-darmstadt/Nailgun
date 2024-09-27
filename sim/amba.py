@@ -283,7 +283,7 @@ class AXI4Slave(BusDriver):
 
     Monitors an internal memory and handles read and write requests.
     '''
-    
+
 
     # Not currently supported by this driver
     _optional_signals = [
@@ -299,16 +299,16 @@ class AXI4Slave(BusDriver):
         self.clock = clock
 
         self.memview = memview
-        
+
         self._has_id = hasattr(self.bus, "ARID")
         # Assuming _has_id -> has ARID,RID,AWID,BID
-        
+
         self._has_size = hasattr(self.bus, "ARSIZE")
         # Assuming _has_size -> has ARSIZE,AWSIZE
-        
+
         self._has_burst = hasattr(self.bus, "ARBURST")
         # Assuming _has_burst -> has WLAST,RLAST,ARBURST,AWBURST,ARLEN,AWLEN
-        
+
         self._has_prot = hasattr(self.bus, "ARPROT")
         # Assuming _has_prot -> has ARPROT, AWPROT
 
@@ -327,7 +327,7 @@ class AXI4Slave(BusDriver):
         self._ar_requests = []
         self._aw_requests = []
         self._w_requests = []
-        
+
 
         self.write_address_busy = Lock("%s_wabusy" % name)
         self.read_address_busy = Lock("%s_rabusy" % name)
@@ -338,7 +338,7 @@ class AXI4Slave(BusDriver):
         cocotb.start_soon(self._write_addr())
         cocotb.start_soon(self._write_data())
         cocotb.start_soon(self._write_process())
-    
+
     def burst_nextaddr(self, prev, burst, axlen, size_in_bytes, diff_beats=1):
         if burst == 0b00 or diff_beats == 0:
             return prev
@@ -364,30 +364,30 @@ class AXI4Slave(BusDriver):
         if AxSIZE <= 7:
             return 2 ** AxSIZE
         return None
-    
+
     @cocotb.coroutine
     async def _write_process(self):
         clock_re = RisingEdge(self.clock)
         self.bus.BVALID.value = 0
-        
+
         while True:
             while True:
                 if len(self._w_requests) > 0:
                     break
                 await clock_re
-            
+
             await ReadOnly()
-            
+
             _st, _end, word, wstrb, wlast, aw_request = self._w_requests[0]
             _awaddr, _awlen, _awsize, _awburst, _awprot, _awid = aw_request
             self._w_requests = self._w_requests[1:]
-            
+
             await clock_re
             if self.artificial_stall:
                 # Artificial delay
                 for i in range(28): #25
                     await clock_re
-            
+
             # Assert the word byte length is a power of two
             assert(len(word) == len(word) & ~(len(word) - 1))
             if (len(word) > _end - _st):
@@ -397,7 +397,7 @@ class AXI4Slave(BusDriver):
                 word = word[_st_wordoffs:_end-_st+_st_wordoffs]
                 wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if wstrb.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
             self.memview.write(_st,_end,word,wstrb)
-            
+
             if wlast:
                 self.bus.BVALID.value = 1
                 if self._has_id:
@@ -409,9 +409,9 @@ class AXI4Slave(BusDriver):
                     await clock_re
                 await clock_re
                 self.bus.BVALID.value = 0
-            
-            
-    
+
+
+
     @cocotb.coroutine
     async def _write_data(self):
         clock_re = RisingEdge(self.clock)
@@ -426,7 +426,7 @@ class AXI4Slave(BusDriver):
                     break
 
             _awaddr, _awlen, _awsize, _awburst, _awprot, _awid = self._aw_requests[0]
-            
+
             await ReadOnly()
             word = self.bus.WDATA.value
             word.big_endian = self.big_endian
@@ -434,11 +434,11 @@ class AXI4Slave(BusDriver):
             wlast = self.bus.WLAST.value if self._has_burst else 1
             wstrb = self.bus.WSTRB.value
             wstrb.big_endian = self.big_endian
-            
+
             bytes_in_beat = self._size_to_bytes_in_beat(_awsize)
             _st = _awaddr  # start
             _end = _st + bytes_in_beat  # end
-            
+
             self._w_requests.append((_st, _end, word, wstrb, wlast, self._aw_requests[0]))
             if wlast:
                 self._aw_requests = self._aw_requests[1:]
@@ -448,8 +448,8 @@ class AXI4Slave(BusDriver):
                 # Next write beat: Incremented address (assuming incr mode) by beat byte size (2**awsize), then aligned by 2**awsize - 1.
                 next_addr = self.burst_nextaddr(_awaddr, _awburst, _awlen, bytes_in_beat)
                 self._aw_requests[0] = (next_addr, _awlen - 1, _awsize, _awburst, _awprot, _awid)
-            
-            
+
+
 
     @cocotb.coroutine
     async def _write_addr(self):
@@ -470,10 +470,10 @@ class AXI4Slave(BusDriver):
             _awburst = int(self.bus.AWBURST) if self._has_burst else 0b00
             _awprot = int(self.bus.AWPROT) if self._has_prot else 0b000
             _awid = int(self.bus.AWID) if self._has_id else 0
-            
+
             burst_length = _awlen + 1
             bytes_in_beat = self._size_to_bytes_in_beat(_awsize)
-            
+
             self._aw_requests.append((_awaddr, _awlen, _awsize, _awburst, _awprot, _awid))
 
 #            if __debug__ or True:
@@ -486,7 +486,7 @@ class AXI4Slave(BusDriver):
 #                    "AWID %d\n" % _awid +
 #                    "BURST_LENGTH %d\n" % burst_length +
 #                    "Bytes in beat %d\n" % bytes_in_beat)
-    
+
     @cocotb.coroutine
     async def _read_data(self):
         clock_re = RisingEdge(self.clock)
@@ -500,7 +500,7 @@ class AXI4Slave(BusDriver):
 
             _araddr, _arlen, _arsize, _arburst, _arprot, _arid = self._ar_requests[0]
             self._ar_requests = self._ar_requests[1:]
-            
+
             burst_length = _arlen + 1
             bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
             word = BinaryValue(n_bits=bytes_in_beat*8, bigEndian=self.big_endian)
@@ -516,13 +516,13 @@ class AXI4Slave(BusDriver):
             while True:
                 self.bus.RVALID.value = 1
                 _burst_diff = burst_length - burst_count
-                
+
                 _st = self.burst_nextaddr(_araddr, _arburst, _arlen, bytes_in_beat, diff_beats=_burst_diff)
                 _end = _st + bytes_in_beat
-                
+
                 rdata = self.memview.read(_st,_end, self.bus.RDATA.value.n_bits, self.big_endian)
                 rlast = 1 if (burst_count == 1) else 0
-                
+
                 self.bus.RDATA.value = rdata
                 if self._has_id:
                     self.bus.RID.value = _arid
@@ -532,7 +532,7 @@ class AXI4Slave(BusDriver):
 #                    "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
 #                    "RID    %d\n" % _arid +
 #                    "RLAST  %d\n" % rlast)
-                
+
                 while True:
                     await ReadOnly()
                     if self.bus.RREADY.value:
@@ -540,14 +540,14 @@ class AXI4Slave(BusDriver):
                     await clock_re
                 await clock_re
                 self.bus.RVALID.value = 0
-                
+
                 burst_count -= 1
                 if self._has_burst:
                     self.bus.RLAST.value = 0
                 if burst_count == 0:
                     break
-                
-            
+
+
     @cocotb.coroutine
     async def _read_addr(self):
         self.bus.ARREADY.value = 0
@@ -560,17 +560,17 @@ class AXI4Slave(BusDriver):
                 await ReadOnly()
                 if self.bus.ARREADY.value and self.bus.ARVALID.value:
                     break
-            
+
             _araddr = int(self.bus.ARADDR)
             _arlen = int(self.bus.ARLEN) if self._has_burst else 0
             _arsize = int(self.bus.ARSIZE) if self._has_size else 2 #Default 4 bytes per beat
             _arburst = int(self.bus.ARBURST) if self._has_burst else 0b00
             _arprot = int(self.bus.ARPROT) if self._has_prot else 0b000
             _arid = int(self.bus.ARID) if self._has_id else 0
-            
+
             self._ar_requests.append((_araddr, _arlen, _arsize, _arburst, _arprot, _arid))
 
-            if __debug__ or True: 
+            if __debug__ or True:
                 burst_length = _arlen + 1
                 bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
 #                print(
@@ -581,4 +581,4 @@ class AXI4Slave(BusDriver):
 #                    "ARPROT %d\n" % _arprot +
 #                    "BURST_LENGTH %d\n" % burst_length +
 #                    "Bytes in beat %d\n" % bytes_in_beat)
-            
+
