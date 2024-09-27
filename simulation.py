@@ -7,6 +7,7 @@ import shutil
 import error
 import run_cmd
 import scaiev
+import longnail
 
 
 def get_awesome_path():
@@ -31,14 +32,14 @@ def check_clang_exists(version):
     clang_path = os.path.join(llvm_build_path, "bin", "clang++")
     return os.path.exists(clang_path), clang_path
 
-def prepare_llvm(mlir_path, version, rebuild):
+def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
     ccache_size = "25G"
     if os.getenv("AWESOME_CCACHE_SIZE"):
         ccache_size = os.getenv("AWESOME_CCACHE_SIZE")
 
     mlir_path = os.path.abspath(mlir_path)
     awesome_path = get_awesome_path()
-    awesome_ln_bin = os.path.abspath(f"{awesome_path}/build/bin/longnail-opt")
+    awesome_ln_bin = longnail.get_longnail_bin(kconf_syms, "AWESOME", os.path.basename(get_awesome_path()))
 
     # Hard reset the llvm target repository
     llvm_exists, llvm_repo = llvm_repo_exists(version)
@@ -84,7 +85,7 @@ def prepare_llvm(mlir_path, version, rebuild):
         # Patch LLVM
         llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
         pass_opts = "disableISelGen=true" # No ISel patterns for now
-        run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.AWESOME_BASE + 4, False, 200)
+        run_cmd.run(".", f"{awesome_ln_bin[0] + ' ' if len(awesome_ln_bin) > 1 else ''}{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin[-1]} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.AWESOME_BASE + 4, False, 200)
         # Build LLVM
         run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", error.AWESOME_BASE + 5, False, 200)
 
@@ -244,7 +245,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             error.exit_error("Patching clang requires a ISAX MLIR input file!", error.USER_ERROR)
 
         print(" - Adding ISAX support to clang")
-        llvm_build_dir = prepare_llvm(mlir_path, llvm_version, not skip_clang_build)
+        llvm_build_dir = prepare_llvm(kconfig_syms, mlir_path, llvm_version, not skip_clang_build)
         if not only_add_cc_support:
             print(" - Compiling C++ TB")
             if not isax_name:

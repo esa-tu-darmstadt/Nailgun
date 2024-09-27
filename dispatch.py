@@ -73,7 +73,7 @@ if __name__ == "__main__":
     mlir_path = None
     if mlir_paths:
         # LN mlir to .sv
-        longnail.build_longnail()
+        longnail.build_longnail(kconf.syms)
         datasheet = longnail.select_core_datasheet(core_name)
         mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
         isax_yaml = longnail.provide_isax_yaml(out_dir)

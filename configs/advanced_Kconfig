@@ -49,4 +49,31 @@ menu "Advanced Options"
 		config SV_ENTRY_POINT_ISAX_YAML_PATH
 			string "Path to ISAX YAML file"
 	endmenu
+
+	config USE_PREBUILT_LN
+		bool "Use prebuilt Longnail binaries"
+		default n
+	menu "Longnail prebuilt settings"
+		depends on USE_PREBUILT_LN
+		config LN_BINARY
+			string "Path to Longnail binary"
+			default "deps/longnail/build/bin/longnail-opt"
+		config LN_LIB_PATH
+			string "Path to Longnail lib folder"
+			default "deps/longnail/circt/ext/lib64"
+	endmenu
+
+	config USE_PREBUILT_AWESOME
+		bool "Use prebuilt Awesome LLVM binaries"
+		default n
+	menu "Awesome LLVM prebuilt settings"
+		depends on USE_PREBUILT_AWESOME
+		config AWESOME_BINARY
+			string "Path to Awesome LLVM binary"
+			default "deps/awesome_llvm/build/bin/longnail-opt"
+		config AWESOME_LIB_PATH
+			string "Path to Awesome LLVM lib folder"
+			default "deps/awesome_llvm/circt/ext/lib64"
+	endmenu
+
 endmenu

@@ -36,11 +36,26 @@ def resolve_opty_lib(kconfig_syms):
     return os.path.abspath(kconfig_syms['LN_OPTY_CUSTOM_MODEL_PATH'].str_value)
 
 
+def get_longnail_bin(kconf_syms, opt_prefix = "LN", fallback_folder = "longnail"):
+    if kconf_syms[f"USE_PREBUILT_{opt_prefix}"].str_value == "y":
+        ln_path = os.path.abspath(kconf_syms[f"{opt_prefix}_BINARY"].str_value)
+        lib_path = os.path.abspath(kconf_syms[f"{opt_prefix}_LIB_PATH"].str_value)
+
+        if not os.path.exists(ln_path):
+            error.exit_error(f"Specified {fallback_folder} binary path '{ln_path}' does not exist!", error.USER_ERROR)
+        if not os.path.exists(lib_path):
+            error.exit_error(f"Specified {fallback_folder} lib path '{lib_path}' does not exist!", error.USER_ERROR)
+
+        return [f"LD_LIBRARY_PATH={lib_path}:$LD_LIBRARY_PATH", ln_path]
+    else:
+        return [os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")]
+
+
 def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     # gather src files
     skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
 
-    ln_path = os.path.abspath("./deps/longnail/build/bin/longnail-opt")
+    ln_path = " ".join(get_longnail_bin(kconfig_syms))
     isax_mlir = mlir_paths[0]
     if len(mlir_paths) > 1:
         concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
@@ -135,9 +150,9 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     return isax_mlir
 
 
-def build_longnail():
-    # create build and tool directory
-    os.makedirs("build", exist_ok=True)
+def build_longnail(kconf_syms):
+    if kconf_syms["USE_PREBUILT_LN"].str_value == "y":
+        return
 
     # build longnail
     if not os.path.isfile("deps/longnail/build/bin/longnail-opt"):
