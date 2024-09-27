@@ -1,8 +1,5 @@
 __pycache__
 .config*
 build
-*.dot
-*.dot.stats
 output*
-*.txt
 test_results

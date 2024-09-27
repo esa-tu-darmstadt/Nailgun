@@ -1,0 +1,158 @@
+# Expected results
+# L1 norm results
+# Previous decimal value: 6
+00000006
+# Previous decimal value: 6
+00000006
+# Previous decimal value: 15
+0000000F
+# Previous decimal value: 24
+00000018
+# Dot product results
+# vec0 . vec0
+# Previous decimal value: 1
+00000001
+# vec0 . vec1
+# Previous decimal value: 1
+00000001
+# vec0 . vec2
+# Previous decimal value: 2
+00000002
+# vec0 . vec3
+# Previous decimal value: -1
+FFFFFFFF
+# vec1 . vec1
+# Previous decimal value: 3
+00000003
+# vec1 . vec2
+# Previous decimal value: 2
+00000002
+# vec1 . vec3
+# Previous decimal value: 0
+00000000
+# vec2 . vec2
+# Previous decimal value: 12
+0000000C
+# vec2 . vec3
+# Previous decimal value: 0
+00000000
+# vec3 . vec3
+# Previous decimal value: 2
+00000002
+# Vector addition results
+# vec0 + vec0
+# Previous decimal value: -2
+FFFFFFFE
+# Previous decimal value: -4
+FFFFFFFC
+# Previous decimal value: -6
+FFFFFFFA
+# vec0 + vec1
+# Previous decimal value: 0
+00000000
+# Previous decimal value: -2
+FFFFFFFE
+# Previous decimal value: -2
+FFFFFFFE
+# vec0 + vec2
+# Previous decimal value: 0
+00000000
+# Previous decimal value: 0
+00000000
+# Previous decimal value: 0
+00000000
+# vec0 + vec3
+# Previous decimal value: 1337
+00000539
+# Previous decimal value: 42
+0000002A
+# Previous decimal value: 65536
+00010000
+# Vector scale results
+# vec0
+# Previous decimal value: -42
+FFFFFFD6
+# Previous decimal value: -84
+FFFFFFAC
+# Previous decimal value: -126
+FFFFFF82
+# vec1
+# Previous decimal value: 42
+0000002A
+# Previous decimal value: 1764
+000006E4
+# Previous decimal value: -42
+FFFFFFD6
+# vec2
+# Previous decimal value: 420
+000001A4
+# Previous decimal value: 840
+00000348
+# Previous decimal value: 12600
+00003138
+# vec3
+# Previous decimal value: 42042
+0000A43A
+# Previous decimal value: 420042
+000668CA
+# Previous decimal value: 42042042
+028182BA
+# Vector element-wise multiply results
+# vec0
+# Previous decimal value: 1
+00000001
+# Previous decimal value: 4
+00000004
+# Previous decimal value: 9
+00000009
+# vec1
+# Previous decimal value: 1
+00000001
+# Previous decimal value: 1764
+000006E4
+# Previous decimal value: 100
+00000064
+# vec2
+# Previous decimal value: 100
+00000064
+# Previous decimal value: 400
+00000190
+# Previous decimal value: 90000
+00015F90
+# vec3
+# Previous decimal value: 1002001
+000F4A11
+# Previous decimal value: 100020001
+05F62F21
+# overflow 2^32
+# Previous decimal value: 0
+00000000
+# Matrix Vector multiply + translation results
+# call 1
+# Previous decimal value: 53
+00000035
+# Previous decimal value: 52
+00000034
+# Previous decimal value: -56
+FFFFFFC8
+# call2
+# Previous decimal value: -81
+FFFFFFAF
+# Previous decimal value: -438
+FFFFFE4A
+# Previous decimal value: 601
+00000259
+# call 3
+# Previous decimal value: 2457
+00000999
+# Previous decimal value: 4840
+000012E8
+# Previous decimal value: -5958
+FFFFE8BA
+# call 4
+# Previous decimal value: -18549
+FFFFB78B
+# Previous decimal value: -47810
+FFFF453E
+# Previous decimal value: 61067
+0000EE8B

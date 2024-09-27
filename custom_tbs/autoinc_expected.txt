@@ -1,0 +1,400 @@
+# Previous decimal value: 0
+00000000
+# Previous decimal value: 1
+00000001
+# Previous decimal value: 2
+00000002
+# Previous decimal value: 3
+00000003
+# Previous decimal value: 4
+00000004
+# Previous decimal value: 5
+00000005
+# Previous decimal value: 6
+00000006
+# Previous decimal value: 7
+00000007
+# Previous decimal value: 8
+00000008
+# Previous decimal value: 9
+00000009
+# Previous decimal value: 10
+0000000A
+# Previous decimal value: 11
+0000000B
+# Previous decimal value: 12
+0000000C
+# Previous decimal value: 13
+0000000D
+# Previous decimal value: 14
+0000000E
+# Previous decimal value: 15
+0000000F
+# Previous decimal value: 16
+00000010
+# Previous decimal value: 17
+00000011
+# Previous decimal value: 18
+00000012
+# Previous decimal value: 19
+00000013
+# Previous decimal value: 20
+00000014
+# Previous decimal value: 21
+00000015
+# Previous decimal value: 22
+00000016
+# Previous decimal value: 23
+00000017
+# Previous decimal value: 24
+00000018
+# Previous decimal value: 25
+00000019
+# Previous decimal value: 26
+0000001A
+# Previous decimal value: 27
+0000001B
+# Previous decimal value: 28
+0000001C
+# Previous decimal value: 29
+0000001D
+# Previous decimal value: 30
+0000001E
+# Previous decimal value: 31
+0000001F
+# Previous decimal value: 32
+00000020
+# Previous decimal value: 33
+00000021
+# Previous decimal value: 34
+00000022
+# Previous decimal value: 35
+00000023
+# Previous decimal value: 36
+00000024
+# Previous decimal value: 37
+00000025
+# Previous decimal value: 38
+00000026
+# Previous decimal value: 39
+00000027
+# Previous decimal value: 40
+00000028
+# Previous decimal value: 41
+00000029
+# Previous decimal value: 42
+0000002A
+# Previous decimal value: 43
+0000002B
+# Previous decimal value: 44
+0000002C
+# Previous decimal value: 45
+0000002D
+# Previous decimal value: 46
+0000002E
+# Previous decimal value: 47
+0000002F
+# Previous decimal value: 48
+00000030
+# Previous decimal value: 49
+00000031
+# Previous decimal value: 50
+00000032
+# Previous decimal value: 51
+00000033
+# Previous decimal value: 52
+00000034
+# Previous decimal value: 53
+00000035
+# Previous decimal value: 54
+00000036
+# Previous decimal value: 55
+00000037
+# Previous decimal value: 56
+00000038
+# Previous decimal value: 57
+00000039
+# Previous decimal value: 58
+0000003A
+# Previous decimal value: 59
+0000003B
+# Previous decimal value: 60
+0000003C
+# Previous decimal value: 61
+0000003D
+# Previous decimal value: 62
+0000003E
+# Previous decimal value: 63
+0000003F
+# Previous decimal value: 64
+00000040
+# Previous decimal value: 65
+00000041
+# Previous decimal value: 66
+00000042
+# Previous decimal value: 67
+00000043
+# Previous decimal value: 68
+00000044
+# Previous decimal value: 69
+00000045
+# Previous decimal value: 70
+00000046
+# Previous decimal value: 71
+00000047
+# Previous decimal value: 72
+00000048
+# Previous decimal value: 73
+00000049
+# Previous decimal value: 74
+0000004A
+# Previous decimal value: 75
+0000004B
+# Previous decimal value: 76
+0000004C
+# Previous decimal value: 77
+0000004D
+# Previous decimal value: 78
+0000004E
+# Previous decimal value: 79
+0000004F
+# Previous decimal value: 80
+00000050
+# Previous decimal value: 81
+00000051
+# Previous decimal value: 82
+00000052
+# Previous decimal value: 83
+00000053
+# Previous decimal value: 84
+00000054
+# Previous decimal value: 85
+00000055
+# Previous decimal value: 86
+00000056
+# Previous decimal value: 87
+00000057
+# Previous decimal value: 88
+00000058
+# Previous decimal value: 89
+00000059
+# Previous decimal value: 90
+0000005A
+# Previous decimal value: 91
+0000005B
+# Previous decimal value: 92
+0000005C
+# Previous decimal value: 93
+0000005D
+# Previous decimal value: 94
+0000005E
+# Previous decimal value: 95
+0000005F
+# Previous decimal value: 96
+00000060
+# Previous decimal value: 97
+00000061
+# Previous decimal value: 98
+00000062
+# Previous decimal value: 99
+00000063
+# Previous decimal value: 0
+00000000
+# Previous decimal value: 1
+00000001
+# Previous decimal value: 2
+00000002
+# Previous decimal value: 3
+00000003
+# Previous decimal value: 4
+00000004
+# Previous decimal value: 5
+00000005
+# Previous decimal value: 6
+00000006
+# Previous decimal value: 7
+00000007
+# Previous decimal value: 8
+00000008
+# Previous decimal value: 9
+00000009
+# Previous decimal value: 10
+0000000A
+# Previous decimal value: 11
+0000000B
+# Previous decimal value: 12
+0000000C
+# Previous decimal value: 13
+0000000D
+# Previous decimal value: 14
+0000000E
+# Previous decimal value: 15
+0000000F
+# Previous decimal value: 16
+00000010
+# Previous decimal value: 17
+00000011
+# Previous decimal value: 18
+00000012
+# Previous decimal value: 19
+00000013
+# Previous decimal value: 20
+00000014
+# Previous decimal value: 21
+00000015
+# Previous decimal value: 22
+00000016
+# Previous decimal value: 23
+00000017
+# Previous decimal value: 24
+00000018
+# Previous decimal value: 25
+00000019
+# Previous decimal value: 26
+0000001A
+# Previous decimal value: 27
+0000001B
+# Previous decimal value: 28
+0000001C
+# Previous decimal value: 29
+0000001D
+# Previous decimal value: 30
+0000001E
+# Previous decimal value: 31
+0000001F
+# Previous decimal value: 32
+00000020
+# Previous decimal value: 33
+00000021
+# Previous decimal value: 34
+00000022
+# Previous decimal value: 35
+00000023
+# Previous decimal value: 36
+00000024
+# Previous decimal value: 37
+00000025
+# Previous decimal value: 38
+00000026
+# Previous decimal value: 39
+00000027
+# Previous decimal value: 40
+00000028
+# Previous decimal value: 41
+00000029
+# Previous decimal value: 42
+0000002A
+# Previous decimal value: 43
+0000002B
+# Previous decimal value: 44
+0000002C
+# Previous decimal value: 45
+0000002D
+# Previous decimal value: 46
+0000002E
+# Previous decimal value: 47
+0000002F
+# Previous decimal value: 48
+00000030
+# Previous decimal value: 49
+00000031
+# Previous decimal value: 50
+00000032
+# Previous decimal value: 51
+00000033
+# Previous decimal value: 52
+00000034
+# Previous decimal value: 53
+00000035
+# Previous decimal value: 54
+00000036
+# Previous decimal value: 55
+00000037
+# Previous decimal value: 56
+00000038
+# Previous decimal value: 57
+00000039
+# Previous decimal value: 58
+0000003A
+# Previous decimal value: 59
+0000003B
+# Previous decimal value: 60
+0000003C
+# Previous decimal value: 61
+0000003D
+# Previous decimal value: 62
+0000003E
+# Previous decimal value: 63
+0000003F
+# Previous decimal value: 64
+00000040
+# Previous decimal value: 65
+00000041
+# Previous decimal value: 66
+00000042
+# Previous decimal value: 67
+00000043
+# Previous decimal value: 68
+00000044
+# Previous decimal value: 69
+00000045
+# Previous decimal value: 70
+00000046
+# Previous decimal value: 71
+00000047
+# Previous decimal value: 72
+00000048
+# Previous decimal value: 73
+00000049
+# Previous decimal value: 74
+0000004A
+# Previous decimal value: 75
+0000004B
+# Previous decimal value: 76
+0000004C
+# Previous decimal value: 77
+0000004D
+# Previous decimal value: 78
+0000004E
+# Previous decimal value: 79
+0000004F
+# Previous decimal value: 80
+00000050
+# Previous decimal value: 81
+00000051
+# Previous decimal value: 82
+00000052
+# Previous decimal value: 83
+00000053
+# Previous decimal value: 84
+00000054
+# Previous decimal value: 85
+00000055
+# Previous decimal value: 86
+00000056
+# Previous decimal value: 87
+00000057
+# Previous decimal value: 88
+00000058
+# Previous decimal value: 89
+00000059
+# Previous decimal value: 90
+0000005A
+# Previous decimal value: 91
+0000005B
+# Previous decimal value: 92
+0000005C
+# Previous decimal value: 93
+0000005D
+# Previous decimal value: 94
+0000005E
+# Previous decimal value: 95
+0000005F
+# Previous decimal value: 96
+00000060
+# Previous decimal value: 97
+00000061
+# Previous decimal value: 98
+00000062
+# Previous decimal value: 99
+00000063

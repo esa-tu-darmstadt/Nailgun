@@ -1,0 +1,25 @@
+# Expected results
+# complex add
+# Previous decimal values: 42 42
+002A002A
+# complex_add & complex_add
+# result 1
+# Previous decimal values: -21 0
+FFEB0000
+# result 2
+# Previous decimal values: 32762 -384
+7FFAFE80
+# complex_add & complex_add register conflict
+# result 1
+# Previous decimal values: 21 0
+00150000
+# result 2
+# Previous decimal values: 42 42
+002A002A
+# complex_mul & complex_add
+# result 1
+# Previous decimal values: -2646 882
+F5AA0372
+# result 2
+# Previous decimal values: -1 -256
+FFFFFF00
