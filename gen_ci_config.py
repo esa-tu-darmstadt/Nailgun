@@ -90,6 +90,10 @@ if __name__ == "__main__":
     if only_add_cc_support:
         kconf.syms["ONLY_PATCH_CC"].set_value(only_add_cc_support)
 
+    scaiev_do_no_rebuild = os.getenv("SCAIEV_DO_NOT_REBUILD")
+    if scaiev_do_no_rebuild:
+        kconf.syms["SCAIEV_DO_NOT_REBUILD"].set_value(scaiev_do_no_rebuild)
+
     isax_name = os.getenv("CLANG_EXT_ISAX_NAME")
     if isax_name:
         kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].set_value("y")

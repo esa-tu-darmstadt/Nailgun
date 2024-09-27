@@ -1,4 +1,7 @@
 menu "Advanced Options"
+	config SCAIEV_DO_NOT_REBUILD
+		bool "Build SCAIE-V only once"
+		default n
 	config ONLY_PATCH_CC
 		bool "ONLY run HLS and add compiler support for the ISAXes"
 		default n

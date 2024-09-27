@@ -333,7 +333,9 @@ def select_tb_env_vars(core):
     else:
         error.exit_error("No testbench env vars found for the selected core!", error.INTERNAL_ERROR)
 
-def build_scaiev():
+def build_scaiev(kconf_syms):
+    if kconf_syms["SCAIEV_DO_NOT_REBUILD"].str_value == "y" and os.path.isfile("./deps/scaie-v/EclipseWork/SCAIEV/target/SCAIEV-0.0.1-SNAPSHOT.jar"):
+        return
     # build scaiev
     print("Building SCAIE-V...")
     run_cmd.run("deps/scaie-v/EclipseWork/SCAIEV", "mvn package", "Could not build SCAIE-V", error.SCAIEV_BASE + 1)

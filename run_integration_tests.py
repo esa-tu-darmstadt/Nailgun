@@ -53,7 +53,7 @@ cores = [
 for core in cores:
     for cmd, parallel in command_templates:
         if parallel:
-            parallelizable_commands.append(f'CLANG_EXT_ISAX_NAME="merged" SKIP_AWESOME_LLVM="y" CORE="{core}" {cmd}')
+            parallelizable_commands.append(f'CLANG_EXT_ISAX_NAME="merged" SKIP_AWESOME_LLVM="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}')
         else:
             sequential_commands.append(f'CORE="{core}" {cmd}')
 
