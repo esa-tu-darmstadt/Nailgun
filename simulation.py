@@ -138,14 +138,19 @@ def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, add
     return compile_tb(tb_path, core_name, out_dir, clang_path, objcopy_path, flags, additional_flags, error.AWESOME_BASE + 5)
 
 def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
-    tb_srcs, core_srcs, top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
-    # Add absolute paths to the tb wrapper srcs
-    wrapper_base = os.path.abspath("deps/scaie-v-testbenches/cores")
-    tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), tb_srcs))
-
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
+
+    external_tb_srcs, core_srcs, top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+    # Add absolute paths to the tb wrapper srcs
+    wrapper_base = os.path.abspath("deps/scaie-v-testbenches/cores")
+    external_tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), external_tb_srcs))
+    # Copy the external tb_srcs to the sim folder, we do not want external dependencies!
+    tb_srcs = []
+    for s in external_tb_srcs:
+        internal_tb_src = shutil.copy(s, sim_dir)
+        tb_srcs.append(internal_tb_src)
 
     core_base = os.path.abspath(os.path.join(out_dir, core_name))
     core_srcs = list(map(lambda s: os.path.join(core_base, s), core_srcs))
