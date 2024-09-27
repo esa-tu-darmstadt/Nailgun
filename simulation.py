@@ -155,6 +155,7 @@ def run_tb(out_dir, core_name, instr_bin_path, tb_expected_path):
     core_base = os.path.abspath(os.path.join(out_dir, core_name))
     core_srcs = list(map(lambda s: os.path.join(core_base, s), core_srcs))
     isax_src = list(map(lambda s: os.path.abspath(s), glob.glob(os.path.join(out_dir, '*.sv'))))
+    isax_src = isax_src + list(map(lambda s: os.path.abspath(s), glob.glob(os.path.join(out_dir, '*.v'))))
     verilog_srcs = core_srcs + tb_srcs + isax_src
 
     # Find all .py files in the sim directory
