@@ -78,7 +78,13 @@ if __name__ == "__main__":
         mlir_scheduled = os.getenv("MLIR_ENTRY_POINT_IS_SCHEDULED")
         if mlir_scheduled:
             kconf.syms[f"MLIR_ENTRY_POINT_IS_SCHEDULED"].set_value("y")
-
+    else:
+        sv_path = os.getenv("SV_ENTRY_POINT_PATH")
+        yaml_path = os.getenv("SV_ENTRY_POINT_ISAX_YAML_PATH")
+        if sv_path and yaml_path:
+            kconf.syms["SV_ENTRY_POINT"].set_value("y")
+            kconf.syms["SV_ENTRY_POINT_PATH"].set_value(sv_path)
+            kconf.syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].set_value(yaml_path)
 
     only_add_cc_support = os.getenv("ONLY_PATCH_CC")
     if only_add_cc_support:
