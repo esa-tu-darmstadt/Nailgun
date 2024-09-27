@@ -25,7 +25,7 @@ def check_clang_exists(version):
     llvm_exists, llvm_repo = llvm_repo_exists(version)
 
     if not llvm_exists:
-        return llvm_exists
+        return llvm_exists, None
 
     llvm_build_path = llvm_build_dir(llvm_repo)
     clang_path = os.path.join(llvm_build_path, "bin", "clang++")
