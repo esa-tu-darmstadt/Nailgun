@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # Package all results in an output folder
     out_dir = get_output_folder()
 
-    mlir_paths = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
+    mlir_paths, isax_yaml = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
 
     mlir_path = None
     if mlir_paths:
@@ -76,6 +76,7 @@ if __name__ == "__main__":
         longnail.build_longnail()
         datasheet = longnail.select_core_datasheet(core_name)
         mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
+        isax_yaml = longnail.provide_isax_yaml(out_dir)
 
     if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
         isax_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
@@ -87,7 +88,7 @@ if __name__ == "__main__":
     # SCAIE-V integrate into core
     if not only_add_cc_support:
         scaiev.build_scaiev()
-        scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
+        scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir)
 
     if mlir_path and isax_name:
         # Optionally run the simulation

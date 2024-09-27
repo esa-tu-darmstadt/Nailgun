@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 
 import error
 import treenail
@@ -38,6 +39,7 @@ def get_enabled_isaxes(kconf_syms):
 
 def resolve_mlir_paths(scaiev_core_name, out_dir, kconf_syms):
     mlir_paths = None
+    isax_yaml = None
     if kconf_syms["DEFAULT_ENTRY_POINT"].str_value == "y":
         # print enabled ISAXes
         print(f"Building {scaiev_core_name} with ISAXes:")
@@ -59,4 +61,19 @@ def resolve_mlir_paths(scaiev_core_name, out_dir, kconf_syms):
             mlir_paths = [ os.path.abspath(path) ]
         else:
             assert kconf_syms["SV_ENTRY_POINT"].str_value == "y"
-    return mlir_paths
+            isax_yaml = kconf_syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].str_value
+            if not os.path.exists(isax_yaml):
+                error.exit_error(f"Could not find ISAX YAML file '{isax_yaml}'. Please check your SV entry point path settings!", error.USER_ERROR)
+            # Copy ISAX YAML file to the output folder
+            out_yaml_file = os.path.join(out_dir, os.path.basename(isax_yaml))
+            shutil.copy(isax_yaml, out_yaml_file)
+            isax_yaml = out_yaml_file
+
+            isax_sv = kconf_syms["SV_ENTRY_POINT_PATH"].str_value
+            if not os.path.exists(isax_sv):
+                error.exit_error(f"Could not find ISAX SV file '{isax_sv}'. Please check your SV entry point path settings!", error.USER_ERROR)
+            # Copy ISAX SV file to the output folder
+            out_sv_file = os.path.join(out_dir, os.path.basename(isax_sv))
+            shutil.copy(isax_sv, out_sv_file)
+
+    return mlir_paths, isax_yaml
