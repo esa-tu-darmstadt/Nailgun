@@ -75,9 +75,11 @@ if __name__ == "__main__":
     else:
         out_dir = create_output_folder("output")
 
-    # print enabled ISAXes
     mlir_paths = None
-    if kconf.syms["MLIR_ENTRY_POINT"].str_value != "y":
+    mlir_path = None
+    isax_name = None
+    if kconf.syms["DEFAULT_ENTRY_POINT"].str_value == "y":
+        # print enabled ISAXes
         print(f"Building {scaiev_core_name} with ISAXes:")
         for isax,mlir in zip(enabled_isaxes, isax_input_files):
             print(f" - {isax[len('ISAX_'):-len('_EN')]} (associated description: {mlir})")
@@ -88,30 +90,35 @@ if __name__ == "__main__":
         treenail.build_treenail()
         mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files, out_dir)
     else:
-        # use the MLIR entry point path
-        path = kconf.syms["MLIR_ENTRY_POINT_PATH"].str_value
-        if not os.path.exists(path):
-            error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!", error.USER_ERROR)
-        mlir_paths = [ os.path.abspath(path) ]
+        if kconf.syms["MLIR_ENTRY_POINT"].str_value == "y":
+            # use the MLIR entry point path
+            path = kconf.syms["MLIR_ENTRY_POINT_PATH"].str_value
+            if not os.path.exists(path):
+                error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!", error.USER_ERROR)
+            mlir_paths = [ os.path.abspath(path) ]
+        else:
+            assert kconf.syms["SV_ENTRY_POINT"].str_value == "y"
 
-    # LN mlir to .v
-    longnail.build_longnail()
-    datasheet = longnail.select_core_datasheet(core_name)
-    mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
+    if mlir_paths:
+        # LN mlir to .v
+        longnail.build_longnail()
+        datasheet = longnail.select_core_datasheet(core_name)
+        mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
 
-    # Extract the isax name directly from the used mlir file
-    # Read the entire file into one string variable
-    with open(mlir_path, 'r') as file:
-        mlir_text = file.read()
-    # Define the regex pattern
-    pattern = r'module\s+@(\w+)\s*\{'
-    # Search for the pattern
-    match = re.search(pattern, mlir_text)
-    # Extract the module name if found
-    if match:
-        isax_name = match.group(1)
-    else:
-        error.exit_error("Could not extract the module's ISAX name", error.INTERNAL_ERROR)
+    if mlir_path:
+        # Extract the isax name directly from the used mlir file
+        # Read the entire file into one string variable
+        with open(mlir_path, 'r') as file:
+            mlir_text = file.read()
+        # Define the regex pattern
+        pattern = r'module\s+@(\w+)\s*\{'
+        # Search for the pattern
+        match = re.search(pattern, mlir_text)
+        # Extract the module name if found
+        if match:
+            isax_name = match.group(1)
+        else:
+            error.exit_error("Could not extract the module's ISAX name", error.INTERNAL_ERROR)
 
     if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
         isax_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
@@ -123,5 +130,6 @@ if __name__ == "__main__":
         scaiev.build_scaiev()
         scaiev.run_scaiev(scaiev_core_name, longnail.provide_isax_yaml(out_dir), out_dir)
 
-    # Optionally run the simulation
-    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
+    if mlir_path and isax_name:
+        # Optionally run the simulation
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
