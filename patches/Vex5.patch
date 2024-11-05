@@ -1,0 +1,19 @@
+diff --git a/build.sbt b/build.sbt
+index 0206cff..a2fdf24 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -12,6 +12,7 @@ lazy val root = (project in file(".")).
+       "com.github.spinalhdl" % "spinalhdl-lib_2.11" % spinalVersion,
+       compilerPlugin("com.github.spinalhdl" % "spinalhdl-idsl-plugin_2.11" % spinalVersion),
+       "org.scalatest" %% "scalatest" % "3.2.5",
++      "org.scalactic" %% "scalactic" % "3.2.10",
+       "org.yaml" % "snakeyaml" % "1.8"
+     ),
+     name := "VexRiscv"
+diff --git a/project/build.properties b/project/build.properties
+index 0b2e09c..04267b1 100644
+--- a/project/build.properties
++++ b/project/build.properties
+@@ -1 +1 @@
+-sbt.version=1.4.7
++sbt.version=1.9.9

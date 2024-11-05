@@ -1,6 +1,9 @@
 .section ".text.init"
 .globl _start
 _start:
+    #ifdef ASM_PERCOREENTRY
+    .include ASM_PERCOREENTRY
+    #endif
     li x1, 0
     li x2, 0
     li x3, 0
@@ -38,6 +41,7 @@ init_stack:
 
 # Completion interrupt.
 # NOTE: For cores that can write memory out of order, a write fence may be required here.
+    fence w,ow
     la s0, _ctrlmem
     li t0, 1
     sw t0, 0(s0)

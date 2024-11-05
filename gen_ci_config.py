@@ -56,7 +56,6 @@ if __name__ == "__main__":
         kconf.syms["LN_OPTY_CUSTOM_MODEL"].set_value("y")
         kconf.syms["LN_OPTY_CUSTOM_MODEL_PATH"].set_value(custom_opty_model_path)
 
-    
     ms = os.getenv("LN_SCHED_ALGO_MS")
     if ms and ms == "y":
         kconf.syms["LN_SCHED_ALGO_MS"].set_value(ms)
@@ -69,6 +68,10 @@ if __name__ == "__main__":
         mi = os.getenv("LN_SCHED_ALGO_MI")
         if mi and mi == "y":
             kconf.syms["LN_SCHED_ALGO_MI"].set_value(mi)
+
+    show_output = os.getenv("LN_ALWAYS_SHOW_OUTPUT")
+    if show_output:
+        kconf.syms["LN_ALWAYS_SHOW_OUTPUT"].set_value(show_output)
 
     mlir_path = os.getenv("MLIR_ENTRY_POINT_PATH")
     if mlir_path:

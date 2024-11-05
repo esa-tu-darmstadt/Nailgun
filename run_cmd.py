@@ -4,7 +4,7 @@ from collections import deque
 
 import error
 
-def run(dir, cmd, err_msg, error_code, output=True, n_lines=10):
+def run(dir, cmd, err_msg, error_code, output=True, n_lines=100):
     proc = subprocess.Popen(f"cd {dir} && {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     output_lines = deque(maxlen=n_lines)  # Store the last N lines
 

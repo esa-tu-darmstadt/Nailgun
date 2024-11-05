@@ -11,28 +11,29 @@ import scaiev
 import simulation
 
 
-def create_output_folder(base_path):
+def create_output_folder(base_path, base_name):
     # Start with the base path
-    path = base_path
+    os.makedirs(base_path, exist_ok=True)
+    path = os.path.join(base_path, base_name + "_0")
     suffix = 1
 
     # Check if the directory exists, and if so, add a suffix
     while os.path.exists(path):
-        path = f"{base_path}_{suffix}"
+        path = os.path.join(base_path, f"{base_name}_{suffix}")
         suffix += 1
 
     # Create the directory
     os.makedirs(path)
     return path
 
-def get_output_folder(base_path = "output"):
+def get_output_folder(base_path = "outputs", base_name = "run"):
     out_dir = os.getenv("OUTPUT_PATH")
     if out_dir:
         if not os.path.exists(out_dir):
             error.exit_error(f"Explicitly specified output path {out_dir} does not exist!", error.USER_ERROR)
         out_dir = os.path.abspath(out_dir)
     else:
-        out_dir = create_output_folder(base_path)
+        out_dir = create_output_folder(base_path, base_name)
     return out_dir
 
 def extract_isax_name(mlir_path):

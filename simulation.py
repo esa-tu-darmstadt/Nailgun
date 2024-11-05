@@ -50,31 +50,44 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
         run_cmd.run(".", f"git clone --depth=1 -b release/{version}.x https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.AWESOME_BASE + 1, False)
         # Configure cmake
         ccache_path = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/ccache")
+        targets = [
+            "riscv32-unknown-elf",
+            "riscv64-unknown-elf",
+        ]
+        compiler_rt_arg_templates = [
+            # We need compiler-rt as a baremetal version!
+            "COMPILER_RT_BAREMETAL_BUILD=ON",
+            # We are only interested in the builtins for software mul / div support
+            "COMPILER_RT_BUILD_BUILTINS=ON",
+            "COMPILER_RT_BUILD_MEMPROF=OFF",
+            "COMPILER_RT_BUILD_LIBFUZZER=OFF",
+            "COMPILER_RT_BUILD_PROFILE=OFF",
+            "COMPILER_RT_BUILD_SANITIZERS=OFF",
+            "COMPILER_RT_BUILD_XRAY=OFF",
+            # "LIBCXX_USE_COMPILER_RT=YES",
+            # "LIBCXXABI_USE_COMPILER_RT=YES",
+            # "CLANG_DEFAULT_RTLIB=compiler-rt",
+        ]
+        compiler_rt_args = []
+        if len(targets) > 1:
+            compiler_rt_args = [ f"-DRUNTIMES_{t}_{a}" for a in compiler_rt_arg_templates for t in targets]
+        else:
+            compiler_rt_args = compiler_rt_args + [ f"-D{a}" for a in compiler_rt_arg_templates]
+
         cmake_config = [
             "-DLLVM_ENABLE_PROJECTS=clang",
             "-DLLVM_TARGETS_TO_BUILD=RISCV",
             # When using enable runtimes, a default target triple is required
-            "-DLLVM_DEFAULT_TARGET_TRIPLE=riscv32-unknown-elf",
+            f"-DLLVM_DEFAULT_TARGET_TRIPLE={targets[0]}",
+            f"-DLLVM_RUNTIME_TARGETS=\"{';'.join(targets)}\"",
+            # "-DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON",
             "-DLLVM_ENABLE_RUNTIMES=compiler-rt",
-            # We need compiler-rt as a baremetal version!
-            "-DCOMPILER_RT_BAREMETAL_BUILD=ON",
-            # We are only interested in the builtins for software mul / div support
-            "-DCOMPILER_RT_BUILD_BUILTINS=ON",
-            "-DCOMPILER_RT_BUILD_MEMPROF=OFF",
-            "-DCOMPILER_RT_BUILD_LIBFUZZER=OFF",
-            "-DCOMPILER_RT_BUILD_PROFILE=OFF",
-            "-DCOMPILER_RT_BUILD_SANITIZERS=OFF",
-            "-DCOMPILER_RT_BUILD_XRAY=OFF",
-            # "-DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON",
-            # "-DLIBCXX_USE_COMPILER_RT=YES",
-            # "-DLIBCXXABI_USE_COMPILER_RT=YES",
-            # "-DCLANG_DEFAULT_RTLIB=compiler-rt",
             "-DBUILD_SHARED_LIBS=ON",
             "-DLLVM_CCACHE_BUILD=ON",
             f"-DLLVM_CCACHE_DIR='{ccache_path}'",
             f"-DLLVM_CCACHE_MAXSIZE={ccache_size}",
             "-DCMAKE_BUILD_TYPE=Debug",
-        ]
+        ] + compiler_rt_args
         run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", error.AWESOME_BASE + 2, False)
         rebuild = True # The desired version did not exists -> force rebuild
 
@@ -115,23 +128,29 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objdump_path, flags, additi
 
     return elf_file
 
+def core_specific_startup(core_name):
+    core_specific_asm = os.path.abspath(os.path.join("sim", "startup_scripts", f"{core_name}_init.s"))
+    if os.path.exists(core_specific_asm):
+        return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
+    return ""
+
 def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
-    supported_core_exts = scaiev.select_compiler_extensions(core_name)
+    supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
     objdump_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
-    arch_flags = f"-march=rv32{supported_core_exts} -mabi=ilp32"
+    arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
     c_flags = "-nostdlib -nostartfiles"
-    flags = f"{arch_flags} {c_flags}"
+    flags = f"{arch_flags} {c_flags} {core_specific_startup(core_name)}"
 
     return compile_tb(tb_path, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2)
 
 def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version):
-    supported_core_exts = scaiev.select_compiler_extensions(core_name)
+    supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
-    startup_asm = os.path.abspath(os.path.join("sim", "startup.s"))
-    compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', 'riscv32-unknown-elf')}"
-    flags = f'--target="riscv32-unknown-elf" -menable-experimental-extensions -mabi="ilp32" -march="rv32{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {compiler_rt_flags}'
+    startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
+    compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
+    flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{abi}" -march="rv{bit}{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
     return compile_tb(tb_path, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5)
 
@@ -142,7 +161,7 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path):
 
     external_tb_srcs, core_srcs, top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
     # Add absolute paths to the tb wrapper srcs
-    wrapper_base = os.path.abspath("deps/scaie-v-testbenches/cores")
+    wrapper_base = os.path.abspath("deps/scaie-v/util/maketop")
     external_tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), external_tb_srcs))
     # Copy the external tb_srcs to the sim folder, we do not want external dependencies!
     tb_srcs = []

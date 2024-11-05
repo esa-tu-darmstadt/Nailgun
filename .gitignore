@@ -1,5 +1,5 @@
 __pycache__
 .config*
 build
-output*
+outputs
 test_results

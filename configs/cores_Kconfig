@@ -8,6 +8,9 @@ config CORE_PICORV32
 config CORE_CVA5
 	bool "CVA5"
 
+config CORE_CVA6
+	bool "CVA6"
+
 config CORE_ORCA
 	bool "ORCA"
 

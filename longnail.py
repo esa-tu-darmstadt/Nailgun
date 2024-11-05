@@ -55,6 +55,8 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     # gather src files
     skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
 
+    show_ln_output = kconfig_syms["LN_ALWAYS_SHOW_OUTPUT"].str_value == "y"
+
     ln_path = " ".join(get_longnail_bin(kconfig_syms))
     isax_mlir = mlir_paths[0]
     if len(mlir_paths) > 1:
@@ -65,7 +67,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
                 with open(f, "r") as fo:
                     isax_mlir_file.write(fo.read())
             os.fsync(isax_mlir_file)
-        run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, False, 200)
+        run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, show_ln_output, 200)
 
     # check inputs
     try:
@@ -105,7 +107,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     if not skip_scheduling:
         longnail_flags_str = functools.reduce(
             lambda a, b: a+" "+b, longnail_schedule_flags)
-        run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, False, 200)
+        run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, show_ln_output, 200)
     else:
         sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
 
@@ -137,16 +139,18 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     longnail_hw_gen_flags = [
         "-lower-lil-to-hw=forceUseMinIISolution=true" if force_min_II_solutions else f"-lower-lil-to-hw=solutionSelection={sol_selection_file}",
-        "-simplify-structure", "-cse", "-canonicalize",
+        "-simplify-structure", "-cse", "-canonicalize", "-print-stats",
         "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-hw-legalize-modules",
         f"-export-split-verilog=dir-name={out_dir}", "-o /dev/null"
     ]
     if kconfig_syms['LN_DEBUG_HWGEN'].str_value == "y":
         longnail_hw_gen_flags.append("-debug-only=hw-gen")
+    if kconfig_syms['LN_DEBUG_PRINT_STATS'].str_value == "y":
+        longnail_hw_gen_flags.append("-debug-only=print-stats")
 
     longnail_flags_str = functools.reduce(
         lambda a, b: a+" "+b, longnail_hw_gen_flags)
-    run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 5, False, 200)
+    run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 5, show_ln_output, 200)
     return isax_mlir
 
 
@@ -187,6 +191,8 @@ def select_core_datasheet(kconfig_core):
         return f"{datasheet_folder}/VexRiscv_5s.yaml"
     elif (kconfig_core == "CORE_CVA5"):
         return f"{datasheet_folder}/CVA5.yaml"
+    elif (kconfig_core == "CORE_CVA6"):
+        return f"{datasheet_folder}/CVA6.yaml"
     else:
         error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!", error.USER_ERROR)
 

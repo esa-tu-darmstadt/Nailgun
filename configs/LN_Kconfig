@@ -58,6 +58,9 @@ menu "Longnail HLS configuration"
 			default n
 	endmenu
 	menu "Debugging"
+		config LN_ALWAYS_SHOW_OUTPUT
+			bool "Always show the full output of Longnail invocations"
+			default n
 		config LN_DEBUG_SCHEDULING
 			bool "Enable scheduling debug messages"
 			default n
@@ -66,6 +69,9 @@ menu "Longnail HLS configuration"
 			default n
 		config LN_DEBUG_HWGEN
 			bool "Enable hw-gen debug messages"
+			default n
+		config LN_DEBUG_PRINT_STATS
+			bool "Enable print-stats debug messages"
 			default n
 	endmenu
 endmenu

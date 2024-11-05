@@ -10,6 +10,8 @@ init_commands = [
 ]
 
 patch_compiler_commands = [
+    # Prepare clang
+    # Prepare gcc
 ]
 
 # List of integration tests to run
@@ -18,7 +20,7 @@ sequential_commands = [
 ]
 # Tests that can be executed in parallel, once the compilers has been patched
 parallelizable_commands = [
-    # RdRD is only supported on CVA5
+    # RdRD is only supported on CVA5 & CVA6
 ]
 
 # Integration tests that are run for EVERY available core
@@ -31,7 +33,7 @@ command_templates = [
     ('ISAXES="SPARKLE" SIM_EN="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True),
     ('ISAXES="SQRT" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True),
     ('TB_CPP_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True),
-    ('ISAXES="ZOL" SIM_EN="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt"', False), # TODO change back to parallizable as soon as all cores support ZOL again and we can add compiler support
+    ('ISAXES="ZOL" SIM_EN="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt"', True),
     ('ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', True),
     ('ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True),
     # MLIR entrypoint tests
@@ -42,6 +44,7 @@ command_templates = [
 ]
 
 cores = [
+    "CVA6",
     "CVA5",
     "PICORV32",
     "PICCOLO",
