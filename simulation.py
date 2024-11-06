@@ -82,6 +82,8 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
             f"-DLLVM_RUNTIME_TARGETS=\"{';'.join(targets)}\"",
             # "-DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON",
             "-DLLVM_ENABLE_RUNTIMES=compiler-rt",
+            # We need compiler-rt as a baremetal version!
+            "-DCOMPILER_RT_BAREMETAL_BUILD=ON",
             "-DBUILD_SHARED_LIBS=ON",
             "-DLLVM_CCACHE_BUILD=ON",
             f"-DLLVM_CCACHE_DIR='{ccache_path}'",
