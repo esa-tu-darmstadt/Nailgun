@@ -161,7 +161,7 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path):
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
 
-    external_tb_srcs, core_srcs, top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+    external_tb_srcs, core_srcs, tb_top_module, core_top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
     # Add absolute paths to the tb wrapper srcs
     wrapper_base = os.path.abspath("deps/scaie-v/util/maketop")
     external_tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), external_tb_srcs))
@@ -201,7 +201,7 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path):
 
 VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
-TOPLEVEL = {top_module}
+TOPLEVEL = {tb_top_module}
 MODULE = test_default
 SIM = verilator
 # Do not treat warnings as fatal errors!

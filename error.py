@@ -7,6 +7,7 @@ LN_BASE = 100
 SCAIEV_BASE = 150
 SIM_BASE = 200
 AWESOME_BASE = 220
+OPENLANE_BASE = 230
 GCC_BASE = 240
 
 def exit_error(msg, error_code = -1):

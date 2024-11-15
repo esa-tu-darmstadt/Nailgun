@@ -101,7 +101,7 @@ def run_scaiev(core, isax_desc, out_dir):
     elif (core == "Piccolo"):
         build_target_dir = os.path.join(target_dir, "builds/RV32ACIMU_Piccolo_verilator")
         run_cmd.run(build_target_dir, 'make clean', "Could not clean Piccolo build directory", error.SCAIEV_BASE + 7, False)
-        run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore make compile', "Could not compile Piccolo bluespec sources to verilog", error.SCAIEV_BASE + 8, False)
+        run_cmd.run(build_target_dir, f'TOPFILE="{target_dir}/src_Core/Core/Core.bsv" TOPMODULE=mkCore BSC_COMPILATION_FLAGS=\'-verilog-filter "sed -i \\"/\\/\\/ synopsys translate_off/,/\\/\\/ synopsys translate_on/d\\""\' make compile', "Could not compile Piccolo bluespec sources to verilog", error.SCAIEV_BASE + 8, False)
     elif (core == "ORCA"):
         # Things are getting wild
         patch_file = os.path.abspath("patches/ORCA_src_patch.diff")
@@ -172,12 +172,9 @@ def select_compiler_extensions(core):
     else:
         error.exit_error("No supported compiler extensions found for the selected core!", error.INTERNAL_ERROR)
 
-def find_verilog_srcs(source_folder):
+def find_verilog_srcs(source_folder, blacklist = []):
     # Blacklist unnecessary files, ones that might break the build
-    blacklist = [
-        # Piccolo
-        os.path.join(source_folder, "mkSoC_Top.v"),
-    ]
+    blacklist = [os.path.join(source_folder, f) for f in blacklist]
 
     v_sources = []
     # Iterate over the contents of the source folder
@@ -193,22 +190,33 @@ def find_verilog_srcs(source_folder):
 def select_tb_wrapper_srcs(core, out_dir):
     scal_sources = [ "CommonLogicModule.sv" ] #TODO can this also be CommonLogicModule.v?
     if (core == "PicoRV32"):
-        return ["picorv32_tb_wrapper.sv"], ["picorv32.v", "picorv32_top.v"] + scal_sources, "testbench", ""
+        return ["picorv32_tb_wrapper.sv"], ["picorv32.v", "picorv32_top.v"] + scal_sources, "testbench", "top", ""
     elif (core == "ORCA"):
-        return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", ""
+        return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", "top", ""
     elif (core == "Piccolo"):
-        bsv_lib_sources = find_verilog_srcs(os.path.join(out_dir, core, "src_bsc_lib_RTL"))
-        core_srcs = find_verilog_srcs(os.path.join(out_dir, core, "builds/RV32ACIMU_Piccolo_verilator/Verilog_RTL"))
+        bsv_lib_sources = find_verilog_srcs(os.path.join(out_dir, core, "src_bsc_lib_RTL"), [
+            # Blacklist:
+            "main.v"
+        ])
+        core_srcs = find_verilog_srcs(os.path.join(out_dir, core, "builds/RV32ACIMU_Piccolo_verilator/Verilog_RTL"), [
+            # Blacklist:
+            "mkSoC_Top.v",
+        ])
         extra_makefile_args = """
 EXTRA_ARGS+=-DBSV_NO_MAIN_V
 EXTRA_ARGS+=--no-timing
 # Verilator throws lots of warnings on the BlueSpec-compiled core. Ignoring some of them.
 EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
 """
-        return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", extra_makefile_args
+        return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", "top", extra_makefile_args
     elif (core == "CVA5"):
         compile_order = os.path.join("deps/scaie-v/CoresSrc", core, "tools/compile_order")
-        return ["CVA5_tb_wrapper.v"], read_file_lines(compile_order) + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", ""
+        core_files = read_file_lines(compile_order)
+        blacklist = [
+            "l2_arbiter/l2_fifo.sv",
+        ]
+        core_files = [f for f in core_files if not f in blacklist]
+        return ["CVA5_tb_wrapper.v"], core_files + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", ""
     elif (core == "CVA6"):
         core_srcs = [
             "vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv",
@@ -399,9 +407,9 @@ EXTRA_ARGS+=+define$(shell cat $(SRCDIR)/SCAIE-V_Flags.txt)
 EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
 """
 
-        return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", extra_makefile_args
+        return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", "cva6_ariane_wrapper", extra_makefile_args
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
-        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", ""
+        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", ""
     else:
         error.exit_error("No testbench wrapper found for the selected core!", error.INTERNAL_ERROR)
 
