@@ -190,9 +190,9 @@ def find_verilog_srcs(source_folder, blacklist = []):
 def select_tb_wrapper_srcs(core, out_dir):
     scal_sources = [ "CommonLogicModule.sv" ] #TODO can this also be CommonLogicModule.v?
     if (core == "PicoRV32"):
-        return ["picorv32_tb_wrapper.sv"], ["picorv32.v", "picorv32_top.v"] + scal_sources, "testbench", "top", ""
+        return ["picorv32_tb_wrapper.sv"], ["picorv32.v", "picorv32_top.v"] + scal_sources, "testbench", "top", [], [], ""
     elif (core == "ORCA"):
-        return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", "top", ""
+        return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", "top", [], [], ""
     elif (core == "Piccolo"):
         bsv_lib_sources = find_verilog_srcs(os.path.join(out_dir, core, "src_bsc_lib_RTL"), [
             # Blacklist:
@@ -203,12 +203,11 @@ def select_tb_wrapper_srcs(core, out_dir):
             "mkSoC_Top.v",
         ])
         extra_makefile_args = """
-EXTRA_ARGS+=-DBSV_NO_MAIN_V
 EXTRA_ARGS+=--no-timing
 # Verilator throws lots of warnings on the BlueSpec-compiled core. Ignoring some of them.
 EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
 """
-        return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", "top", extra_makefile_args
+        return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", "top", [], [], extra_makefile_args
     elif (core == "CVA5"):
         compile_order = os.path.join("deps/scaie-v/CoresSrc", core, "tools/compile_order")
         core_files = read_file_lines(compile_order)
@@ -216,7 +215,7 @@ EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
             "l2_arbiter/l2_fifo.sv",
         ]
         core_files = [f for f in core_files if not f in blacklist]
-        return ["CVA5_tb_wrapper.v"], core_files + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", ""
+        return ["CVA5_tb_wrapper.v"], core_files + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", [], [], ""
     elif (core == "CVA6"):
         core_srcs = [
             "vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv",
@@ -390,26 +389,31 @@ EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
             "core/cva6_mmu/cva6_shared_tlb.sv",
         ]
 
+        include_dirs = [
+            "core",
+            "core/include",
+            "vendor/pulp-platform/common_cells/include",
+            "vendor/pulp-platform/common_cells/src",
+            "vendor/pulp-platform/axi/include",
+            "common/local/util",
+            "core/cache_subsystem/hpdcache/rtl/include",
+        ]
+
+        plus_defines = read_file_lines(os.path.join(out_dir, core, "SCAIE-V_Flags.txt"))
+        assert len(plus_defines) == 1
+        plus_defines = plus_defines[0]
+        defines = [d for d in plus_defines.split("+") if d]
+
         extra_makefile_args = """
 SRCDIR=../CVA6
-# Include folders
-EXTRA_ARGS+=-I$(SRCDIR)/core/
-EXTRA_ARGS+=-I$(SRCDIR)/core/include/
-EXTRA_ARGS+=+incdir+$(SRCDIR)/vendor/pulp-platform/common_cells/include/
-EXTRA_ARGS+=-I$(SRCDIR)/vendor/pulp-platform/common_cells/src/
-EXTRA_ARGS+=-I$(SRCDIR)/vendor/pulp-platform/axi/include/
-EXTRA_ARGS+=-I$(SRCDIR)/common/local/util/
-EXTRA_ARGS+=-I$(SRCDIR)/core/cache_subsystem/hpdcache/rtl/include
 # Flags
 EXTRA_ARGS+=-DENABLE_SIMULATION_ASSERTIONS
-# SCAIE-V flags to enable specific code blocks
-EXTRA_ARGS+=+define$(shell cat $(SRCDIR)/SCAIE-V_Flags.txt)
 EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
 """
 
-        return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", "cva6_ariane_wrapper", extra_makefile_args
+        return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", "cva6_ariane_wrapper", include_dirs, defines, extra_makefile_args
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
-        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", ""
+        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], [], ""
     else:
         error.exit_error("No testbench wrapper found for the selected core!", error.INTERNAL_ERROR)
 

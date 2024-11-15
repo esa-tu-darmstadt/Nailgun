@@ -16,9 +16,10 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     syn_dir = os.path.abspath(os.path.join(out_dir, "hw_syn"))
     os.makedirs(syn_dir, exist_ok=False)
 
-    _external_tb_srcs, core_srcs, _tb_top_module, core_top_module, _extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+    _external_tb_srcs, core_srcs, _tb_top_module, core_top_module, include_dirs, defines,_extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
 
     core_base = os.path.abspath(os.path.join(out_dir, core_name))
+    include_dirs = [os.path.join(core_base, d) for d in include_dirs]
     core_srcs = list(map(lambda s: os.path.join(core_base, s), core_srcs))
 
     if core_name == "CVA5" or core_name == "CVA6":
@@ -43,9 +44,9 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     
     if kconfig_syms["OL2_DSE"].str_value == "y":
         # Start DSE
-        dse.run_dse(verilog_srcs, syn_dir, "dummyName", algo_name, clock_period, fp_util, top_module, clk_name, config_template)
+        dse.run_dse(verilog_srcs, syn_dir, isax_name, algo_name, clock_period, fp_util, top_module, clk_name, config_template, defines, include_dirs)
     else:
         # Only perfom a single openlane run
-        config_values = dse.get_config_values(top_module, clk_name, clock_period, fp_util)
+        config_values = dse.get_config_values(top_module, clk_name, clock_period, fp_util, defines, include_dirs)
         config_values['{{SRC_FILES}}'] = dse.get_ol_config_src_entries(verilog_srcs, syn_dir)
         run_openlane.run_openlane(syn_dir, config_template, config_values, None, None)

@@ -27,19 +27,21 @@ def run_synth_jobs(jobs):
             results.append(result)
     return results
 
-def get_config_values(design_name, clk_name, clock_period, util):
+def get_config_values(design_name, clk_name, clock_period, util, defines, include_dirs):
     syn_values = {
         "{{DESIGN_NAME}}": design_name,
         "{{CLK_NAME}}": clk_name,
         "{{CLK_PERIOD}}": clock_period,
         "{{FP_UTIL}}": util,
+        "{{VERILOG_DEFINES}}": defines,
+        "{{VERILOG_INCLUDE_DIRS}}": include_dirs,
     }
     return syn_values
 
 def get_ol_config_src_entries(src_files, syn_dir):
     return [f"dir::{os.path.relpath(f, syn_dir)}" for f in src_files]
 
-def test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_period, initial_utilization, clk_name, config_template):
+def test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_period, initial_utilization, clk_name, config_template, defines, include_dirs):
     step = 5
     end_util = 80
     found_solution = False
@@ -49,7 +51,7 @@ def test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_pe
     os.makedirs(log_dir, exist_ok = True)
 
     # Define placeholders and their replacement values
-    syn_values = get_config_values(design_name, clk_name, clock_period, initial_utilization)
+    syn_values = get_config_values(design_name, clk_name, clock_period, initial_utilization, defines, include_dirs)
 
     def create_args_and_log_name(util):
         # Construct the OpenLane run command
@@ -99,7 +101,7 @@ def test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_pe
 
     return found_solution, last_working_util
 
-def run_dse(src_files, syn_dir, project_name, algorithm, initial_clock_period, initial_utilization, design_name, clk_name, config_template):
+def run_dse(src_files, syn_dir, project_name, algorithm, initial_clock_period, initial_utilization, design_name, clk_name, config_template, defines, include_dirs):
     clock_period = initial_clock_period
     found_solution = False
     last_working_clk_period = None
@@ -107,7 +109,7 @@ def run_dse(src_files, syn_dir, project_name, algorithm, initial_clock_period, i
     found_working = False
 
     while True:
-        _found_solution, _last_working_util = test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_period, initial_utilization, clk_name, config_template)
+        _found_solution, _last_working_util = test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_period, initial_utilization, clk_name, config_template, defines, include_dirs)
 
         if _found_solution:
             found_solution = True
@@ -144,4 +146,4 @@ if __name__ == "__main__":
 
     src_files = glob.glob(os.path.join(src_dir, "*.sv"))
     src_files += glob.glob(os.path.join(src_dir, "*.v"))
-    run_dse(src_files, syn_dir, project_name, algorithm, initial_clock_period, initial_utilization, design_name, clk_name, config_template)
+    run_dse(src_files, syn_dir, project_name, algorithm, initial_clock_period, initial_utilization, design_name, clk_name, config_template, [], [])

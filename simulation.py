@@ -161,7 +161,7 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path):
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
 
-    external_tb_srcs, core_srcs, tb_top_module, core_top_module, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+    external_tb_srcs, core_srcs, tb_top_module, core_top_module, include_dirs, defines, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
     # Add absolute paths to the tb wrapper srcs
     wrapper_base = os.path.abspath("deps/scaie-v/util/maketop")
     external_tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), external_tb_srcs))
@@ -194,6 +194,9 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path):
 
     newline = "\n"
 
+    defines = [f"EXTRA_ARGS += -D{d}" for d in defines]
+    include_dirs = [f"EXTRA_ARGS += -I{os.path.relpath(os.path.join(core_base, inc), sim_dir)}" for inc in include_dirs]
+
     # Create a makefile to run the simulation
     sim_mk = os.path.join(sim_dir, "Makefile")
     with open(sim_mk, 'w') as f:
@@ -213,6 +216,12 @@ EXTRA_ARGS += --trace-fst --trace --trace-structs --trace-underscore
 # Use more than one core to compile the simulation models
 BUILD_ARGS += -j$(shell nproc)
 
+# Include directories
+{newline.join(include_dirs)}
+# Defines
+{newline.join(defines)}
+
+# Extra Makefile options
 {extra_makefile_opts}
 
 # test_default.py configuration settings
