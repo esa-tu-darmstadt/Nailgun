@@ -8,7 +8,7 @@ import tempfile
 
 import error
 import run_cmd
-import sol_sel_to_yaml
+from tools import sol_sel_to_yaml
 
 
 def resolve_sched_algo(kconfig_syms):
