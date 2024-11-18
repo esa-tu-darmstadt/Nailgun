@@ -4,9 +4,16 @@ import glob
 
 import scaiev
 import error
+import run_cmd
 
 from tools.hw_syn import dse
 from tools.hw_syn import run_openlane
+
+def run_yosys_slang(srcs, include_dirs, defines, out_src, top_module):
+    include_dirs = [f"-I {d}" for d in include_dirs]
+    defines = [f"-D {d}" for d in defines]
+    # TODO having to run bwmuxmap manually might be a bug: https://github.com/YosysHQ/yosys/issues/4751
+    run_cmd.run(".", f'yosys -m deps/yosys-slang/build/slang.so -p "read_slang --allow-dup-initial-drivers --top {top_module} {" ".join(include_dirs)} {" ".join(defines)} {" ".join(srcs)}; bwmuxmap; opt_clean; write_verilog \\"{out_src}\\""', "Failed to preprocess core files with yosys-slang", error.OPENLANE_BASE + 1)
 
 def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     if kconfig_syms['OL2_ENABLE'].str_value != "y":
@@ -22,12 +29,19 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     include_dirs = [os.path.join(core_base, d) for d in include_dirs]
     core_srcs = list(map(lambda s: os.path.join(core_base, s), core_srcs))
 
-    if core_name == "CVA5" or core_name == "CVA6":
-        error.exit_error(f"{core_name} is not synthesizable with OL2")
-        # CVA6 might actually work(with sv2v preprocessing), but I did not wanted to add all includes manually!
-
     isax_src = list(map(lambda s: os.path.abspath(s), glob.glob(os.path.join(out_dir, '*.sv'))))
     isax_src = isax_src + list(map(lambda s: os.path.abspath(s), glob.glob(os.path.join(out_dir, '*.v'))))
+
+    if core_name == "CVA5" or core_name == "CVA6":
+        sv2v_dir = os.path.join(syn_dir, "sv2v")
+        os.makedirs(sv2v_dir, exist_ok=False)
+        sv2v_outfile = os.path.join(sv2v_dir, "core.v")
+        defines.append("VERILATOR")
+        run_yosys_slang(core_srcs + isax_src, include_dirs, defines, sv2v_outfile, core_top_module)
+        core_srcs = [sv2v_outfile]
+        include_dirs = []
+        isax_src = []
+
     verilog_srcs = core_srcs + isax_src
 
     #TODO get algorithm name from LN
