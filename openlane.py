@@ -2,6 +2,7 @@
 import os
 import glob
 
+import longnail
 import scaiev
 import error
 import run_cmd
@@ -44,8 +45,7 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
 
     verilog_srcs = core_srcs + isax_src
 
-    #TODO get algorithm name from LN
-    algo_name = "LEGACY"
+    algo_name = longnail.resolve_sched_algo(kconfig_syms)
     config_template = kconfig_syms["OL2_CONFIG_TEMPLATE"].str_value
     clock_period = 1000.0 / int(kconfig_syms["OL2_TARGET_FREQ"].str_value)
     fp_util = int(kconfig_syms["OL2_TARGET_UTIL"].str_value)
