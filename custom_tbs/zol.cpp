@@ -24,7 +24,7 @@ int main() {
   //                          ITERATIONS);
   // Increment 'res' using RISC-V inline assembly
   asm volatile(
-      ASM_PREFIX ".setup_zol 2, 42\n" // Initialize the loop
+      ASM_PREFIX ".setup_zol 4, 41\n" // Initialize the loop
       "addi %0, %0, 1\n" // RISC-V instruction to add immediate value 1 to res
       : "+r"(res)        // Output operand: 'res' will be modified
   );
