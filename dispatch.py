@@ -95,5 +95,6 @@ if __name__ == "__main__":
     # Optionally run the simulation
     simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
 
-    # Optionally run OpenLane 2
-    openlane.run_synthesis(out_dir, scaiev_core_name, kconf.syms, isax_name)
+    if not only_add_cc_support:
+        # Optionally run OpenLane 2
+        openlane.run_synthesis(out_dir, scaiev_core_name, kconf.syms, isax_name)
