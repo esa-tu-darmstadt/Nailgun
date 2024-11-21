@@ -90,7 +90,7 @@ if __name__ == "__main__":
     # SCAIE-V integrate into core
     if not only_add_cc_support:
         scaiev.build_scaiev(kconf.syms)
-        scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir)
+        scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
     # Optionally run the simulation
     simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)

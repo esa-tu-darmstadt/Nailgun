@@ -70,7 +70,7 @@ def copy_folder_contents(source_folder, target_folder):
         elif os.path.isdir(source_item):
             shutil.copytree(source_item, target_item, dirs_exist_ok=True)
 
-def run_scaiev(core, isax_desc, out_dir):
+def run_scaiev(core, isax_desc, out_dir, kconf_syms):
     print(f"Invoking SCAIEV:")
     # create build and tool directory
     target_dir = os.path.abspath(f"{out_dir}/{core}")
@@ -79,10 +79,26 @@ def run_scaiev(core, isax_desc, out_dir):
     isax_desc = os.path.abspath(isax_desc)
     isax_dir = os.path.dirname(isax_desc)
 
+
+    # set scaie-v parameters
+    scv_args = [
+        f"-c {core}",
+        f"-i {isax_desc}",
+        f"-o {os.path.abspath(out_dir)}",
+        f"-ctx {kconf_syms['SCV_INTERNAL_CONTEXTS_AMOUNT'].str_value}"
+    ]
+
+    # read config and add scaie-v parameters
+    if kconf_syms[f"SCV_DISABLE_DECOUPLED_HAZARD_HANDLING"].str_value == "y":
+        scv_args.append("-decoupled_without_DH")
+    if kconf_syms[f"SCV_DISABLE_DECOUPLED_INPUT_FIFO"].str_value == "y":
+        scv_args.append("-decoupled_without_input_fifo")
+    
+
     # Copy the unchanged core source file to our target directory
     copy_folder_contents(f"deps/scaie-v/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
-    run_cmd.run("deps/scaie-v/", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar -c {core} -i {isax_desc} -o {os.path.abspath(out_dir)}", "SCAIEV failed", error.SCAIEV_BASE + 2)
+    run_cmd.run("deps/scaie-v/", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar {' '.join(scv_args)}", "SCAIEV failed", error.SCAIEV_BASE + 2)
     print(f" - Creating wrapper module")
     run_cmd.run("deps/scaie-v/util/maketop", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module", error.SCAIEV_BASE + 3)
     print(f" - Building the extended core")
