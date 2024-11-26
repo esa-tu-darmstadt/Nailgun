@@ -113,7 +113,7 @@ def prepare_gcc(yaml_file):
     # Rebuild GCC
     run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
-def compile_tb(tb_path, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base):
+def compile_tb(tb_path, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly):
     # Create the output directory
     bin_dir = os.path.abspath(os.path.join(out_dir, "tb_bin"))
     os.makedirs(bin_dir, exist_ok=False)
@@ -124,9 +124,10 @@ def compile_tb(tb_path, core_name, out_dir, cc_path, objdump_path, flags, additi
     run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {tb_path} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
 
     # Build disassembly file
-    disasm_txt_path = elf_file + "_disasm.txt"
-    disasm_flags = "-D"
-    run_cmd.run(".", f"{objdump_path} {disasm_flags} {elf_file} > {disasm_txt_path}", "Failed to disassemble TB elf file!", error_code_base + 2, False)
+    if run_disassembly:
+        disasm_txt_path = elf_file + "_disasm.txt"
+        disasm_flags = "-D"
+        run_cmd.run(".", f"{objdump_path} {disasm_flags} {elf_file} > {disasm_txt_path}", "Failed to disassemble TB elf file!", error_code_base + 2, False)
 
     return elf_file
 
@@ -136,7 +137,7 @@ def core_specific_startup(core_name):
         return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
     return ""
 
-def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
+def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags, run_disassembly):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
     objdump_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
@@ -144,9 +145,9 @@ def gcc_compile_tb(tb_path, core_name, out_dir, additional_flags):
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags} {core_specific_startup(core_name)}"
 
-    return compile_tb(tb_path, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2)
+    return compile_tb(tb_path, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly)
 
-def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version):
+def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
@@ -154,7 +155,7 @@ def llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_path, isax_name, add
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
     flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{abi}" -march="rv{bit}{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
-    return compile_tb(tb_path, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5)
+    return compile_tb(tb_path, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly)
 
 def run_tb(out_dir, core_name, elf_file, tb_expected_path):
     # Create the output directory
@@ -260,13 +261,14 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
+    disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
     if tb_path.endswith(".s") or tb_path.endswith(".S"):
         print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
             prepare_gcc(yaml_file_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
-            elf_file = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags)
+            elf_file = gcc_compile_tb(tb_path, core_name, out_dir, additional_flags, disassemble_tb)
     else:
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
         clang_exists, _ = check_clang_exists(llvm_version)
@@ -280,7 +282,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             print(" - Compiling C++ TB")
             if not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
-            elf_file = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version)
+            elf_file = llvm_compile_tb(tb_path, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb)
 
     if not only_add_cc_support:
         print(" - Start simulation")

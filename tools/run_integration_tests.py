@@ -26,6 +26,7 @@ parallelizable_commands = [
 # Integration tests that are run for EVERY available core
 command_templates = [
     ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"', True),
+    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True),
     ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="BRIMM" SIM_EN="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt"', True),
     ('ISAXES="DOTPROD" SIM_EN="y" TB_PATH="custom_tbs/dotprod.cpp" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt"', True),
     ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt"', True),

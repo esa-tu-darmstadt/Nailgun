@@ -106,6 +106,14 @@ if __name__ == "__main__":
     if tb_flags:
         kconf.syms["SIM_TB_COMPILE_FLAGS"].set_value(tb_flags)
 
+    disassemble_elf = os.getenv("SIM_TB_DISASSEMBLE_ELF")
+    if disassemble_elf:
+        kconf.syms["SIM_TB_DISASSEMBLE_ELF"].set_value(disassemble_elf)
+
+    contexts = os.getenv("SCV_INTERNAL_CONTEXTS_AMOUNT")
+    if contexts:
+        kconf.syms["SCV_INTERNAL_CONTEXTS_AMOUNT"].set_value(contexts)
+
     ln_scheduling_config = os.getenv("LN_PREDEFINED_SOLUTION_SELECTION")
     if ln_scheduling_config:
         kconf.syms[f"LN_PREDEFINED_SOLUTION_SELECTION"].set_value(ln_scheduling_config)

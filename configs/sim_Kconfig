@@ -10,4 +10,7 @@ menu "Simulation configuration"
 		string "Expected simulation output"
 	config SIM_TB_COMPILE_FLAGS
 		string "Additional TB compile flags"
+	config SIM_TB_DISASSEMBLE_ELF
+		bool "Create a disassembly file of the TB"
+		default y
 endmenu
