@@ -1,6 +1,6 @@
 #include "utils/sim.h"
 
-#if __has_builtin(__builtin_riscv_merged_sbox)
+#if __has_builtin(__builtin_riscv_merged_sbox) || defined(TB_FORCE_USE_MERGED)
 #define __builtin_riscv_sbox  __builtin_riscv_merged_sbox
 #else
 #define __builtin_riscv_sbox  __builtin_riscv_sbox_sbox

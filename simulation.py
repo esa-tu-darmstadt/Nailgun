@@ -37,7 +37,7 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
     if os.getenv("AWESOME_CCACHE_SIZE"):
         ccache_size = os.getenv("AWESOME_CCACHE_SIZE")
 
-    mlir_path = os.path.abspath(mlir_path)
+    mlir_path = os.path.abspath(mlir_path) if (mlir_path is not None) else None
     awesome_path = get_awesome_path()
     awesome_ln_bin = longnail.get_longnail_bin(kconf_syms, "AWESOME", os.path.basename(get_awesome_path()))
 
