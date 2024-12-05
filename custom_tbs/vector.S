@@ -8,6 +8,7 @@ _start:
     la a1, test_data
     la a2, _test_resdata
 
+# L1 norm
     jal ra, load_vecs
     l1_norm_vec t0, x0
     sw t0, 0(a2)
@@ -19,6 +20,9 @@ _start:
     sw t0, 12(a2)
     addi a2, a2, 16
 
+# Dot product
+    # a1=resdata+0x30
+    # a2=resdata+0x10
     jal ra, load_vecs
     vec_dot t0, x0, x0
     sw t0, 0(a2)
@@ -42,12 +46,20 @@ _start:
     sw t0, 36(a2)
     addi a2, a2, 40
 
+# Vector addition
+    # a1=resdata+0x60
+    # a2=resdata+0x38
+
     jal ra, load_vecs
     vec_add x3, x0, x3
     vec_add x2, x0, x2
     vec_add x1, x0, x1
     vec_add x0, x0, x0
     jal ra, save_vecs
+
+# Vector scaling
+    # a1=resdata+0x90
+    # a2=resdata+0x68
 
     jal ra, load_vecs
     li t0, 42
@@ -57,12 +69,20 @@ _start:
     vec_scale x3, x3, t0
     jal ra, save_vecs
 
+# Vector element-wise multiply
+    # a1=resdata+0xc0
+    # a2=resdata+0x98
+
     jal ra, load_vecs
     vec_mul x0, x0, x0
     vec_mul x1, x1, x1
     vec_mul x2, x2, x2
     vec_mul x3, x3, x3
     jal ra, save_vecs
+
+# Matrix Vector multiply + translation
+    # a1=resdata+0xf0
+    # a2=resdata+0xc8
 
     jal ra, load_vecs
     la t1, tranlation_z
@@ -71,12 +91,15 @@ _start:
     li a0, 3
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
+    # a2=resdata+0xd4
     set_addr t1
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
+    # a2=resdata+0xe0
     set_addr t1
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
+    # a2=resdata+0xec
     set_addr t1
     mat_mul_trans x3, t2, t2
     jal ra, save_vec

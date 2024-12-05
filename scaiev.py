@@ -125,7 +125,7 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
         vhd_files = [s for s in read_file_lines(os.path.join(target_dir, "ip/orca/hdl/Filelist")) if not s.startswith("#")]
         output_path = os.path.join(target_dir, "ORCA.v")
         ip_path = os.path.join(target_dir, "ip/orca/hdl")
-        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog", error.SCAIEV_BASE + 10, False)
+        run_cmd.run(ip_path, f'yosys -m ghdl -p "ghdl -gAUX_MEMORY_REGIONS=0 -gUC_MEMORY_REGIONS=1 -gINTERRUPT_VECTOR=X\\"80000000\\" -gENABLE_EXCEPTIONS=1 -gMULTIPLY_ENABLE=1 -gDIVIDE_ENABLE=1 -fsynopsys --std=08 {functools.reduce(lambda a, b: a + " " + b, vhd_files)} -e orca; write_verilog \\"{output_path}\\""', "Could not compile ORCA vhd files to verilog", error.SCAIEV_BASE + 10, False)
 
 def select_coresrc_folder_name(core):
     if (core == "PicoRV32"):

@@ -20,11 +20,14 @@ int main() {
 _9_4, $TREENAIL_WAS_HERE_imm12_11_11",
 */
   asm volatile(
+      ".option push\n"
+      ".option norvc\n" //Compressed instructions break the hardcoded ofset
       ASM_PREFIX ".cv_beqimm 0, 8, %0, 1, 0, 0\n" // Jump to the last addi command
       "addi %0, %0, 1\n" // RISC-V instruction to add immediate value 1 to res
       "addi %0, %0, 2\n" // RISC-V instruction to add immediate value 1 to res
       "addi %0, %0, 3\n" // RISC-V instruction to add immediate value 1 to res
       "addi %0, %0, 41\n" // RISC-V instruction to add immediate value 1 to res
+      ".option pop\n"
       : "+r"(res)        // Output operand: 'res' will be modified
   );
   auto resData = getResultPtr();
