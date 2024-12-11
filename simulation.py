@@ -51,8 +51,8 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
         # Configure cmake
         ccache_path = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/ccache")
         targets = [
-            "riscv32-unknown-elf",
-            "riscv64-unknown-elf",
+            ("riscv32-unknown-elf", "-march=rv32i -mabi=ilp32"),
+            ("riscv64-unknown-elf", "-march=rv64i -mabi=lp64"),
         ]
         compiler_rt_arg_templates = [
             # We need compiler-rt as a baremetal version!
@@ -70,16 +70,19 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
         ]
         compiler_rt_args = []
         if len(targets) > 1:
-            compiler_rt_args = [ f"-DRUNTIMES_{t}_{a}" for a in compiler_rt_arg_templates for t in targets]
+            compiler_rt_args = [ f"-DRUNTIMES_{t}_{a}" for a in compiler_rt_arg_templates for t, _ in targets]
         else:
             compiler_rt_args = compiler_rt_args + [ f"-D{a}" for a in compiler_rt_arg_templates]
+        compiler_rt_args = compiler_rt_args + [ f"-DRUNTIMES_{t}_CMAKE_C_FLAGS=\"{min_support_flags}\"" for t, min_support_flags in targets] \
+                                            + [ f"-DRUNTIMES_{t}_CMAKE_CXX_FLAGS=\"{min_support_flags}\"" for t, min_support_flags in targets] \
+                                            + [ f"-DRUNTIMES_{t}_CMAKE_ASM_FLAGS=\"{min_support_flags}\"" for t, min_support_flags in targets]
 
         cmake_config = [
             "-DLLVM_ENABLE_PROJECTS=clang",
             "-DLLVM_TARGETS_TO_BUILD=RISCV",
             # When using enable runtimes, a default target triple is required
-            f"-DLLVM_DEFAULT_TARGET_TRIPLE={targets[0]}",
-            f"-DLLVM_RUNTIME_TARGETS=\"{';'.join(targets)}\"",
+            f"-DLLVM_DEFAULT_TARGET_TRIPLE={targets[0][0]}",
+            f"-DLLVM_RUNTIME_TARGETS=\"{';'.join([t for t, _ in targets])}\"",
             # "-DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON",
             "-DLLVM_ENABLE_RUNTIMES=compiler-rt",
             # We need compiler-rt as a baremetal version!
