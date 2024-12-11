@@ -1,7 +1,5 @@
 #include "utils/sim.h"
 
-#include <stdint.h>
-
 // TODO remove  || defined(TB_FORCE_USE_MERGED) once intrinsics support is no longer WIP
 #if __has_builtin(__builtin_riscv_merged_ijmp) || defined(TB_FORCE_USE_MERGED)
 #define ASM_PREFIX "MERGED"

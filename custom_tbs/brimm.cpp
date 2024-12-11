@@ -1,7 +1,5 @@
 #include "utils/sim.h"
 
-#include <stdint.h>
-
 // TODO remove  || defined(TB_FORCE_USE_MERGED) once intrinsics support is no longer WIP
 #if __has_builtin(__builtin_riscv_merged_cv_beqimm) || defined(TB_FORCE_USE_MERGED)
 #define ASM_PREFIX "MERGED"
@@ -21,14 +19,14 @@ _9_4, $TREENAIL_WAS_HERE_imm12_11_11",
 */
   asm volatile(
       ".option push\n"
-      ".option norvc\n" //Compressed instructions break the hardcoded ofset
+      ".option norvc\n"   // Compressed instructions break the hardcoded offset
       ASM_PREFIX ".cv_beqimm 0, 8, %0, 1, 0, 0\n" // Jump to the last addi command
-      "addi %0, %0, 1\n" // RISC-V instruction to add immediate value 1 to res
-      "addi %0, %0, 2\n" // RISC-V instruction to add immediate value 1 to res
-      "addi %0, %0, 3\n" // RISC-V instruction to add immediate value 1 to res
+      "addi %0, %0, 1\n"  // RISC-V instruction to add immediate value 1 to res
+      "addi %0, %0, 2\n"  // RISC-V instruction to add immediate value 1 to res
+      "addi %0, %0, 3\n"  // RISC-V instruction to add immediate value 1 to res
       "addi %0, %0, 41\n" // RISC-V instruction to add immediate value 1 to res
       ".option pop\n"
-      : "+r"(res)        // Output operand: 'res' will be modified
+      : "+r"(res)         // Output operand: 'res' will be modified
   );
   auto resData = getResultPtr();
   *resData = res;
