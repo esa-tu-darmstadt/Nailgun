@@ -1,5 +1,7 @@
 #include "utils/sim.h"
 
+#include <stdint.h>
+
 #if __has_builtin(__builtin_riscv_merged_set_addr)
 #define __builtin_riscv_set_addr __builtin_riscv_merged_set_addr
 #else
