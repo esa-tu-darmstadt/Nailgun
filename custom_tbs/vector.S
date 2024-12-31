@@ -116,7 +116,7 @@ _start:
 # Available custom instructions:
 # set_addr rs1
 # set_inc rs1
-# export_vec_entry rd, rs1 (vec sel), rs2 (enableMemExport, memEntrySel, regEntrySel)
+# export_vec_entry rd, rs1 (vec sel), rs2 (memEntrySel, regEntrySel)
 # import_vec
 
 # l1_norm_reg
@@ -133,12 +133,12 @@ save_vec:
     li t0, 4
     set_inc t0
     set_addr a2
-    # 0b10000 = x16 get MEM[addr] = vec[x]
-    export_vec_entry t0, a0, x16
-    # 0b10100 = x20 get MEM[addr + 4] = vec[y]
-    export_vec_entry t0, a0, x20
-    # 0b11000 = x24 get MEM[addr + 8] = vec[z]
-    export_vec_entry t0, a0, x24
+    # 0b00000 = x0 get MEM[addr] = vec[x]
+    export_vec_entry t0, a0, x0
+    # 0b00100 = x4 get MEM[addr + 4] = vec[y]
+    export_vec_entry t0, a0, x4
+    # 0b01000 = x8 get MEM[addr + 8] = vec[z]
+    export_vec_entry t0, a0, x8
     addi a2, a2, 12
     ret
 
@@ -149,24 +149,24 @@ save_vecs:
     set_addr a2
     li a0, 0
     # export_vec_entry rd, rs1 (vec sel), rs2 (enableMemExport, memEntrySel, regEntrySel)
-    # 0b10000 = x16 get MEM[addr] = vec0[x]
-    export_vec_entry t0, a0, x16
-    # 0b10100 = x20 get MEM[addr + 4] = vec0[y]
-    export_vec_entry t0, a0, x20
-    # 0b11000 = x24 get MEM[addr + 8] = vec0[z]
-    export_vec_entry t0, a0, x24
+    # 0b00000 = x0 get MEM[addr] = vec0[x]
+    export_vec_entry t0, a0, x0
+    # 0b00100 = x4 get MEM[addr + 4] = vec0[y]
+    export_vec_entry t0, a0, x4
+    # 0b01000 = x8 get MEM[addr + 8] = vec0[z]
+    export_vec_entry t0, a0, x8
     li a0, 1
-    export_vec_entry t0, a0, x16
-    export_vec_entry t0, a0, x20
-    export_vec_entry t0, a0, x24
+    export_vec_entry t0, a0, x0
+    export_vec_entry t0, a0, x4
+    export_vec_entry t0, a0, x8
     li a0, 2
-    export_vec_entry t0, a0, x16
-    export_vec_entry t0, a0, x20
-    export_vec_entry t0, a0, x24
+    export_vec_entry t0, a0, x0
+    export_vec_entry t0, a0, x4
+    export_vec_entry t0, a0, x8
     li a0, 3
-    export_vec_entry t0, a0, x16
-    export_vec_entry t0, a0, x20
-    export_vec_entry t0, a0, x24
+    export_vec_entry t0, a0, x0
+    export_vec_entry t0, a0, x4
+    export_vec_entry t0, a0, x8
     addi a2, a2, 48
     ret
 
