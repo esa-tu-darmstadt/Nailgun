@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import kconfiglib
+import shutil
 import re
 
 import entrypoint
@@ -58,17 +59,17 @@ def extract_isax_name(mlir_path):
 if __name__ == "__main__":
     # Read in Kconfig & .config file
     kconf = kconfiglib.Kconfig("Kconfig")
-    config_path = os.getenv("CONFIG_PATH")
-    if config_path:
-        kconf.load_config(config_path)
-    else:
-        kconf.load_config(".config")
+    config_path = os.getenv("CONFIG_PATH") if os.getenv("CONFIG_PATH") else ".config"
+    kconf.load_config(config_path)
 
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     scaiev_core_name = scaiev.select_core(core_name)
 
     # Package all results in an output folder
     out_dir = get_output_folder()
+
+    # Copy config to output folder to simplify reproducing it
+    shutil.copy(config_path, os.path.join(out_dir, "config"))
 
     mlir_paths, isax_yaml = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
 
