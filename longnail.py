@@ -11,6 +11,13 @@ import run_cmd
 from tools import sol_sel_to_yaml
 
 
+def resolve_solver(kconfig_syms):
+    for sym in kconfig_syms:
+        if kconfig_syms[sym].str_value == "y" and str(sym).startswith("LN_SOLVER_USE_"):
+            return str(sym)[len("LN_SOLVER_USE_"):]
+    return None
+
+
 def resolve_sched_algo(kconfig_syms):
     if kconfig_syms['LN_SCHED_ALGO_MS'].str_value == "y":
         sched_algo = ""
@@ -77,6 +84,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     sched_algo = resolve_sched_algo(kconfig_syms)
     optylib = resolve_opty_lib(kconfig_syms)
+    ilp_solver = resolve_solver(kconfig_syms)
     out_dir = os.path.abspath(out_dir)
     datasheet = os.path.abspath(datasheet)
     if kconfig_syms['LN_CELL_LIBRARY'].str_value:
@@ -97,7 +105,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     longnail_schedule_flags = [
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
-        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} useCommercialSolver={'true' if kconfig_syms['LN_USE_COMMERCIAL_SOLVER'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
+        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} solver={ilp_solver} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
         f"-o {sched_sol_mlir_file}",
     ]
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":

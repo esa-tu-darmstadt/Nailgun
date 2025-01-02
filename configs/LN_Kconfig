@@ -31,9 +31,28 @@ menu "Longnail HLS configuration"
 	config LN_REFINE_TIMEOUT
 		int "Longnail schedule refinement timeout in seconds"
 		default 10
-	config LN_USE_COMMERCIAL_SOLVER
-		bool "Longnail use Gurobi's ILP solver"
-		default n
+
+	choice
+		prompt "ILP Solver"
+		default LN_SOLVER_USE_CBC
+
+		config LN_SOLVER_USE_CBC
+			bool "Use CBC"
+		config LN_SOLVER_USE_GLPK
+			bool "Use GLPK"
+		config LN_SOLVER_USE_SCIP
+			bool "Use SCIP"
+		config LN_SOLVER_USE_HIGHS
+			bool "Use HiGHS"
+		config LN_SOLVER_USE_GUROBI
+			bool "Use Gurobi (license required)"
+		# config LN_SOLVER_USE_CPLEX
+		# 	bool "Use CPLEX (license required)"
+		config LN_SOLVER_USE_XPRESS
+			bool "Use XPRESS (license required)"
+		config LN_SOLVER_USE_COPT
+			bool "Use COPT (license required)"
+	endchoice
 	config LN_FORCE_MIN_II_SOLUTIONS
 		bool "Longnail always use min II solution"
 		default n

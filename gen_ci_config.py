@@ -27,9 +27,9 @@ if __name__ == "__main__":
         kconf.syms["SIM_TB_PATH"].set_value(tb_path)
         kconf.syms["SIM_TB_EXPECTED_PATH"].set_value(tb_expected_path)
 
-    commercial_solver_en = os.getenv("LN_USE_COMMERCIAL_SOLVER")
-    if commercial_solver_en:
-        kconf.syms["LN_USE_COMMERCIAL_SOLVER"].set_value(commercial_solver_en)
+    ilp_solver = os.getenv("LN_ILP_SOLVER")
+    if ilp_solver:
+        kconf.syms["" + ilp_solver].set_value("y")
 
     llvm_ver = os.getenv("AWESOME_LLVM_VERSION")
     if llvm_ver:
