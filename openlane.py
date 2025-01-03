@@ -52,7 +52,7 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     top_module = core_top_module
     clk_name = "clk"
     if kconfig_syms["OL2_ONLY_SYN_ISAX"].str_value == "y":
-        top_module = f"ISAX_{isax_name.upper()}"
+        top_module = f"ISAX_{isax_name}"
         verilog_srcs = isax_src
         clk_name = "clk_i"
     
