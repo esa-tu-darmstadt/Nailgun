@@ -118,6 +118,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
         run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, show_ln_output, 200)
     else:
         sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
+        sched_sol_kconf_file = os.path.join(os.path.dirname(sched_sol_mlir_file), "Kconfig")
 
     if not force_min_II_solutions and kconfig_syms['LN_PREDEFINED_SOLUTION_SELECTION'].str_value:
         sol_selection_file = os.path.abspath(kconfig_syms['LN_PREDEFINED_SOLUTION_SELECTION'].str_value)
