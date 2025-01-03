@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     ilp_solver = os.getenv("LN_ILP_SOLVER")
     if ilp_solver:
-        kconf.syms["" + ilp_solver].set_value("y")
+        kconf.syms["LN_SOLVER_USE_" + ilp_solver].set_value("y")
 
     llvm_ver = os.getenv("AWESOME_LLVM_VERSION")
     if llvm_ver:
