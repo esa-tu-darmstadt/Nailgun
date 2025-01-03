@@ -219,7 +219,7 @@ def select_tb_wrapper_srcs(core, out_dir):
             "mkSoC_Top.v",
         ])
         extra_makefile_args = """
-EXTRA_ARGS+=--no-timing
+
 # Verilator throws lots of warnings on the BlueSpec-compiled core. Ignoring some of them.
 EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
 """

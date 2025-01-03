@@ -135,7 +135,6 @@ async def run_test(dut):
                 event_irq.set()
                 return True
             print("check_ctrl_write: Unexpected write to IRQ")
-            return False
         return False
     def check_ctrl_read(addr_begin, addr_end, big_endian):
         # For now, always return 0 for read access on the CTRL memory space.

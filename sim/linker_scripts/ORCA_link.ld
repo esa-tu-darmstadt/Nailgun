@@ -25,7 +25,11 @@ SECTIONS
     } > imem
 
     . = ORIGIN(dmem);
-    PROVIDE( _test_indata = ORIGIN(dmem) );
+    .input_data : {
+        PROVIDE( _test_indata = ORIGIN(dmem) );
+          * (.input_data);
+    } > dmem
+
     PROVIDE( _test_resdata = ORIGIN(dmem) + __indata_size );
     .data : {
         * (.data);
