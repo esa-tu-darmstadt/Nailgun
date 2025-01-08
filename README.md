@@ -1,5 +1,5 @@
-# NailGun - Integration for Longnail and SCAIE-V
+# NailGun - Custom ISAX Integration Flow
 
-NailGun is intended as a wrapper for configuring and executing Longnail and SCAIE-V.
+NailGun is intended as a wrapper for configuring and executing our ISAX integration flow (CoreDSL &rarr; Treenail &rarr; Longnail &rarr; SCAIE-V &rarr; extended RISC-V core &rarr; cocotb simulation &rarr; OpenLane 2).
 
-NailGun is still WIP and not ready for use.
+NailGun is not intended to be used standalone but rather as part of the [integration repository](https://gitlab.esa.informatik.tu-darmstadt.de/scale4edge/isax-tools-integration).
