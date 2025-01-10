@@ -38,6 +38,8 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
         os.makedirs(sv2v_dir, exist_ok=False)
         sv2v_outfile = os.path.join(sv2v_dir, "core.v")
         defines.append("VERILATOR")
+        # Workaround for: https://github.com/povik/yosys-slang/issues/76
+        defines.append("DISABLE_ASSERT_PROPERTY")
         run_yosys_slang(core_srcs + isax_src, include_dirs, defines, sv2v_outfile, core_top_module)
         core_srcs = [sv2v_outfile]
         include_dirs = []
