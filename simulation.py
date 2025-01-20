@@ -10,6 +10,7 @@ import scaiev
 import longnail
 import yaml
 
+from tools.elftohex import elf_to_hex
 
 def get_awesome_path():
     return "deps/awesome_llvm"
@@ -117,14 +118,14 @@ def prepare_gcc(yaml_file):
     # Rebuild GCC
     run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
-def compile_tb(tb_paths, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly):
+def compile_tb(tb_paths, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
     # Create the output directory
     bin_dir = os.path.abspath(os.path.join(out_dir, "tb_bin"))
     os.makedirs(bin_dir, exist_ok=False)
 
     # Build elf file
     elf_file = os.path.join(bin_dir, "tb.elf")
-    linker_file = scaiev.select_linker_file(core_name)
+    linker_file = scaiev.select_linker_file(core_name) if custom_linker_script is None else custom_linker_script
     src_files_str = " ".join(tb_paths)
     run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {src_files_str} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
 
@@ -142,7 +143,7 @@ def core_specific_startup(core_name):
         return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
     return ""
 
-def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly):
+def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
     objdump_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
@@ -150,9 +151,9 @@ def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassemb
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags} {core_specific_startup(core_name)}"
 
-    return compile_tb(tb_paths, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly)
+    return compile_tb(tb_paths, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly, custom_linker_script)
 
-def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly):
+def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly, custom_linker_script=None):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
@@ -160,14 +161,28 @@ def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, ad
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
     flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{abi}" -march="rv{bit}{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
-    return compile_tb(tb_paths, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly)
+    return compile_tb(tb_paths, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
 
-def run_tb(out_dir, core_name, elf_file, tb_expected_path):
+def run_tb(out_dir, core_name, elf_file, tb_expected_path, memory_config=None, gls=None):
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
 
     external_tb_srcs, core_srcs, tb_top_module, core_top_module, include_dirs, defines, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+
+    # Convert extra_makefile_opts dictionary into strings
+    extra_makefile_opts_strs = []
+    # Check if "default" exists and add it unconditionally
+    if "default" in extra_makefile_opts:
+        extra_makefile_opts_strs.append(extra_makefile_opts["default"])
+
+    # Generate the ifeq statements for other entries
+    for key, value in extra_makefile_opts.items():
+        if key != "default":
+            extra_makefile_opts_strs.append(f"ifeq ($(SIM), {key})")
+            extra_makefile_opts_strs.append(value)
+            extra_makefile_opts_strs.append(f"endif # SIM == {key}")
+
     # Add absolute paths to the tb wrapper srcs
     wrapper_base = os.path.abspath("deps/scaie-v/util/maketop")
     external_tb_srcs = list(map(lambda s: os.path.join(wrapper_base, s), external_tb_srcs))
@@ -203,16 +218,37 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path):
     defines = [f"EXTRA_ARGS += -D{d}" for d in defines]
     include_dirs = [f"EXTRA_ARGS += -I{os.path.relpath(os.path.join(core_base, inc), sim_dir)}" for inc in include_dirs]
 
+    # questa and GLS setup
+    if memory_config is not None:
+        memory_initializers = list(map(lambda hex_config: f"SIM_ARGS += -g{hex_config[1]['instance_parameter']}=\"../tb_bin/{hex_config[0]}\"", memory_config["convert_to_hex"].items()))
+    else:
+        memory_initializers = []
+    
+    memory_initializers = "\n".join(memory_initializers)
+    standard_cell_sources = netlist_file = sdf = ""
+    if gls is not None:
+        netlist_file = gls["netlist"]
+        sdf = gls.get("sdf", "")
+        cell_paths = gls["cells"]
+        standard_cell_sources = list(map(lambda cell_verilog: f"VERILOG_SOURCES += {cell_verilog}", cell_paths))
+        standard_cell_sources = "\n".join(standard_cell_sources)
+
     # Create a makefile to run the simulation
     sim_mk = os.path.join(sim_dir, "Makefile")
     with open(sim_mk, 'w') as f:
         f.write(f"""
-
 VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
 TOPLEVEL = {tb_top_module}
-MODULE = test_default
-SIM = verilator
+MODULE ?= test_default
+SIM ?= verilator
+GLS ?= 0
+
+# Verilator specific flags
+ifeq ($(SIM), verilator)
+ifeq ($(GLS), 1)
+$(error GLS not implemented with verilator. Use SIM=questa to run GLS.)
+endif # GLS == 1
 # Do not treat warnings as fatal errors!
 EXTRA_ARGS += -Wno-fatal
 # Enable assertions
@@ -222,6 +258,32 @@ EXTRA_ARGS += --trace-fst --trace --trace-structs --trace-underscore
 # Use more than one core to compile the simulation models
 BUILD_ARGS += -j$(shell nproc)
 EXTRA_ARGS+=--no-timing
+endif # SIM == verilator
+
+# Questa specific flags
+ifeq ($(SIM), questa)
+ifeq ($(GLS), 1)
+# It is recommended that you create a new testbench (e.g., test_gls.py) to change the testbench to your chip design and pass it with MODULE=test_gls to your make invocation.
+NETLIST_FILE = {netlist_file}
+
+ifeq ($(NETLIST_FILE),)
+$(error NETLIST_FILE is undefined. Set to your netlist verilog file path.)
+endif # NETLIST_FILE == ""
+# Overwrite the verilog sources to use the synthesized netlist instead
+VERILOG_SOURCES = $(NETLIST_FILE)
+{standard_cell_sources}
+
+
+SDF_FILE={sdf}
+ifneq ($(SDF_FILE),)
+SDFTYPE ?= -sdfmax
+SIM_ARGS += $(SDFTYPE) $(SDF_FILE)
+else
+COMPILE_ARGS += +delay_mode_unit
+endif # SDF_FILE != ""
+endif # GLS == 1
+{memory_initializers}
+endif # SIM == questa
 
 # Include directories
 {newline.join(include_dirs)}
@@ -229,7 +291,7 @@ EXTRA_ARGS+=--no-timing
 {newline.join(defines)}
 
 # Extra Makefile options
-{extra_makefile_opts}
+{newline.join(extra_makefile_opts_strs)}
 
 # test_default.py configuration settings
 PLUSARGS = ""
@@ -269,15 +331,15 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
-    def patch_and_compile_with_gcc(filepaths):
+    def patch_and_compile_with_gcc(filepaths, custom_linker_script=None):
         print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
             prepare_gcc(yaml_file_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
-            return gcc_compile_tb(filepaths, core_name, out_dir, additional_flags, disassemble_tb)
+            return gcc_compile_tb(filepaths, core_name, out_dir, additional_flags, disassemble_tb, custom_linker_script)
     
-    def patch_and_compile_with_llvm(filepaths):
+    def patch_and_compile_with_llvm(filepaths, custom_linker_script=None):
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
         clang_exists, _ = check_clang_exists(llvm_version)
         skip_clang_build = kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value == "y" and clang_exists
@@ -290,27 +352,50 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             print(" - Compiling C++ TB")
             if not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
-            return llvm_compile_tb(filepaths, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb)
+            return llvm_compile_tb(filepaths, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
 
+    memory_config = None
+    gls = None
     if tb_path.endswith(".s") or tb_path.endswith(".S"):
         elf_file = patch_and_compile_with_gcc([tb_path])
     elif tb_path.endswith(".yml") or tb_path.endswith(".yaml"):
         with open(tb_path, "r") as yamlfile:
             tb_folder = os.path.dirname(tb_path)
             test_config = yaml.safe_load(yamlfile)
-            compiler = test_config["compiler"]
-            files = test_config["files"]
+            compiler = test_config.get("compiler", None)
+            files = test_config.get("files", [])
+            if len(files) == 0:
+                error.exit_error(f"Field testbench `files` is missing or empty", error.USER_ERROR)
+
             absolute_file_paths = [os.path.join(tb_folder, f) for f in files]
 
+            custom_linker_script = None
+            memory_config = test_config.get("memory", None)
+            if memory_config is not None:
+                custom_linker_script = memory_config.get("linker_script", None)
+                if custom_linker_script is not None:
+                    custom_linker_script = os.path.join(tb_folder, custom_linker_script)
+                    print(f"Using custom linker script {custom_linker_script}")
+
             if compiler == "gcc":
-                elf_file = patch_and_compile_with_gcc(absolute_file_paths)
+                elf_file = patch_and_compile_with_gcc(absolute_file_paths, custom_linker_script)
             elif compiler == "clang":
-                elf_file = patch_and_compile_with_llvm(absolute_file_paths)
+                elf_file = patch_and_compile_with_llvm(absolute_file_paths, custom_linker_script)
             else:
                 error.exit_error(f"Unknown compiler '{compiler}'. Please provider either 'gcc' or 'clang'.", error.USER_ERROR)
+            
+            if memory_config is not None:
+                for hex_name, hex_config in memory_config.get("convert_to_hex", {}).items():
+                    section_names = hex_config["sections"]
+                    print(f"Dumping sections {section_names} to file {hex_name}")
+                    memory_size = int(hex_config["size"])
+                    bytes_per_word = int(hex_config["word_width"])
+                    elf_to_hex(elf_file, os.path.abspath(os.path.join(out_dir, "tb_bin", hex_name)), section_names, word_size=bytes_per_word, memory_size=memory_size)
+            gls = test_config.get("gls", None)
+        shutil.copy(tb_path, out_dir)
     else:
         elf_file = patch_and_compile_with_llvm([tb_path])
 
     if not only_add_cc_support:
         print(" - Start simulation")
-        run_tb(out_dir, core_name, elf_file, tb_expected_path)
+        run_tb(out_dir, core_name, elf_file, tb_expected_path, memory_config, gls)
