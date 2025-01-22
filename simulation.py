@@ -154,6 +154,10 @@ def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassemb
     return compile_tb(tb_paths, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly, custom_linker_script)
 
 def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly, custom_linker_script=None):
+    def legalize_isax_name(isax_name):
+        return isax_name.lower().replace("_", "").replace(".", "")
+    isax_name = legalize_isax_name(isax_name)
+
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
