@@ -79,13 +79,15 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
     isax_desc = os.path.abspath(isax_desc)
     isax_dir = os.path.dirname(isax_desc)
 
+    num_ctxs = kconf_syms['SCV_INTERNAL_CONTEXTS_AMOUNT'].str_value
+    num_ctxs = num_ctxs if num_ctxs else 1
 
     # set scaie-v parameters
     scv_args = [
         f"-c {core}",
         f"-i {isax_desc}",
         f"-o {os.path.abspath(out_dir)}",
-        f"-ctx {kconf_syms['SCV_INTERNAL_CONTEXTS_AMOUNT'].str_value}"
+        f"-ctx {num_ctxs}"
     ]
 
     # read config and add scaie-v parameters

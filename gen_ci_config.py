@@ -88,6 +88,10 @@ if __name__ == "__main__":
             kconf.syms["SV_ENTRY_POINT"].set_value("y")
             kconf.syms["SV_ENTRY_POINT_PATH"].set_value(sv_path)
             kconf.syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].set_value(yaml_path)
+        else:
+            no_isax = os.getenv("NO_ISAX")
+            if no_isax:
+                kconf.syms["NO_ISAX_ENTRY_POINT"].set_value("y")
 
     only_add_cc_support = os.getenv("ONLY_PATCH_CC")
     if only_add_cc_support:

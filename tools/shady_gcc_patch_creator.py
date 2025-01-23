@@ -13,11 +13,12 @@ file_name = sys.argv[1]
 isax = dict()
 with open(file_name, 'r') as file:
     isax_desc = yaml.safe_load(file)
-    for item in isax_desc:
-        if 'instruction' in item:
-            ins_name = item['instruction']
-            encoding = item['mask']
-            isax[ins_name] = encoding
+    if isax_desc:
+        for item in isax_desc:
+            if 'instruction' in item:
+                ins_name = item['instruction']
+                encoding = item['mask']
+                isax[ins_name] = encoding
 
 
 # Handle placeholders for immediate values by enumerating all possible assignments

@@ -1,5 +1,5 @@
 menu "Longnail HLS configuration"
-    depends on !SV_ENTRY_POINT
+    depends on !SV_ENTRY_POINT && !NO_ISAX_ENTRY_POINT
 	config LN_CELL_LIBRARY
 		string "Longnail cell library"
 	choice

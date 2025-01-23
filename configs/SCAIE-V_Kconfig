@@ -1,4 +1,5 @@
 menu "SCAIE-V configuration"
+    depends on !NO_ISAX_ENTRY_POINT
     config SCV_INTERNAL_CONTEXTS_AMOUNT
         int "Internally implemented contexts (register banks)"
         default 1

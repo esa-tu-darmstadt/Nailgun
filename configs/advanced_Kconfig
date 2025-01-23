@@ -29,6 +29,9 @@ menu "Advanced Options"
 		config DEFAULT_ENTRY_POINT
 			bool "None"
 
+		config NO_ISAX_ENTRY_POINT
+			bool "No ISAX"
+
 		config MLIR_ENTRY_POINT
 			bool "Use a MLIR file as entrypoint"
 

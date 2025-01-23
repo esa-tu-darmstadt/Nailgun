@@ -34,7 +34,7 @@ def check_clang_exists(version):
     clang_path = os.path.join(llvm_build_path, "bin", "clang++")
     return os.path.exists(clang_path), clang_path
 
-def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
+def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
     ccache_size = "25G"
     if os.getenv("AWESOME_CCACHE_SIZE"):
         ccache_size = os.getenv("AWESOME_CCACHE_SIZE")
@@ -103,11 +103,12 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild):
     if rebuild:
         run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", error.AWESOME_BASE + 3, False)
         # Patch LLVM
-        llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
-        pass_opts = "disableISelGen=true" # No ISel patterns for now
-        run_cmd.run(".", f"{awesome_ln_bin[0] + ' ' if len(awesome_ln_bin) > 1 else ''}{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin[-1]} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.AWESOME_BASE + 4, False, 200)
+        if not do_not_patch:
+            llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
+            pass_opts = "disableISelGen=true" # No ISel patterns for now
+            run_cmd.run(".", f"{awesome_ln_bin[0] + ' ' if len(awesome_ln_bin) > 1 else ''}{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin[-1]} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.AWESOME_BASE + 4, False, 200)
         # Build LLVM
-        run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the patched LLVM {version}", error.AWESOME_BASE + 5, False, 200)
+        run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the {'unpatched' if do_not_patch else 'patched'} LLVM {version}", error.AWESOME_BASE + 5, False, 200)
 
     return build_dir
 
@@ -154,16 +155,18 @@ def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassemb
     return compile_tb(tb_paths, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly, custom_linker_script)
 
 def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly, custom_linker_script=None):
-    def legalize_isax_name(isax_name):
-        return isax_name.lower().replace("_", "").replace(".", "")
-    isax_name = legalize_isax_name(isax_name)
+    if isax_name:
+        def legalize_isax_name(isax_name):
+            return isax_name.lower().replace("_", "").replace(".", "")
+        isax_name = legalize_isax_name(isax_name)
 
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
     startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
-    flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{abi}" -march="rv{bit}{supported_core_exts}_x{isax_name}0p1" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags}'
+    isax_ext_name = f"_x{isax_name}0p1" if isax_name else ""
+    flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{abi}" -march="rv{bit}{supported_core_exts}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
     return compile_tb(tb_paths, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
 
@@ -347,14 +350,16 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
         clang_exists, _ = check_clang_exists(llvm_version)
         skip_clang_build = kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value == "y" and clang_exists
-        if (not skip_clang_build) and (not mlir_path):
-            error.exit_error("Patching clang requires a ISAX MLIR input file!", error.USER_ERROR)
-
-        print(" - Adding ISAX support to clang")
-        llvm_build_dir = prepare_llvm(kconfig_syms, mlir_path, llvm_version, not skip_clang_build)
+        unpatched_clang = (not skip_clang_build) and (not mlir_path)
+        if unpatched_clang:
+            print("WARNING: Patching clang requires a ISAX MLIR input file!")
+            print("INFO: Using unpatched clang!")
+        else:
+            print(" - Adding ISAX support to clang")
+        llvm_build_dir = prepare_llvm(kconfig_syms, mlir_path, llvm_version, not skip_clang_build, unpatched_clang)
         if not only_add_cc_support:
             print(" - Compiling C++ TB")
-            if not isax_name:
+            if not unpatched_clang and not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
             return llvm_compile_tb(filepaths, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
 

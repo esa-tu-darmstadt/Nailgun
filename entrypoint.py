@@ -52,28 +52,32 @@ def resolve_mlir_paths(scaiev_core_name, out_dir, kconf_syms):
         # TN CoreDSL to MLIR
         treenail.build_treenail()
         mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files, out_dir)
-    else:
-        if kconf_syms["MLIR_ENTRY_POINT"].str_value == "y":
-            # use the MLIR entry point path
-            path = kconf_syms["MLIR_ENTRY_POINT_PATH"].str_value
-            if not os.path.exists(path):
-                error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!", error.USER_ERROR)
-            mlir_paths = [ os.path.abspath(path) ]
-        else:
-            assert kconf_syms["SV_ENTRY_POINT"].str_value == "y"
-            isax_yaml = kconf_syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].str_value
-            if not os.path.exists(isax_yaml):
-                error.exit_error(f"Could not find ISAX YAML file '{isax_yaml}'. Please check your SV entry point path settings!", error.USER_ERROR)
-            # Copy ISAX YAML file to the output folder
-            out_yaml_file = os.path.join(out_dir, os.path.basename(isax_yaml))
-            shutil.copy(isax_yaml, out_yaml_file)
-            isax_yaml = out_yaml_file
+    elif kconf_syms["MLIR_ENTRY_POINT"].str_value == "y":
+        # use the MLIR entry point path
+        path = kconf_syms["MLIR_ENTRY_POINT_PATH"].str_value
+        if not os.path.exists(path):
+            error.exit_error(f"Could not find mlir file '{mlir_paths[0]}'. Please check your MLIR entry point path settings!", error.USER_ERROR)
+        mlir_paths = [ os.path.abspath(path) ]
+    elif kconf_syms["SV_ENTRY_POINT"].str_value == "y":
+        isax_yaml = kconf_syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].str_value
+        if not os.path.exists(isax_yaml):
+            error.exit_error(f"Could not find ISAX YAML file '{isax_yaml}'. Please check your SV entry point path settings!", error.USER_ERROR)
+        # Copy ISAX YAML file to the output folder
+        out_yaml_file = os.path.join(out_dir, os.path.basename(isax_yaml))
+        shutil.copy(isax_yaml, out_yaml_file)
+        isax_yaml = out_yaml_file
 
-            isax_sv = kconf_syms["SV_ENTRY_POINT_PATH"].str_value
-            if not os.path.exists(isax_sv):
-                error.exit_error(f"Could not find ISAX SV file '{isax_sv}'. Please check your SV entry point path settings!", error.USER_ERROR)
-            # Copy ISAX SV file to the output folder
-            out_sv_file = os.path.join(out_dir, os.path.basename(isax_sv))
-            shutil.copy(isax_sv, out_sv_file)
+        isax_sv = kconf_syms["SV_ENTRY_POINT_PATH"].str_value
+        if not os.path.exists(isax_sv):
+            error.exit_error(f"Could not find ISAX SV file '{isax_sv}'. Please check your SV entry point path settings!", error.USER_ERROR)
+        # Copy ISAX SV file to the output folder
+        out_sv_file = os.path.join(out_dir, os.path.basename(isax_sv))
+        shutil.copy(isax_sv, out_sv_file)
+    else:
+        assert kconf_syms["NO_ISAX_ENTRY_POINT"].str_value == "y"
+        # Create an empty ISAX yaml file and see what happens
+        isax_yaml = os.path.join(out_dir, "NO_ISAX.yaml")
+        with open(isax_yaml, 'w'):
+            pass
 
     return mlir_paths, isax_yaml

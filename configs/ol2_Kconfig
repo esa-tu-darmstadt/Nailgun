@@ -17,6 +17,7 @@ menu "OpenLane 2 configuration"
 		int "%   = target utilization"
 		default 20
 	config OL2_ONLY_SYN_ISAX
+		depends on !NO_ISAX_ENTRY_POINT
 		bool "Only synthesize the ISAX"
 		default n
 endmenu
