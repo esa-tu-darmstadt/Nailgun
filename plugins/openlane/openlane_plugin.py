@@ -7,8 +7,8 @@ import scaiev
 import error
 import run_cmd
 
-from tools.hw_syn import dse
-from tools.hw_syn import run_openlane
+import dse
+import run_openlane
 
 def run_yosys_slang(srcs, include_dirs, defines, out_src, top_module):
     include_dirs = [f"-I {d}" for d in include_dirs]

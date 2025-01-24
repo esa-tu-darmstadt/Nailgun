@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from .. import replace_placeholders
+from tools import replace_placeholders
 
 def run_openlane(out_dir, config_template, replace_values, log_file = None, pdk_path = "~/.volare"):
     out_config = os.path.join(out_dir, "config.json")

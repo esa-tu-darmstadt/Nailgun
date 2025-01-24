@@ -5,8 +5,8 @@ import sys
 import os
 import glob
 
-from tools.hw_syn.gather_syn_results import gather_syn_results  # Import the gather_syn_results function
-from tools.hw_syn.run_openlane import run_openlane
+from gather_syn_results import gather_syn_results  # Import the gather_syn_results function
+from run_openlane import run_openlane
 
 def run_synth_jobs(jobs):
     if len(jobs) == 0:

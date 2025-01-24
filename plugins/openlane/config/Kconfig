@@ -9,7 +9,7 @@ menu "OpenLane 2 configuration"
 		default n
 	config OL2_CONFIG_TEMPLATE
 		string "config template"
-		default "tools/hw_syn/config_templates/minimal_config.json"
+		default "plugins/openlane/config_templates/minimal_config.json"
 	config OL2_TARGET_FREQ
 		int "MHz = target frequency"
 		default 20

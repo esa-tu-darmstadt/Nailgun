@@ -10,8 +10,24 @@ import kconfig
 import longnail
 import scaiev
 import simulation
-import openlane
 
+
+def execute_plugins(entry_point_name):
+    plugin_folder = "plugins"
+    # Walk through the directory, including subdirectories
+    for root, dirs, files in os.walk(plugin_folder):
+        # We calculate the depth by checking the number of separators in the path
+        depth = root[len(plugin_folder):].count(os.sep)
+
+        # We are only interested in directories at depth 1 (directories within the plugin folder)
+        if depth == 1:
+            for file in files:
+                # Check if the file name matches the entry point
+                if file == f"{entry_point_name}.py":
+                    # Use the import statement to import the module by its name
+                    exec(f"import {plugin_folder}.{os.path.basename(root)}.{entry_point_name}")
+                    print(f"INFO: Running {entry_point_name} from {root}")
+                    exec(f"{plugin_folder}.{os.path.basename(root)}.{entry_point_name}.main(globals())")
 
 def create_output_folder(base_path, base_name):
     # Start with the base path
@@ -97,5 +113,5 @@ if __name__ == "__main__":
     simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
 
     if not only_add_cc_support:
-        # Optionally run OpenLane 2
-        openlane.run_synthesis(out_dir, scaiev_core_name, kconf.syms, isax_name)
+        # Optionally run synthesis plugins
+        execute_plugins("synthesis_plugin")
