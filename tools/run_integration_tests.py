@@ -2,8 +2,20 @@
 import subprocess
 import gzip
 import os
+import sys
 import concurrent.futures
 import shutil
+import re
+import pandas as pd
+from tabulate import tabulate
+
+
+# Add the parent directory to the sys.path
+parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(parent_folder)
+import error
+# Remove the parent directory from the sys.path again
+sys.path.remove(parent_folder)
 
 init_commands = [
     'make gen_config',
@@ -157,6 +169,46 @@ for exit_code, cmd, id in results:
         failed += 1
         print(f"Test {id} failed with exit code {exit_code}, cmd: '{cmd} make ci'")
 print(f"Summary: {len(results) - failed}/{len(results)} integration tests succeeded.")
+
+# Regular expression to match the key-value pairs
+pattern = r'(\w+)="([^"]+)"'
+
+results_map = {}
+for exit_code, cmd, _ in results:
+    # Use re.findall to find all make ci parameters
+    matches = dict(re.findall(pattern, cmd))
+    core = matches["CORE"]
+    isaxes = matches["ISAXES"].split(",") if "ISAXES" in matches else []
+    tb_path = matches["TB_PATH"]
+    tb_name = os.path.splitext(os.path.basename(tb_path))[0]
+    # Generate test case name
+    test_case_name = ""
+    if "MLIR_ENTRY_POINT_PATH" in matches:
+        mlir_path =  matches["MLIR_ENTRY_POINT_PATH"]
+        isax_name = os.path.splitext(os.path.basename(mlir_path))[0]
+        test_case_name = f"MLIR {isax_name}"
+    elif len(isaxes) == 0:
+        test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "gcc")
+    elif len(isaxes) == 1:
+        isax = isaxes[0]
+        test_case_name = isax if tb_name.lower() == isax.lower() else f"{isax} / {tb_name}"
+    else:
+        test_case_name = f"MERGED / {tb_name}"
+
+    if core not in results_map:
+        results_map[core] = {}
+
+    assert test_case_name not in results_map[core], f"Result for test case: '{test_case_name}' has already been registered for core = {core}, full cmd = {cmd}"
+    results_map[core][test_case_name] = error.decode_exit_code(exit_code)
+
+# Create DataFrame
+df = pd.DataFrame(results_map)
+# Replace None with a custom string like "N/A"
+df = df.fillna("N/A")
+
+# Convert the DataFrame to a formatted table with borders
+table = tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=True)
+print(table)
 
 # Exit with a non-zero code if any command failed
 if failed != 0:

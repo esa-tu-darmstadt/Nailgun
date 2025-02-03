@@ -3,3 +3,6 @@ __pycache__
 build
 outputs
 test_results
+*.elf
+*.axf
+*.bin

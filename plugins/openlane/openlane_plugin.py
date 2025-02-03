@@ -20,6 +20,7 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     if kconfig_syms['OL2_ENABLE'].str_value != "y":
         return
 
+    print("Running OpenLane 2")
     # Create the output directory
     syn_dir = os.path.abspath(os.path.join(out_dir, "hw_syn"))
     os.makedirs(syn_dir, exist_ok=False)

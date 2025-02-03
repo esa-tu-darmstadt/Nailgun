@@ -119,16 +119,21 @@ def prepare_gcc(yaml_file):
     # Rebuild GCC
     run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
-def compile_tb(tb_paths, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
+def get_target_elf_file_path(out_dir):
     # Create the output directory
     bin_dir = os.path.abspath(os.path.join(out_dir, "tb_bin"))
-    os.makedirs(bin_dir, exist_ok=False)
+    os.makedirs(bin_dir, exist_ok=True)
 
+    # elf file path
+    return os.path.join(bin_dir, "tb.elf")
+
+def compile_tb(tb_paths, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
     # Build elf file
-    elf_file = os.path.join(bin_dir, "tb.elf")
+    elf_file = get_target_elf_file_path(out_dir)
     linker_file = scaiev.select_linker_file(core_name) if custom_linker_script is None else custom_linker_script
-    src_files_str = " ".join(tb_paths)
-    run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {src_files_str} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
+    if tb_paths:
+        src_files_str = " ".join(tb_paths)
+        run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {src_files_str} -o {elf_file}", "Compiling the test program failed!", error_code_base + 1, False)
 
     # Build disassembly file
     if run_disassembly:
@@ -143,6 +148,9 @@ def core_specific_startup(core_name):
     if os.path.exists(core_specific_asm):
         return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
     return ""
+
+def get_gcc_objcopy_path():
+    return os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
 
 def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
@@ -365,7 +373,21 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
 
     memory_config = None
     gls = None
-    if tb_path.endswith(".s") or tb_path.endswith(".S"):
+    if tb_path.endswith(".axf") or tb_path.endswith(".elf"):
+        elf_file = get_target_elf_file_path(out_dir)
+        # Convert axf to elf_file
+        if tb_path.endswith(".axf"):
+            if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
+                prepare_gcc(yaml_file_path)
+            objcopy_path = get_gcc_objcopy_path()
+            run_cmd.run(".", f"{objcopy_path} {tb_path} {elf_file}", "Failed to convert axf file to an elf file!", error.GCC_BASE + 5, False)
+        else:
+            # copy the elf file to our target folder
+            shutil.copy(tb_path, elf_file)
+        # If requested disassemble the elf file
+        if disassemble_tb:
+            patch_and_compile_with_gcc(None)
+    elif tb_path.endswith(".s") or tb_path.endswith(".S"):
         elf_file = patch_and_compile_with_gcc([tb_path])
     elif tb_path.endswith(".yml") or tb_path.endswith(".yaml"):
         with open(tb_path, "r") as yamlfile:

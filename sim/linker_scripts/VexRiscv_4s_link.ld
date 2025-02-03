@@ -16,6 +16,10 @@ SECTIONS
     .text.init : {
             * (.text.init);
     } > imem
+    .text.irq : ALIGN(0x100) {
+          * (.text.freertos_risc_v_trap_handler);
+          * (.text.trap_handler)
+    } > imem
     .text : {
           * (.text);
     } > imem
@@ -25,29 +29,33 @@ SECTIONS
     } > imem
 
     . = ORIGIN(dmem);
-    .input_data : {
-        PROVIDE( _test_indata = ORIGIN(dmem) );
-          * (.input_data);
-    } > dmem
-
+    PROVIDE( _test_indata = ORIGIN(dmem) );
     PROVIDE( _test_resdata = ORIGIN(dmem) + __indata_size );
-    .data : {
-        * (.data);
-    } > dmem
     .srodata : {
           * (.srodata);
     } > dmem
     .rodata : {
           * (.rodata);
     } > dmem
+    .sdata : {
+          * (.sdata*);
+    } > dmem
+    .sbss : {
+         * (.sbss*);
+    } > dmem
+    .data : {
+        * (.data);
+    } > dmem
     .bss : {
          * (.bss);
     } > dmem
+    PROVIDE ( _heap_start = .);
 
     .stack ORIGIN(dmem) + LENGTH(dmem) - __stack_size :
     {
         . = ORIGIN(dmem) + LENGTH(dmem);
         PROVIDE( _sp = . );
+        PROVIDE (_stack_top = .);
     } > dmem
 
     PROVIDE( _ctrlmem = ORIGIN(ctrl) );

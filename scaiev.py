@@ -2,6 +2,7 @@
 import os
 import shutil
 import functools
+import yaml
 
 import error
 import run_cmd
@@ -100,7 +101,26 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
     # Copy the unchanged core source file to our target directory
     copy_folder_contents(f"deps/scaie-v/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
-    run_cmd.run("deps/scaie-v/", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar {' '.join(scv_args)}", "SCAIEV failed", error.SCAIEV_BASE + 2)
+
+    if (core != "CV32E40P"):
+        run_cmd.run("deps/scaie-v/", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar {' '.join(scv_args)}", "SCAIEV failed", error.SCAIEV_BASE + 2)
+    else:
+        print(f"WARNING: {core} has no SCAIE-V support! There won't be ISAXes!")
+        # Create an empty scaiev_netlist.yaml file and see what happens
+        scaiev_netlist = os.path.join(target_dir, "scaiev_netlist.yaml")
+        with open(scaiev_netlist, 'w'):
+            pass
+        # Create an empty CommonLogicModule.sv file and see what happens
+        scal_sv = os.path.join(target_dir, "CommonLogicModule.sv")
+        with open(scal_sv, 'w') as scal:
+            scal.write("""
+module SCAL (
+    input clk_i,
+    input rst_i
+);
+endmodule
+""")
+
     print(f" - Creating wrapper module")
     run_cmd.run("deps/scaie-v/util/maketop", f"python3 {select_wrapper_gen(core)} {target_dir} {isax_dir}", "Could not generate top module", error.SCAIEV_BASE + 3)
     print(f" - Building the extended core")
@@ -136,6 +156,8 @@ def select_coresrc_folder_name(core):
         return core
     elif (core == "Piccolo"):
         return core
+    elif (core == "CV32E40P"):
+        return core
     elif (core == "CVA5"):
         return core
     elif (core == "CVA6"):
@@ -152,6 +174,8 @@ def select_wrapper_gen(core):
         return f"{core}_maketop.py"
     elif (core == "Piccolo"):
         return f"{core}_maketop.py"
+    elif (core == "CV32E40P"):
+        return f"cv32e40p_maketop.py"
     elif (core == "CVA5"):
         return f"{core}_maketop.py"
     elif (core == "CVA6"):
@@ -177,6 +201,8 @@ def select_compiler_extensions(core):
         return "im", "ilp32", 32
     elif (core == "Piccolo"):
         return "imac", "ilp32", 32
+    elif (core == "CV32E40P"):
+        return "im", "ilp32", 32
     elif (core == "CVA5"):
         return "im", "ilp32", 32
     elif (core == "CVA6"):
@@ -227,20 +253,35 @@ EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
 """
         }
         return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", "top", [], [], extra_makefile_args
+    elif (core == "CV32E40P"):
+        with open(os.path.join("deps/scaie-v/CoresSrc", core, "src_files.yml")) as prj_yaml_desc:
+            prj_desc = yaml.safe_load(prj_yaml_desc)
+        core_srcs = prj_desc["cv32e40p"]["files"] + prj_desc["cv32e40p_regfile_verilator"]["files"] + ["bhv/cv32e40p_sim_clock_gate.sv"]
+        defines = [
+            # "COREV_ASSERT_OFF"
+        ]
+        include_dirs = prj_desc["cv32e40p"]["incdirs"]
+        extra_makefile_args = {
+            "verilator": """
+# Verilator throws lots of warnings on the core. Ignoring some of them.
+EXTRA_ARGS+=-Wno-WIDTHEXPAND -Wno-LITENDIAN -Wno-WIDTHTRUNC -Wno-BLKANDNBLK
+"""
+        }
+        return ["cv32e40x_tb_wrapper.v", "obi_axi_adapter.sv"], core_srcs + ["cv32e40p_top.sv"] + scal_sources, "testbench", "top", include_dirs, defines, extra_makefile_args
     elif (core == "CVA5"):
         compile_order = os.path.join("deps/scaie-v/CoresSrc", core, "tools/compile_order")
-        core_files = read_file_lines(compile_order)
+        core_srcs = read_file_lines(compile_order)
         blacklist = [
             "l2_arbiter/l2_fifo.sv",
         ]
-        core_files = [f for f in core_files if not f in blacklist]
+        core_srcs = [f for f in core_srcs if not f in blacklist]
         extra_makefile_args = {
             "questa": """
 EXTRA_ARGS += -suppress 7061 # Ignore some undriven signals
 EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
 """
         }
-        return ["CVA5_tb_wrapper.v"], core_files + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", [], [], extra_makefile_args
+        return ["CVA5_tb_wrapper.v"], core_srcs + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", [], [], extra_makefile_args
     elif (core == "CVA6"):
         core_srcs = [
             "vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv",
@@ -532,6 +573,34 @@ def select_tb_env_vars(core):
             # The base address of the MMIO control block on the bus (for completion IRQ).
             "CTRL_BASE=00200000",
         ]
+    elif (core == "CV32E40P"):
+        return [
+            # Number of Bus slave interfaces the simulator should instantiate.
+            "NUM_BUSSI=2",
+            # Types and port names for each Bus SI.
+            "BUSSI0_TYPE=AXI4",
+            "BUSSI0_SIGNAME=m_axi_instr",
+            "BUSSI1_TYPE=AXI4",
+            "BUSSI1_SIGNAME=m_axi_data",
+            # Bus SI index for IMEM.
+            "IMEM_BUSIDX=0",
+            # The base address of the instruction memory on the bus.
+            "IMEM_BASE=80000000",
+            # The address of the exception handler on the instruction bus, for error detection (optional).
+            "EXCEPTION_BASE=00000020",
+            # Bus SI index for DMEM.
+            "DMEM_BUSIDX=1",
+            # The base address of the data memory on the bus.
+            "DMEM_BASE=80100000",
+            # The offset to program results within the data memory.
+            "DMEM_RESULTS_OFFS=00001000",
+            # The physical size of the data memory.
+            "DMEM_SIZE=00100000",
+            # Bus SI index for CTRL.
+            "CTRL_BUSIDX=1",
+            # The base address of the MMIO control block on the bus (for completion IRQ).
+            "CTRL_BASE=80200000",
+        ]
     elif (core == "CVA5"):
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
@@ -638,6 +707,8 @@ def select_core(kconfig_core):
         return "ORCA"
     elif (kconfig_core == "CORE_PICCOLO"):
         return "Piccolo"
+    elif (kconfig_core == "CORE_CV32E40P"):
+        return "CV32E40P"
     elif (kconfig_core == "CORE_CVA5"):
         return "CVA5"
     elif (kconfig_core == "CORE_CVA6"):

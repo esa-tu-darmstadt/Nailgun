@@ -12,7 +12,6 @@ import openlane_plugin
 sys.path.remove(script_folder)
 
 def main(vars):
-    print("Running OpenLane 2")
     out_dir = vars['out_dir']
     scaiev_core_name = vars['scaiev_core_name']
     kconf = vars['kconf']
