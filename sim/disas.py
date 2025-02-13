@@ -21,7 +21,8 @@ def byte_array_to_binary(byte_array):
 
 def match_instruction(binary_str, pattern):
     """Match a binary string with a given pattern."""
-    for i in range(len(binary_str)):
+    min_len = min(len(binary_str), len(pattern))
+    for i in range(min_len):
         if pattern[i] != '-' and binary_str[i] != pattern[i]:
             return False
     return True
@@ -41,9 +42,13 @@ def disassemble(instr_bytes):
     # Reverse the bytes using slicing
     isax_name = find_matching_isax(instr_bytes[::-1])
     if isax_name:
-        return isax_name
+        return [isax_name]
     assembly = "Unknown Instr"
+    disases = []
     for i in diassembler.disasm(instr_bytes, 0x0):
-        assembly = f"{i.mnemonic} {i.op_str}"
-        break
-    return assembly
+        disases.append(f"{i.mnemonic} {i.op_str}")
+
+    if len(disases) > 0:
+        return disases
+
+    return [assembly]

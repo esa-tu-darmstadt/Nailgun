@@ -92,7 +92,7 @@ class NaxWhiteBox:
     def trace(self, opId):
         op = self.opCtx[opId]
         fetch = self.fetchCtx[op['fetchId']]
-        assembly = self.disasm(op['instruction'].buff[::-1])
+        assembly = self.disasm(op['instruction'].buff[::-1])[0]
         # Simulating gem5 trace output
         self.gem5.write(f"O3PipeView:fetch:{self.traceT2s(fetch['fetchAt'])}:0x{op['pc'].integer:08x}:0:{op['counter']}:{assembly}\n")
         self.gem5.write(f"O3PipeView:decode:{self.traceT2s(fetch['decodeAt'])}\n")

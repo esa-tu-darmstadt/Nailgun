@@ -128,8 +128,10 @@ async def run_test(dut):
             print("instruction read %08x" % addr_begin)
             # Initialize the disassembler for RISC-V (32-bit)
             instr_data = instr_mem[addr_begin - IMEM_BASE:addr_end - IMEM_BASE]
-            assembly = disas.disassemble(instr_data)
-            print(f"Address: 0x{addr_begin}, Instruction: {assembly}")
+            for i in range(0, len(instr_data), 4):
+                assembly = disas.disassemble(instr_data[i:i+4])
+                for idx, asm in enumerate(assembly):
+                    print(f"Address: 0x{addr_begin + i + idx * int(4 / len(assembly)):08x}, Instruction: {asm}")
 
         if (EXCEPTION_BASE is not None) and addr_begin == EXCEPTION_BASE:
             raise CoreExceptionException("The core fetched the exception handler address 0x%08x" % addr_begin)
