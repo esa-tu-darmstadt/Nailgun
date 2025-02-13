@@ -178,7 +178,7 @@ def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, ad
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
     return compile_tb(tb_paths, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
 
-def run_tb(out_dir, core_name, elf_file, tb_expected_path, memory_config=None, gls=None):
+def run_tb(out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config=None, gls=None):
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
@@ -215,17 +215,25 @@ def run_tb(out_dir, core_name, elf_file, tb_expected_path, memory_config=None, g
 
     # Find all .py files in the sim directory
     py_files = glob.glob(os.path.join("sim", '*.py'))
+    # Also copy additionally required tools
+    py_files.append(os.path.join("tools", "isax_yaml_tools.py"))
 
     # Copy each file to the output simulation folder
     for file in py_files:
         shutil.copy(file, sim_dir)
+
+    # Copy expected output file next to the elf file
+    copied_expected_path = os.path.join(os.path.dirname(get_target_elf_file_path(out_dir)), os.path.basename(tb_expected_path))
+    shutil.copy(tb_expected_path, copied_expected_path)
 
     # Convert the absolute verilog_srcs paths to relative paths from the sim directory
     verilog_srcs = [os.path.relpath(p, sim_dir) for p in verilog_srcs]
 
     env_vars = [
         f"TESTPROG={os.path.relpath(elf_file[:-len('.elf')], sim_dir)}",
-        f"EXPECTED={os.path.relpath(tb_expected_path, sim_dir)}",
+        f"EXPECTED={os.path.relpath(copied_expected_path, sim_dir)}",
+        f"CORE_NAME={core_name}",
+        f"ISAX_YAML={os.path.relpath(isax_yaml_path, sim_dir)}",
     ] + scaiev.select_tb_env_vars(core_name)
 
     newline = "\n"
@@ -340,7 +348,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             error.exit_error("Simulation testbench expected output path is missing!", error.USER_ERROR)
     else:
         print("Only adding ISAX compiler support")
-    yaml_file_path = find_yaml_file(out_dir)
+    isax_yaml_path = find_yaml_file(out_dir)
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
@@ -349,7 +357,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     def patch_and_compile_with_gcc(filepaths, custom_linker_script=None):
         print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
-            prepare_gcc(yaml_file_path)
+            prepare_gcc(isax_yaml_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
             return gcc_compile_tb(filepaths, core_name, out_dir, additional_flags, disassemble_tb, custom_linker_script)
@@ -378,7 +386,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         # Convert axf to elf_file
         if tb_path.endswith(".axf"):
             if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
-                prepare_gcc(yaml_file_path)
+                prepare_gcc(isax_yaml_path)
             objcopy_path = get_gcc_objcopy_path()
             run_cmd.run(".", f"{objcopy_path} {tb_path} {elf_file}", "Failed to convert axf file to an elf file!", error.GCC_BASE + 5, False)
         else:
@@ -429,4 +437,4 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
 
     if not only_add_cc_support:
         print(" - Start simulation")
-        run_tb(out_dir, core_name, elf_file, tb_expected_path, memory_config, gls)
+        run_tb(out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config, gls)

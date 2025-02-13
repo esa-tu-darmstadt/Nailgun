@@ -174,7 +174,7 @@ print(f"Summary: {len(results) - failed}/{len(results)} integration tests succee
 pattern = r'(\w+)="([^"]+)"'
 
 results_map = {}
-for exit_code, cmd, _ in results:
+for exit_code, cmd, id in results:
     # Use re.findall to find all make ci parameters
     matches = dict(re.findall(pattern, cmd))
     core = matches["CORE"]
@@ -188,7 +188,10 @@ for exit_code, cmd, _ in results:
         isax_name = os.path.splitext(os.path.basename(mlir_path))[0]
         test_case_name = f"MLIR {isax_name}"
     elif len(isaxes) == 0:
-        test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "gcc")
+        if tb_path.endswith(".elf") or tb_path.endswith(".axf"):
+            test_case_name = "NO ISAX / " + tb_name
+        else:
+            test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "gcc")
     elif len(isaxes) == 1:
         isax = isaxes[0]
         test_case_name = isax if tb_name.lower() == isax.lower() else f"{isax} / {tb_name}"
@@ -199,7 +202,7 @@ for exit_code, cmd, _ in results:
         results_map[core] = {}
 
     assert test_case_name not in results_map[core], f"Result for test case: '{test_case_name}' has already been registered for core = {core}, full cmd = {cmd}"
-    results_map[core][test_case_name] = error.decode_exit_code(exit_code)
+    results_map[core][test_case_name] = error.decode_exit_code(exit_code, id)
 
 # Create DataFrame
 df = pd.DataFrame(results_map)

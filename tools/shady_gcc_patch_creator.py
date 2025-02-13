@@ -5,21 +5,14 @@ import sys
 import pathlib
 import os
 
+from isax_yaml_tools import *
+
 if len(sys.argv) != 3:
     print("Usage: ./shady_gcc_patch_creator.py <ISAX.yaml> <patched_files_output_dir>")
     sys.exit(1)
 
 file_name = sys.argv[1]
-isax = dict()
-with open(file_name, 'r') as file:
-    isax_desc = yaml.safe_load(file)
-    if isax_desc:
-        for item in isax_desc:
-            if 'instruction' in item:
-                ins_name = item['instruction']
-                encoding = item['mask']
-                isax[ins_name] = encoding
-
+isax = extract_encodings(file_name)
 
 # Handle placeholders for immediate values by enumerating all possible assignments
 expanded_isax = dict()

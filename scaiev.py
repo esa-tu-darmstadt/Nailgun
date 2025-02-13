@@ -55,6 +55,10 @@ def copy_folder_contents(source_folder, target_folder):
         "deps/scaie-v/CoresSrc/VexRiscv/scripts", # unnecessary
         # Piccolo
         "deps/scaie-v/CoresSrc/Piccolo/Tests", # unnecessary
+        # CV32E40P
+        "deps/scaie-v/CoresSrc/CV32E40P/.git", # unnecessary
+        # NaxRiscv
+        # "deps/scaie-v/CoresSrc/NaxRiscv/.git", # actually necessary, lol
     ]
 
     # Iterate over the contents of the source folder
@@ -102,7 +106,7 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
     copy_folder_contents(f"deps/scaie-v/CoresSrc/{select_coresrc_folder_name(core)}", target_dir)
 
 
-    if (core != "CV32E40P"):
+    if (core != "CV32E40P" and core != "NaxRiscv"):
         run_cmd.run("deps/scaie-v/", f"java -enableassertions -jar ./target/SCAIEV-0.0.1-SNAPSHOT-jar-with-dependencies.jar {' '.join(scv_args)}", "SCAIEV failed", error.SCAIEV_BASE + 2)
     else:
         print(f"WARNING: {core} has no SCAIE-V support! There won't be ISAXes!")
@@ -131,6 +135,20 @@ endmodule
         run_cmd.run(target_dir, f"patch -p1 < {patch_file}", "Could not patch the VexRiscv sources", error.SCAIEV_BASE + 4, False)
         # Build VexRiscv
         run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", error.SCAIEV_BASE + 5, False, 100)
+    elif (core == "NaxRiscv"):
+        # Patch the build system and config of NaxRiscv. Tested against commit 1c50e84d9a6f7ea93d7153f12906c25552267b9d
+        patch_file = os.path.abspath("patches/Nax5.patch")
+        run_cmd.run(target_dir, f"patch -p1 < {patch_file}", "Could not patch the NaxRiscv sources", error.SCAIEV_BASE + 4, False)
+        # Build NaxRiscv
+        IMEM_BASE = "0x80000000"
+        IMEM_SIZE =   "0x100000"
+        DMEM_BASE = "0x80100000"
+        DMEM_SIZE =   "0x100000"
+        CTRL_BASE = "0x80200000"
+        CTRL_SIZE =   "0x100000"
+        CLINT_BASE = "0x40000000"
+        CLINT_SIZE =   "0x010000"
+        run_cmd.run(target_dir, f'sbt "runMain naxriscv.platform.asic.NaxAsicGen --memory-region={CLINT_BASE},{CLINT_SIZE},io,p --memory-region={CTRL_BASE},{CTRL_SIZE},io,p --memory-region={IMEM_BASE},{IMEM_SIZE},xc,m --memory-region={DMEM_BASE},{DMEM_SIZE},rwc,m --reset-vector={IMEM_BASE}"', "Could not generate nax.v", error.SCAIEV_BASE + 5, False, 100)
     elif (core == "PicoRV32"):
         # Patch in fence support for picorv32: https://github.com/YosysHQ/picorv32/pull/229
         # TODO remove once the coresrcs in scaie-v were updated
@@ -162,6 +180,8 @@ def select_coresrc_folder_name(core):
         return core
     elif (core == "CVA6"):
         return core
+    elif (core == "NaxRiscv"):
+        return core
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return "VexRiscv"
     else:
@@ -175,11 +195,13 @@ def select_wrapper_gen(core):
     elif (core == "Piccolo"):
         return f"{core}_maketop.py"
     elif (core == "CV32E40P"):
-        return f"cv32e40p_maketop.py"
+        return f"{core.lower()}_maketop.py"
     elif (core == "CVA5"):
         return f"{core}_maketop.py"
     elif (core == "CVA6"):
         return f"{core}_maketop.py"
+    elif (core == "NaxRiscv"):
+        return f"Nax_maketop.py"
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return "Vex_maketop.py"
     else:
@@ -208,6 +230,8 @@ def select_compiler_extensions(core):
     elif (core == "CVA6"):
         # TODO check for available extensions
         return "im", "lp64", 64
+    elif (core == "NaxRiscv"):
+        return "ima", "ilp32", 32
     elif core == "VexRiscv_4s":
         # No multiply unit
         return "i", "ilp32", 32
@@ -483,8 +507,20 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
         }
 
         return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", "cva6_ariane_wrapper", include_dirs, defines, extra_makefile_args
+    elif (core == "NaxRiscv"):
+        return ["Nax_tb_wrapper.sv"], ["nax.v", "Nax_top.sv", "mkRTOSUnitSynth.v"] + scal_sources, "nax_wrapper", "top", [], [], {
+            "default": """
+# Flags
+EXTRA_ARGS+=-DFORMAL
+"""
+        }
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
-        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], [], {}
+        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], [], {
+            "default": """
+# Flags
+EXTRA_ARGS+=-DFORMAL
+"""
+        }
     else:
         error.exit_error("No testbench wrapper found for the selected core!", error.INTERNAL_ERROR)
 
@@ -657,6 +693,39 @@ def select_tb_env_vars(core):
             # The base address of the MMIO control block on the bus (for completion IRQ).
             "CTRL_BASE=60000000",
         ]
+    elif (core == "NaxRiscv"):
+        return [
+            # Number of Bus slave interfaces the simulator should instantiate.
+            "NUM_BUSSI=3",
+            # Types and port names for each Bus SI.
+            "BUSSI0_TYPE=AXI4",
+            "BUSSI0_SIGNAME=m_axi_instr",
+            "BUSSI1_TYPE=AXI4",
+            "BUSSI1_SIGNAME=m_axi_data",
+            "BUSSI2_TYPE=AXI4",
+            "BUSSI2_SIGNAME=m_axi_ctrl",
+            # Bus SI index for IMEM.
+            "IMEM_BUSIDX=0",
+            # The base address of the instruction memory on the bus.
+            "IMEM_BASE=80000000",
+            # The address of the exception handler on the instruction bus, for error detection (optional).
+            #"EXCEPTION_BASE=00000020", # TODO honestly, I DONT KNOW
+            # Bus SI index for DMEM.
+            "DMEM_BUSIDX=1",
+            # The base address of the data memory on the bus.
+            "DMEM_BASE=80100000",
+            # The offset to program results within the data memory.
+            "DMEM_RESULTS_OFFS=00001000",
+            # The physical size of the data memory.
+            "DMEM_SIZE=00100000",
+            # Bus SI index for CTRL.
+            "CTRL_BUSIDX=2",
+            # The base address of the MMIO control block on the bus (for completion IRQ).
+            "CTRL_BASE=80200000",
+            # Bus SI index for CLINT.
+            "CLINT_BUSIDX=2",
+            "ALLOW_SPECULATIVE_READS", # NaxRiscv sometimes wants to read at 0x0 which is not mapped.... NOTE that this might hide segmentation faults...
+        ]
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
@@ -713,6 +782,8 @@ def select_core(kconfig_core):
         return "CVA5"
     elif (kconfig_core == "CORE_CVA6"):
         return "CVA6"
+    elif (kconfig_core == "CORE_NAX"):
+        return "NaxRiscv"
     elif (kconfig_core == "CORE_VEX_4S"):
         return "VexRiscv_4s"
     elif (kconfig_core == "CORE_VEX_5S"):

@@ -26,4 +26,7 @@ config CORE_VEX_4S
 config CORE_VEX_5S
 	bool "VexRiscv (5-Stage)"
 
+config CORE_NAX
+	bool "NaxRiscv"
+
 endchoice

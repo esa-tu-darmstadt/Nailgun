@@ -1,0 +1,130 @@
+diff --git a/project/build.properties b/project/build.properties
+index 71015be..7e401ec 100644
+--- a/project/build.properties
++++ b/project/build.properties
+@@ -2,4 +2,4 @@
+ //
+ // SPDX-License-Identifier: MIT
+ 
+-sbt.version=1.6.0
++sbt.version=1.9.9
+diff --git a/src/main/scala/naxriscv/platform/asic/NaxAsicGen.scala b/src/main/scala/naxriscv/platform/asic/NaxAsicGen.scala
+index 3dd5039..c22f876 100644
+--- a/src/main/scala/naxriscv/platform/asic/NaxAsicGen.scala
++++ b/src/main/scala/naxriscv/platform/asic/NaxAsicGen.scala
+@@ -4,14 +4,21 @@ import naxriscv.{Config, NaxRiscv}
+ import naxriscv.compatibility.{CombRamBlackboxer, EnforceSyncRamPhase, MemReadDuringWriteHazardPhase, MemReadDuringWritePatcherPhase, MultiPortWritesSymplifier}
+ import naxriscv.debug.EmbeddedJtagPlugin
+ import naxriscv.fetch.FetchCachePlugin
++import naxriscv.fetch.FetchAxi4
+ import naxriscv.lsu.DataCachePlugin
++import naxriscv.lsu.DataCacheAxi4
++import naxriscv.lsu.LsuPeripheralAxiLite4
+ import naxriscv.lsu2.Lsu2Plugin
++import naxriscv.platform.litex.LitexMemoryRegion
+ import naxriscv.prediction.{BtbPlugin, GSharePlugin}
+ import naxriscv.utilities.DocPlugin
+ import spinal.core._
+ import spinal.lib._
++import spinal.lib.bus.misc.SizeMapping
+ import spinal.lib.eda.bench.Rtl
+ 
++import scala.collection.mutable.ArrayBuffer
++
+ object NaxAsicGen extends App{
+   var ramBlocks = "inferred"
+   var regFileFakeRatio = 1
+@@ -19,6 +26,12 @@ object NaxAsicGen extends App{
+   var withIoFf = false
+   var withRfLatchRam = true
+   var blackBoxCombRam = false
++  var resetVector = 0L
++
++  val memDataWidth = 32
++  val ioDataWidth = 32
++
++  val memoryRegions = ArrayBuffer[LitexMemoryRegion]()
+ 
+   assert(new scopt.OptionParser[Unit]("NaxAsicGen") {
+     help("help").text("prints this usage text")
+@@ -28,11 +41,23 @@ object NaxAsicGen extends App{
+     opt[Unit]("io-ff") action { (v, c) => withIoFf = true }
+     opt[Unit]("no-rf-latch-ram") action { (v, c) => withRfLatchRam = false }
+     opt[Unit]("bb-comb-ram") action { (v, c) => blackBoxCombRam = true }
++    opt[Long]("reset-vector") action  { (v, c) => resetVector = v }
++    opt[Seq[String]]("memory-region") unbounded() action  { (v, c) =>
++      assert(v.length == 4, "--memory-region need 4 parameters")
++      val r = new LitexMemoryRegion(SizeMapping(BigInt(v(0).stripPrefix("0x"), 16), BigInt(v(1).stripPrefix("0x"), 16)), v(2), v(3))
++      memoryRegions += r
++      assert(!(r.onMemory && !r.isCachable), s"Region $r isn't supported by NaxRiscv, data cache will always cache memory")
++      assert(!(r.onMemory &&  r.isIo ), s"Region $r isn't supported by NaxRiscv, IO have to be on peripheral bus")
++    }
+   }.parse(args, Unit).nonEmpty)
+ 
+ 
+   LutInputs.set(4)
+   def plugins = {
++    def ioRange (address : UInt) : Bool = memoryRegions.filter(_.isIo).map(_.mapping.hit(address)).orR
++    def fetchRange (address : UInt) : Bool = memoryRegions.filter(_.isExecutable).map(_.mapping.hit(address)).orR
++    def peripheralRange (address : UInt) : Bool = memoryRegions.filter(_.onPeripheral).map(_.mapping.hit(address)).orR
++
+     val l = Config.plugins(
+       asic = true,
+       withRfLatchRam = withRfLatchRam,
+@@ -57,8 +82,22 @@ object NaxAsicGen extends App{
+       branchCount = 4,
+       mmuSets = 4,
+       regFileFakeRatio = regFileFakeRatio,
+-      //      withCoherency = true,
+-      ioRange = a => a(31 downto 28) === 0x1// || !a(12)//(a(5, 6 bits) ^ a(12, 6 bits)) === 51
++      // withCoherency = true,
++      ioRange = ioRange,
++      fetchRange = fetchRange,
++      resetVector = resetVector
++    )
++
++    l += new FetchAxi4(
++      ramDataWidth = memDataWidth,
++      ioDataWidth = ioDataWidth,
++      toPeripheral = cmd => peripheralRange(cmd.address)
++    )
++    l += new DataCacheAxi4(
++      dataWidth = memDataWidth
++    )
++    l += new LsuPeripheralAxiLite4(
++      ioDataWidth = ioDataWidth
+     )
+ 
+     l.foreach{
+@@ -68,16 +107,16 @@ object NaxAsicGen extends App{
+ 
+     ramBlocks match {
+       case "inferred" => l.foreach {
+-        case p: FetchCachePlugin => p.wayCount = 1; p.cacheSize = 256; p.memDataWidth = 64
+-        case p: DataCachePlugin => p.wayCount = 1; p.cacheSize = 256; p.memDataWidth = 64
++        case p: FetchCachePlugin => p.wayCount = 2; p.cacheSize = 256; p.memDataWidth = memDataWidth; p.fetchDataWidth = memDataWidth
++        case p: DataCachePlugin => p.wayCount = 2; p.cacheSize = 256; p.memDataWidth = memDataWidth
+         case p: BtbPlugin => p.entries = 8
+         case p: GSharePlugin => p.memBytes = 32
+         case p: Lsu2Plugin => p.hitPedictionEntries = 64
+         case _ =>
+       }
+       case "sky130" => l.foreach {
+-        case p: FetchCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = 64
+-        case p: DataCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = 64
++        case p: FetchCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = memDataWidth; p.fetchDataWidth = memDataWidth
++        case p: DataCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = memDataWidth
+         case p: BtbPlugin => p.entries = 64
+         case p: GSharePlugin => p.memBytes = 512
+         case p: Lsu2Plugin => p.hitPedictionEntries = 64
+@@ -95,7 +134,9 @@ object NaxAsicGen extends App{
+   if(blackBoxCombRam) spinalConfig.memBlackBoxers += new CombRamBlackboxer()
+ 
+   def gen = new NaxRiscv(plugins).setDefinitionName("nax")
+-  spinalConfig.generateVerilog(if(withIoFf) Rtl.ffIo(gen) else gen)
++  val report = spinalConfig.generateVerilog(if(withIoFf) Rtl.ffIo(gen) else gen)
++  val doc = report.toplevel.framework.getService[DocPlugin]
++  doc.genC()
+ 
+ //  spinalConfig.generateVerilog(new StreamFifo(UInt(4 bits), 256).setDefinitionName("nax"))
+ }
