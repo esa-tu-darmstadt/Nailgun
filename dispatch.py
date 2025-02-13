@@ -83,6 +83,7 @@ if __name__ == "__main__":
 
     # Package all results in an output folder
     out_dir = get_output_folder()
+    print(f"Output folder: {os.path.relpath(out_dir, ".")}")
 
     # Copy config to output folder to simplify reproducing it
     shutil.copy(config_path, os.path.join(out_dir, "config"))
