@@ -45,6 +45,8 @@ class BRAMSlave(BusDriver):
                 word = self.bus.din.value
                 wstrb = self.bus.we.value
 
+                wstrb.binstr= wstrb.binstr[::-1]
+
                 word.big_endian = self.big_endian
                 word = array.array('B', word.buff)
 
