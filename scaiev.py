@@ -218,25 +218,25 @@ def select_linker_file(core):
 def select_compiler_extensions(core):
     if (core == "PicoRV32"):
         # No multiply unit
-        return "i", "ilp32", 32
+        return "i_zicsr", "ilp32", 32
     elif (core == "ORCA"):
-        return "im", "ilp32", 32
+        return "im_zicsr", "ilp32", 32
     elif (core == "Piccolo"):
-        return "imac", "ilp32", 32
+        return "imac_zicsr", "ilp32", 32
     elif (core == "CV32E40P"):
-        return "im", "ilp32", 32
+        return "im_zicsr", "ilp32", 32
     elif (core == "CVA5"):
-        return "im", "ilp32", 32
+        return "im_zicsr", "ilp32", 32
     elif (core == "CVA6"):
         # TODO check for available extensions
-        return "im", "lp64", 64
+        return "im_zicsr", "lp64", 64
     elif (core == "NaxRiscv"):
-        return "ima", "ilp32", 32
+        return "ima_zicsr", "ilp32", 32
     elif core == "VexRiscv_4s":
         # No multiply unit
-        return "i", "ilp32", 32
+        return "i_zicsr", "ilp32", 32
     elif core == "VexRiscv_5s":
-        return "im", "ilp32", 32
+        return "im_zicsr", "ilp32", 32
     else:
         error.exit_error("No supported compiler extensions found for the selected core!", error.INTERNAL_ERROR)
 
