@@ -102,8 +102,8 @@ index 3dd5039..c22f876 100644
        case "inferred" => l.foreach {
 -        case p: FetchCachePlugin => p.wayCount = 1; p.cacheSize = 256; p.memDataWidth = 64
 -        case p: DataCachePlugin => p.wayCount = 1; p.cacheSize = 256; p.memDataWidth = 64
-+        case p: FetchCachePlugin => p.wayCount = 2; p.cacheSize = 256; p.memDataWidth = memDataWidth; p.fetchDataWidth = memDataWidth
-+        case p: DataCachePlugin => p.wayCount = 2; p.cacheSize = 256; p.memDataWidth = memDataWidth
++        case p: FetchCachePlugin => p.wayCount = 4; p.cacheSize = 256; p.memDataWidth = memDataWidth; p.fetchDataWidth = memDataWidth
++        case p: DataCachePlugin => p.wayCount = 4; p.cacheSize = 256; p.memDataWidth = memDataWidth
          case p: BtbPlugin => p.entries = 8
          case p: GSharePlugin => p.memBytes = 32
          case p: Lsu2Plugin => p.hitPedictionEntries = 64
@@ -112,8 +112,8 @@ index 3dd5039..c22f876 100644
        case "sky130" => l.foreach {
 -        case p: FetchCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = 64
 -        case p: DataCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = 64
-+        case p: FetchCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = memDataWidth; p.fetchDataWidth = memDataWidth
-+        case p: DataCachePlugin => p.wayCount = 2; p.cacheSize = 4096; p.memDataWidth = memDataWidth
++        case p: FetchCachePlugin => p.wayCount = 4; p.cacheSize = 4096; p.memDataWidth = memDataWidth; p.fetchDataWidth = memDataWidth
++        case p: DataCachePlugin => p.wayCount = 4; p.cacheSize = 4096; p.memDataWidth = memDataWidth
          case p: BtbPlugin => p.entries = 64
          case p: GSharePlugin => p.memBytes = 512
          case p: Lsu2Plugin => p.hitPedictionEntries = 64
