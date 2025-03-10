@@ -10,6 +10,7 @@ SECTIONS
     __stack_size = 0x1000;
     __indata_size = 0x1000;
     __resdata_size = 0x1000;
+    __ctx_size = 0x1000;
 
     . = ORIGIN(imem);
 
@@ -51,12 +52,16 @@ SECTIONS
     } > dmem
     PROVIDE ( _heap_start = .);
 
-    .stack ORIGIN(dmem) + LENGTH(dmem) - __stack_size :
+    .ctx_states ORIGIN(dmem) + LENGTH(dmem) - __stack_size - __ctx_size:
     {
-        . = ORIGIN(dmem) + LENGTH(dmem);
-        PROVIDE( _sp = . );
-        PROVIDE (_stack_top = .);
+        PROVIDE (_ctx_state_start = .);
+        PROVIDE (_ctx_state_end = . + __ctx_size);
     } > dmem
 
+    .stack ORIGIN(dmem) + LENGTH(dmem) - __stack_size:
+    {
+        PROVIDE( _sp = .  + __stack_size);
+        PROVIDE (_stack_top = . + __stack_size);
+    } > dmem
     PROVIDE( _ctrlmem = ORIGIN(ctrl) );
 }
