@@ -2,20 +2,20 @@
 
 #include <stdint.h>
 
-#if __has_builtin(__builtin_riscv_merged_set_addr)
-#define __builtin_riscv_set_addr __builtin_riscv_merged_set_addr
+#if __has_builtin(__builtin_riscv_merged_setaddr)
+#define __builtin_riscv_set_addr __builtin_riscv_merged_setaddr
 #else
-#define __builtin_riscv_set_addr __builtin_riscv_autoinc_set_addr
+#define __builtin_riscv_set_addr __builtin_riscv_autoinc_setaddr
 #endif
-#if __has_builtin(__builtin_riscv_merged_lw_inc)
-#define __builtin_riscv_lw_inc __builtin_riscv_merged_lw_inc
+#if __has_builtin(__builtin_riscv_merged_lwinc)
+#define __builtin_riscv_lw_inc __builtin_riscv_merged_lwinc
 #else
-#define __builtin_riscv_lw_inc __builtin_riscv_autoinc_lw_inc
+#define __builtin_riscv_lw_inc __builtin_riscv_autoinc_lwinc
 #endif
-#if __has_builtin(__builtin_riscv_merged_sw_inc)
-#define __builtin_riscv_sw_inc __builtin_riscv_merged_sw_inc
+#if __has_builtin(__builtin_riscv_merged_swinc)
+#define __builtin_riscv_sw_inc __builtin_riscv_merged_swinc
 #else
-#define __builtin_riscv_sw_inc __builtin_riscv_autoinc_sw_inc
+#define __builtin_riscv_sw_inc __builtin_riscv_autoinc_swinc
 #endif
 
 int main() {

@@ -2,14 +2,14 @@
 
 #include <stdint.h>
 
-#if (__has_builtin(__builtin_riscv_merged_sqrt_decoupled) || defined(TB_FORCE_USE_MERGED)) && !defined(TB_USE_SQRT_STALL)
-#define __builtin_riscv_sqrt __builtin_riscv_merged_sqrt_decoupled
-#elif __has_builtin(__builtin_riscv_merged_sqrt_stall) || defined(TB_FORCE_USE_MERGED)
-#define __builtin_riscv_sqrt __builtin_riscv_merged_sqrt_stall
-#elif __has_builtin(__builtin_riscv_sqrt_stall_sqrt_stall)
-#define __builtin_riscv_sqrt __builtin_riscv_sqrt_stall_sqrt_stall
+#if (__has_builtin(__builtin_riscv_merged_sqrtdecoupled) || defined(TB_FORCE_USE_MERGED)) && !defined(TB_USE_SQRT_STALL)
+#define __builtin_riscv_sqrt __builtin_riscv_merged_sqrtdecoupled
+#elif __has_builtin(__builtin_riscv_merged_sqrtstall) || defined(TB_FORCE_USE_MERGED)
+#define __builtin_riscv_sqrt __builtin_riscv_merged_sqrtstall
+#elif __has_builtin(__builtin_riscv_sqrtstall_sqrtstall)
+#define __builtin_riscv_sqrt __builtin_riscv_sqrtstall_sqrtstall
 #else
-#define __builtin_riscv_sqrt __builtin_riscv_sqrt_sqrt_decoupled
+#define __builtin_riscv_sqrt __builtin_riscv_sqrt_sqrtdecoupled
 #endif
 
 
