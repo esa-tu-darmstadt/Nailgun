@@ -13,4 +13,24 @@ menu "Simulation configuration"
 	config SIM_TB_DISASSEMBLE_ELF
 		bool "Create a disassembly file of the TB"
 		default y
+	config SIM_CYCLE_TIMEOUT
+		string "Cycle limit"
+		default "1000000"
+	menu "Verbosity"
+		config SIM_PRINT_CLK
+			bool "Print CLK"
+			default y
+		config SIM_PRINT_IMEM
+			bool "Print IMEM transactions"
+			default y
+		config SIM_PRINT_DMEM
+			bool "Print DMEM transactions"
+			default y
+		config SIM_PRINT_BRAM
+			bool "Print BRAM transactions"
+			default y
+		config SIM_PRINT_AXI
+			bool "Print AXI transactions"
+			default y
+	endmenu
 endmenu

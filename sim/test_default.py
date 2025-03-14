@@ -14,7 +14,12 @@ import clint
 import disas
 
 CLK_PERIOD = 1 # Length of a clock period in ns
-TIMEOUT_PERIODS = 1e6 # Number of clock periods until timeout
+TIMEOUT_PERIODS = int(cocotb.plusargs["CYCLE_TIMEOUT"]) # Number of clock periods until timeout
+PRINT_CLK = int(cocotb.plusargs["PRINT_CLK"]) > 0
+PRINT_IMEM = int(cocotb.plusargs["PRINT_IMEM"]) > 0
+PRINT_DMEM = int(cocotb.plusargs["PRINT_DMEM"]) > 0
+PRINT_BRAM = int(cocotb.plusargs["PRINT_BRAM"]) > 0
+PRINT_AXI = int(cocotb.plusargs["PRINT_AXI"]) > 0
 
 @cocotb.coroutine
 def clock_print(clk):
@@ -64,7 +69,8 @@ async def run_test(dut):
     # })
 
     cocotb.start_soon(Clock(clk, CLK_PERIOD, units='ns').start())
-    cocotb.start_soon(clock_print(clk))
+    if PRINT_CLK:
+        cocotb.start_soon(clock_print(clk))
 
     NUM_BUSSI = int(cocotb.plusargs["NUM_BUSSI"])
     memsi = []
@@ -73,9 +79,9 @@ async def run_test(dut):
         bussi_signame = cocotb.plusargs["BUSSI%d_SIGNAME" % i_bussi]
         match bussi_type:
             case "AXI4":
-                memsi.append(AXI4Slave(dut, bussi_signame, clk, HierarchicalMemView([]), big_endian=False))
+                memsi.append(AXI4Slave(dut, bussi_signame, clk, HierarchicalMemView([]), big_endian=False, enable_prints=PRINT_AXI))
             case "BRAM":
-                memsi.append(BRAMSlave(dut, bussi_signame, clk, HierarchicalMemView([]), big_endian=False))
+                memsi.append(BRAMSlave(dut, bussi_signame, clk, HierarchicalMemView([]), big_endian=False, enable_prints=PRINT_BRAM))
             case _:
                 raise ConfigException("Unknown BusSI type " + bussi_type)
 
@@ -124,7 +130,7 @@ async def run_test(dut):
     allowSpeculativeReads = True if ("ALLOW_SPECULATIVE_READS" in cocotb.plusargs) else False
 
     def check_instr_read(addr_begin, addr_end, big_endian):
-        if testStarted and addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
+        if PRINT_IMEM and testStarted and addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
             print("instruction read %08x" % addr_begin)
             # Initialize the disassembler for RISC-V (32-bit)
             instr_data = instr_mem[addr_begin - IMEM_BASE:addr_end - IMEM_BASE]
@@ -140,13 +146,14 @@ async def run_test(dut):
     def check_data_read(addr_begin, addr_end, big_endian):
         if testStarted:
             if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
-                print("data read %08x" % addr_begin)
+                if PRINT_DMEM:
+                    print("data read %08x" % addr_begin)
             elif allowSpeculativeReads:
                 print("WARNING: unmapped (speculative?) read at: %08x" % addr_begin)
                 return bytes([0] * 4)
         return None
     def check_data_write(addr_begin, addr_end, word, wstrb):
-        if testStarted and addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
+        if PRINT_DMEM and testStarted and addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
             print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
         return False
 
@@ -215,7 +222,10 @@ async def run_test(dut):
             raise CoreExceptionException("The core set its trap pin")
         core_done_trigger = First(core_done_trigger, RisingEdge(trap))
 
-    await with_timeout(core_done_trigger, TIMEOUT_PERIODS * CLK_PERIOD, timeout_unit='ns')
+    if TIMEOUT_PERIODS > 0:
+        await with_timeout(core_done_trigger, TIMEOUT_PERIODS * CLK_PERIOD, timeout_unit='ns')
+    else:
+        await core_done_trigger
 
     if (trap is not None) and trap.value == 1:
         raise CoreExceptionException("The core set its trap pin")

@@ -18,7 +18,7 @@ bram_signals = [
 
 class BRAMSlave(BusDriver):
     def __init__(self, entity, name, clock, memview, event=None,
-                 big_endian=False, **kwargs):
+                 big_endian=False, enable_prints = True, **kwargs):
         self._signals = bram_signals
         BusDriver.__init__(self, entity, name, clock, **kwargs)
         self.clock = clock
@@ -26,6 +26,7 @@ class BRAMSlave(BusDriver):
         self.memview = memview
 
         self.big_endian = big_endian
+        self.enable_prints = enable_prints
 
         cocotb.start_soon(self._process())
 
@@ -52,7 +53,7 @@ class BRAMSlave(BusDriver):
 
                 self.memview.write(_st,_end,word,wstrb)
 
-                if __debug__ or True:
+                if self.enable_prints:
                     print("BRAM write - addr %08x, din %08x, we %s" % (_st, int(self.bus.din), str(wstrb)))
 
 
@@ -64,5 +65,5 @@ class BRAMSlave(BusDriver):
             read_val = self.memview.read(_st,_end, self.bus.dout.value.n_bits, self.big_endian)
             self.bus.dout.value = read_val
 
-            if __debug__ or True:
+            if self.enable_prints:
                 print("BRAM read - addr %08x, data %08x\n" % (_st, read_val.integer))

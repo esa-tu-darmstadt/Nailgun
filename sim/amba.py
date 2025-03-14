@@ -293,7 +293,7 @@ class AXI4Slave(BusDriver):
     ] + axi4_additional_signals
 
     def __init__(self, entity, name, clock, memview : MemView, event=None,
-                 big_endian=False, artificial_stall=False, **kwargs):
+                 big_endian=False, artificial_stall=False, enable_prints=True, **kwargs):
         self._signals = axi4_lite_signals
         BusDriver.__init__(self, entity, name, clock, **kwargs)
         self.clock = clock
@@ -328,6 +328,7 @@ class AXI4Slave(BusDriver):
         self._aw_requests = []
         self._w_requests = []
 
+        self.enable_prints = enable_prints
 
         self.write_address_busy = Lock("%s_wabusy" % name)
         self.read_address_busy = Lock("%s_rabusy" % name)
@@ -448,7 +449,7 @@ class AXI4Slave(BusDriver):
                 # Next write beat: Incremented address (assuming incr mode) by beat byte size (2**awsize), then aligned by 2**awsize - 1.
                 next_addr = self.burst_nextaddr(_awaddr, _awburst, _awlen, bytes_in_beat)
                 self._aw_requests[0] = (next_addr, _awlen - 1, _awsize, _awburst, _awprot, _awid)
-            if __debug__ or True:
+            if self.enable_prints:
                 print(
                     "(WADDR) %08x\n" % _awaddr +
                     "WDATA   %s\n" % ' '.join([('%02x' % _byte) for _byte in word]) +
@@ -482,7 +483,7 @@ class AXI4Slave(BusDriver):
 
             self._aw_requests.append((_awaddr, _awlen, _awsize, _awburst, _awprot, _awid))
 
-            if __debug__ or True:
+            if self.enable_prints:
                 print(
                     "AWADDR  %08x\n" % _awaddr +
                     "AWLEN   %d\n" % _awlen +
@@ -534,10 +535,11 @@ class AXI4Slave(BusDriver):
                     self.bus.RID.value = _arid
                 if self._has_burst:
                     self.bus.RLAST.value = rlast
-                print(
-                    "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
-                    "RID    %d\n" % _arid +
-                    "RLAST  %d\n" % rlast)
+                if self.enable_prints:
+                    print(
+                        "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
+                        "RID    %d\n" % _arid +
+                        "RLAST  %d\n" % rlast)
 
                 while True:
                     await ReadOnly()
@@ -576,7 +578,7 @@ class AXI4Slave(BusDriver):
 
             self._ar_requests.append((_araddr, _arlen, _arsize, _arburst, _arprot, _arid))
 
-            if __debug__ or True:
+            if self.enable_prints:
                 burst_length = _arlen + 1
                 bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
                 print(

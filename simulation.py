@@ -178,7 +178,7 @@ def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, ad
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
     return compile_tb(tb_paths, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
 
-def run_tb(out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config=None, gls=None):
+def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config=None, gls=None):
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
@@ -234,6 +234,12 @@ def run_tb(out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memor
         f"EXPECTED={os.path.relpath(copied_expected_path, sim_dir)}",
         f"CORE_NAME={core_name}",
         f"ISAX_YAML={os.path.relpath(isax_yaml_path, sim_dir)}",
+        f"CYCLE_TIMEOUT={kconfig_syms['SIM_CYCLE_TIMEOUT'].str_value}",
+        f"PRINT_CLK={1 if kconfig_syms['SIM_PRINT_CLK'].str_value == 'y' else 0}",
+        f"PRINT_IMEM={1 if kconfig_syms['SIM_PRINT_IMEM'].str_value == 'y' else 0}",
+        f"PRINT_DMEM={1 if kconfig_syms['SIM_PRINT_DMEM'].str_value == 'y' else 0}",
+        f"PRINT_BRAM={1 if kconfig_syms['SIM_PRINT_BRAM'].str_value == 'y' else 0}",
+        f"PRINT_AXI={1 if kconfig_syms['SIM_PRINT_AXI'].str_value == 'y' else 0}",
     ] + scaiev.select_tb_env_vars(core_name)
 
     newline = "\n"
@@ -437,4 +443,4 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
 
     if not only_add_cc_support:
         print(" - Start simulation")
-        run_tb(out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config, gls)
+        run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config, gls)
