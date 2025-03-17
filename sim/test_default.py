@@ -143,6 +143,8 @@ async def run_test(dut):
             raise CoreExceptionException("The core fetched the exception handler address 0x%08x" % addr_begin)
         return None
 
+    past_speculative_reads = set()
+
     def check_data_read(addr_begin, addr_end, big_endian):
         if testStarted:
             if addr_begin >= DMEM_BASE and addr_end <= (DMEM_BASE + DMEM_SIZE):
@@ -150,12 +152,18 @@ async def run_test(dut):
                     print("data read %08x" % addr_begin)
             elif allowSpeculativeReads:
                 print("WARNING: unmapped (speculative?) read at: %08x" % addr_begin)
+                past_speculative_reads.add(addr_begin)
                 return bytes([0] * 4)
         return None
     def check_data_write(addr_begin, addr_end, word, wstrb):
-        if testStarted and addr_begin >= DMEM_BASE and addr_end <= (DMEM_BASE + DMEM_SIZE):
-            if PRINT_DMEM:
-                print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
+        if testStarted:
+            if addr_begin >= DMEM_BASE and addr_end <= (DMEM_BASE + DMEM_SIZE):
+                if PRINT_DMEM:
+                    print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
+            elif addr_begin in past_speculative_reads:
+                past_speculative_reads.remove(addr_begin)
+                print("WARNING: allowing write-back of previously speculatively unmapped read: %08x - %08X" % (addr_begin, addr_end))
+                return True
         return False
 
     def check_ctrl_write(addr_begin, addr_end, word, wstrb):
