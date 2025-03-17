@@ -130,7 +130,7 @@ async def run_test(dut):
     allowSpeculativeReads = True if ("ALLOW_SPECULATIVE_READS" in cocotb.plusargs) else False
 
     def check_instr_read(addr_begin, addr_end, big_endian):
-        if PRINT_IMEM and testStarted and addr_begin >= IMEM_BASE and addr_end < (IMEM_BASE + len(instr_mem)):
+        if PRINT_IMEM and testStarted and addr_begin >= IMEM_BASE and addr_end <= (IMEM_BASE + len(instr_mem)):
             print("instruction read %08x" % addr_begin)
             # Initialize the disassembler for RISC-V (32-bit)
             instr_data = instr_mem[addr_begin - IMEM_BASE:addr_end - IMEM_BASE]
@@ -145,7 +145,7 @@ async def run_test(dut):
 
     def check_data_read(addr_begin, addr_end, big_endian):
         if testStarted:
-            if addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
+            if addr_begin >= DMEM_BASE and addr_end <= (DMEM_BASE + DMEM_SIZE):
                 if PRINT_DMEM:
                     print("data read %08x" % addr_begin)
             elif allowSpeculativeReads:
@@ -153,8 +153,9 @@ async def run_test(dut):
                 return bytes([0] * 4)
         return None
     def check_data_write(addr_begin, addr_end, word, wstrb):
-        if PRINT_DMEM and testStarted and addr_begin >= DMEM_BASE and addr_end < (DMEM_BASE + DMEM_SIZE):
-            print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
+        if testStarted and addr_begin >= DMEM_BASE and addr_end <= (DMEM_BASE + DMEM_SIZE):
+            if PRINT_DMEM:
+                print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
         return False
 
     def check_ctrl_write(addr_begin, addr_end, word, wstrb):
