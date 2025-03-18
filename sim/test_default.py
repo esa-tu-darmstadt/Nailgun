@@ -109,6 +109,7 @@ async def run_test(dut):
     EXPECTED = cocotb.plusargs["EXPECTED"]
 
     instr_mem = bytearray()
+    printf_mem = bytearray()
     if EXPECTED.endswith(".bin"):
         with open(EXPECTED, "rb") as f:
             expected_data = bytearray(f.read())
@@ -173,10 +174,26 @@ async def run_test(dut):
                 event_irq.set()
                 return True
             print("check_ctrl_write: Unexpected write to IRQ")
+        elif addr_begin == CTRL_BASE + 4:
+            try:
+                # Set debug pin!
+                dut.debugState.value = word
+            except:
+                pass
+            return True
+        elif addr_begin == CTRL_BASE + 8:
+            if word[0] != 0 and wstrb[0] != 0:
+                # Find the index of the first null byte
+                null_index = printf_mem[12:].find(b'\0')
+                assert(null_index != -1)
+                # Perform print based on written data
+                print(f"\n\n\nSIMULATION PERFORMED A PRINTF:\n{printf_mem[12:12+null_index].decode('utf-8')}\n\n\n")
+                return True
+
         return False
     def check_ctrl_read(addr_begin, addr_end, big_endian):
         # For now, always return 0 for read access on the CTRL memory space.
-        if addr_begin >= CTRL_BASE and addr_end <= CTRL_BASE+16:
+        if addr_begin >= CTRL_BASE and addr_end <= CTRL_BASE+8:
             return bytes([0] * (addr_end - addr_begin))
         return None
 
@@ -188,7 +205,7 @@ async def run_test(dut):
     data_memview = BytearrayMemView(data_mem, 0, DMEM_SIZE, DMEM_BASE, read_cb=check_data_read, write_cb=check_data_write)
     memsi[DMEM_BUSIDX].memview.children.append(data_memview)
 
-    ctrl_memview = MemView(read_cb=check_ctrl_read, write_cb=check_ctrl_write)
+    ctrl_memview = BytearrayMemView(printf_mem, 0, IMEM_SIZE, CTRL_BASE, read_cb=check_ctrl_read, write_cb=check_ctrl_write, auto_resize=True)
     memsi[CTRL_BUSIDX].memview.children.append(ctrl_memview)
 
     # Create and register a CLINT
