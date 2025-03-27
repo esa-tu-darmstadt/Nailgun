@@ -29,6 +29,7 @@ class NaxWhiteBox:
         self.COMMIT_COUNT = int(defines["COMMIT_COUNT"])
         ROB_SIZE = int(defines["ROB_SIZE"])
         DISPATCH_COUNT = int(defines["DISPATCH_COUNT"])
+        INTEGER_PHYSICAL_DEPTH = int(defines["INTEGER_PHYSICAL_DEPTH"])
         INTEGER_WRITE_COUNT = int(defines["INTEGER_WRITE_COUNT"])
         ROB_COMPLETIONS_PORTS = int(defines["ROB_COMPLETIONS_PORTS"])
         ISSUE_PORTS = int(defines["ISSUE_PORTS"])
@@ -59,6 +60,17 @@ class NaxWhiteBox:
 
         self.rob_completions_valid = [self.dut._id(f"RobPlugin_logic_whitebox_completionsPorts_{i}_valid", extended=False) for i in range(ROB_COMPLETIONS_PORTS)]
         self.rob_completions_payload = [self.dut._id(f"RobPlugin_logic_whitebox_completionsPorts_{i}_payload_id", extended=False) for i in range(ROB_COMPLETIONS_PORTS)]
+
+        self.rob_phy_rs0 = self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_0_banks_0", extended=False)
+        self.rob_phy_rs1 = self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_1_banks_0", extended=False)
+
+        try:
+            self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_0.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+            self.rf1 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+        except:
+            self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+            self.rf1 = None
+
         self.issue_valid = [self.dut._id(f"DispatchPlugin_logic_whitebox_issuePorts_{i}_valid", extended=False) for i in range(ISSUE_PORTS)]
         self.issue_robId = [self.dut._id(f"DispatchPlugin_logic_whitebox_issuePorts_{i}_payload_robId", extended=False) for i in range(ISSUE_PORTS)]
         self.sq_alloc_valid = [self.dut._id(f"sqAlloc_{i}_valid", extended=False) for i in range(DISPATCH_COUNT)]
@@ -86,15 +98,35 @@ class NaxWhiteBox:
         self.opCounter = 0
         self.period = CLK_PERIOD
 
+    def read_reg(self, reg, idx):
+        if idx == 0:
+            return 0
+        return reg[idx - 1].value.integer
+
     def traceT2s(self, time):
         return str(time) if time != 0 else ""
 
     def trace(self, opId):
         op = self.opCtx[opId]
-        fetch = self.fetchCtx[op['fetchId']]
+
         assembly = self.disasm(op['instruction'].buff[::-1])[0]
+        padding = max(4, 25 - len(assembly))
+
+        detail = ""
+        if "robId" in op:
+            robId = op['robId']
+            rob = self.robCtx[robId]
+            phys_rs0 = rob['PHYS_RS0']
+            phys_rs1 = rob['PHYS_RS1']
+            rs0_0 = f"0x{op['RS0_VAL_0']:08x}" if 'RS0_VAL_0' in op else "?"
+            rs0_1 = f"0x{op['RS0_VAL_1']:08x}" if 'RS0_VAL_1' in op else "?"
+            rs1_0 = f"0x{op['RS1_VAL_0']:08x}" if 'RS1_VAL_0' in op else "?"
+            rs1_1 = f"0x{op['RS1_VAL_1']:08x}" if 'RS1_VAL_1' in op else "?"
+            detail = (' ' * padding) + f"ROB={robId} RS0={phys_rs0} RS1={phys_rs1} RS0_0={rs0_0} RS0_1={rs0_1} RS1_0={rs1_0} RS1_1={rs1_1}"
+
+        fetch = self.fetchCtx[op['fetchId']]
         # Simulating gem5 trace output
-        self.gem5.write(f"O3PipeView:fetch:{self.traceT2s(fetch['fetchAt'])}:0x{op['pc'].integer:08x}:0:{op['counter']}:{assembly}\n")
+        self.gem5.write(f"O3PipeView:fetch:{self.traceT2s(fetch['fetchAt'])}:0x{op['pc'].integer:08x}:0:{op['counter']}:{assembly}{detail}\n")
         self.gem5.write(f"O3PipeView:decode:{self.traceT2s(fetch['decodeAt'])}\n")
         self.gem5.write(f"O3PipeView:rename:{self.traceT2s(op['renameAt'])}\n")
         self.gem5.write(f"O3PipeView:dispatch:{self.traceT2s(op['dispatchAt'] if "dispatchAt" in op else 0)}\n")
@@ -173,6 +205,8 @@ class NaxWhiteBox:
                 if dispatch_mask.value:
                     robId = self.dut.FrontendPlugin_dispatch_ROB_ID.value + i
                     opId = self.robCtx[robId]['opId']
+                    self.robCtx[robId]['PHYS_RS0'] = self.rob_phy_rs0[robId].value.integer
+                    self.robCtx[robId]['PHYS_RS1'] = self.rob_phy_rs1[robId].value.integer
                     sqId = self.sq_alloc_id[i].value
                     self.opCtx[opId]['dispatchAt'] = get_cycle_count(self.period)
                     self.opCtx[opId]['sqAllocated'] = self.sq_alloc_valid[i].value
@@ -182,8 +216,16 @@ class NaxWhiteBox:
 
         for i, valid in enumerate(self.issue_valid):
             if valid.value:
-                opId = self.robCtx[self.issue_robId[i].value]['opId']
+                robId = self.issue_robId[i].value
+                opId = self.robCtx[robId]['opId']
                 self.opCtx[opId]['issueAt'] = get_cycle_count(self.period)
+                phys_rs0 = self.robCtx[robId]['PHYS_RS0']
+                phys_rs1 = self.robCtx[robId]['PHYS_RS1']
+                self.opCtx[opId]['RS0_VAL_0'] = self.read_reg(self.rf0, phys_rs0)
+                self.opCtx[opId]['RS1_VAL_0'] = self.read_reg(self.rf0, phys_rs1)
+                if self.rf1:
+                    self.opCtx[opId]['RS0_VAL_1'] = self.read_reg(self.rf1, phys_rs0)
+                    self.opCtx[opId]['RS1_VAL_1'] = self.read_reg(self.rf1, phys_rs1)
 
         for i, valid in enumerate(self.rob_completions_valid):
             if valid.value:
