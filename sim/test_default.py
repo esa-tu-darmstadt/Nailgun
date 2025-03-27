@@ -154,7 +154,7 @@ async def run_test(dut):
             elif allowSpeculativeReads:
                 print("WARNING: unmapped (speculative?) read at: %08x" % addr_begin)
                 past_speculative_reads.add(addr_begin)
-                return bytes([0] * 4)
+                return bytes([0] * (addr_end-addr_begin))
         return None
     def check_data_write(addr_begin, addr_end, word, wstrb):
         if testStarted:
