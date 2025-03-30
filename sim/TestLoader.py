@@ -65,7 +65,7 @@ class TestLoader:
                 mem_start_addr = mem[1]
                 mem_end_addr = mem[2]
                 self.logger.debug("Initializing memory {:08X}..{:08X}".format(mem_start_addr,mem_end_addr))
-                relevant_sections = list(filter(lambda x: x["sh_flags"] & 2 == 2 and x["sh_addr"] >= mem_start_addr and x["sh_addr"] + x["sh_size"] < mem_end_addr, sections)) # this assumes that an entire section fits into the same memory
+                relevant_sections = list(filter(lambda x: x["sh_flags"] & 2 == 2 and x["sh_size"] > 0 and x["sh_addr"] >= mem_start_addr and x["sh_addr"] + x["sh_size"] < mem_end_addr, sections)) # this assumes that an entire section fits into the same memory
                 self.logger.debug("Copying section {}".format(relevant_sections))
                 self.write_sections(memview, relevant_sections)
 
