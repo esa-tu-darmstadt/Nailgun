@@ -61,8 +61,8 @@ class NaxWhiteBox:
         self.rob_completions_valid = [self.dut._id(f"RobPlugin_logic_whitebox_completionsPorts_{i}_valid", extended=False) for i in range(ROB_COMPLETIONS_PORTS)]
         self.rob_completions_payload = [self.dut._id(f"RobPlugin_logic_whitebox_completionsPorts_{i}_payload_id", extended=False) for i in range(ROB_COMPLETIONS_PORTS)]
 
-        self.rob_phy_rs0 = self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_0_banks_0", extended=False)
-        self.rob_phy_rs1 = self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_1_banks_0", extended=False)
+        self.rob_phy_rs0 = [self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_0_banks_{i}", extended=False) for i in range(DISPATCH_COUNT)]
+        self.rob_phy_rs1 = [self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_1_banks_{i}", extended=False) for i in range(DISPATCH_COUNT)]
 
         try:
             self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_0.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
@@ -116,8 +116,8 @@ class NaxWhiteBox:
         if "robId" in op:
             robId = op['robId']
             rob = self.robCtx[robId]
-            phys_rs0 = rob['PHYS_RS0']
-            phys_rs1 = rob['PHYS_RS1']
+            phys_rs0 = rob['PHYS_RS0'] if 'PHYS_RS0' in rob else "?"
+            phys_rs1 = rob['PHYS_RS1'] if 'PHYS_RS1' in rob else "?"
             rs0_0 = f"0x{op['RS0_VAL_0']:08x}" if 'RS0_VAL_0' in op else "?"
             rs0_1 = f"0x{op['RS0_VAL_1']:08x}" if 'RS0_VAL_1' in op else "?"
             rs1_0 = f"0x{op['RS1_VAL_0']:08x}" if 'RS1_VAL_0' in op else "?"
@@ -205,8 +205,8 @@ class NaxWhiteBox:
                 if dispatch_mask.value:
                     robId = self.dut.FrontendPlugin_dispatch_ROB_ID.value + i
                     opId = self.robCtx[robId]['opId']
-                    self.robCtx[robId]['PHYS_RS0'] = self.rob_phy_rs0[robId].value.integer
-                    self.robCtx[robId]['PHYS_RS1'] = self.rob_phy_rs1[robId].value.integer
+                    self.robCtx[robId]['PHYS_RS0'] = self.rob_phy_rs0[i][int(robId / self.COMMIT_COUNT)].value.integer
+                    self.robCtx[robId]['PHYS_RS1'] = self.rob_phy_rs1[i][int(robId / self.COMMIT_COUNT)].value.integer
                     sqId = self.sq_alloc_id[i].value
                     self.opCtx[opId]['dispatchAt'] = get_cycle_count(self.period)
                     self.opCtx[opId]['sqAllocated'] = self.sq_alloc_valid[i].value
@@ -257,7 +257,6 @@ class NaxWhiteBox:
                     self.stats.pcHist[pc] = 1
 
         if self.dut.reschedule_valid.value:
-            robId = self.dut.reschedule_payload_robId.value
             self.stats.reschedules += 1
             reschedule_reason = self.dut.rescheduleReason.value
             if reschedule_reason == "trap":

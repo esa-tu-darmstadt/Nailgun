@@ -286,7 +286,7 @@ EXTRA_ARGS += --assert
 EXTRA_ARGS += --trace-fst --trace --trace-structs --trace-underscore
 # Use more than one core to compile the simulation models
 BUILD_ARGS += -j$(shell nproc)
-EXTRA_ARGS+=--no-timing
+EXTRA_ARGS += --no-timing
 endif # SIM == verilator
 
 # Questa specific flags
