@@ -30,10 +30,14 @@ class NaxWhiteBox:
         ROB_SIZE = int(defines["ROB_SIZE"])
         DISPATCH_COUNT = int(defines["DISPATCH_COUNT"])
         INTEGER_PHYSICAL_DEPTH = int(defines["INTEGER_PHYSICAL_DEPTH"])
+        ISR_INTEGER_PHYSICAL_DEPTH = int(defines["ISR_INTEGER_PHYSICAL_DEPTH"]) if "ISR_INTEGER_PHYSICAL_DEPTH" in defines else INTEGER_PHYSICAL_DEPTH
         INTEGER_WRITE_COUNT = int(defines["INTEGER_WRITE_COUNT"])
         ROB_COMPLETIONS_PORTS = int(defines["ROB_COMPLETIONS_PORTS"])
         ISSUE_PORTS = int(defines["ISSUE_PORTS"])
         FLOAT_WRITE_COUNT = int(defines["FLOAT_WRITE_COUNT"]) if "FLOAT_WRITE_COUNT" in defines else None
+
+        self.INTEGER_PHYSICAL_DEPTH = INTEGER_PHYSICAL_DEPTH
+        self.ISR_INTEGER_PHYSICAL_DEPTH = ISR_INTEGER_PHYSICAL_DEPTH
 
         # Initialize the class with the nax object (could be a simulator entity)
         self.robCtx = [{} for _ in range(ROB_SIZE)]
@@ -66,7 +70,10 @@ class NaxWhiteBox:
 
         try:
             self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_0.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
-            self.rf1 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+            try:
+                self.rf1 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage", extended=False) for i in range(ISR_INTEGER_PHYSICAL_DEPTH - 1)]
+            except:
+                self.rf1 = None
         except:
             self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
             self.rf1 = None
@@ -98,7 +105,9 @@ class NaxWhiteBox:
         self.opCounter = 0
         self.period = CLK_PERIOD
 
-    def read_reg(self, reg, idx):
+    def read_reg(self, reg, idx, limit):
+        if idx >= limit:
+            return None
         if idx == 0:
             return 0
         return reg[idx - 1].value.integer
@@ -221,11 +230,15 @@ class NaxWhiteBox:
                 self.opCtx[opId]['issueAt'] = get_cycle_count(self.period)
                 phys_rs0 = self.robCtx[robId]['PHYS_RS0']
                 phys_rs1 = self.robCtx[robId]['PHYS_RS1']
-                self.opCtx[opId]['RS0_VAL_0'] = self.read_reg(self.rf0, phys_rs0)
-                self.opCtx[opId]['RS1_VAL_0'] = self.read_reg(self.rf0, phys_rs1)
+                self.opCtx[opId]['RS0_VAL_0'] = self.read_reg(self.rf0, phys_rs0, self.INTEGER_PHYSICAL_DEPTH)
+                self.opCtx[opId]['RS1_VAL_0'] = self.read_reg(self.rf0, phys_rs1, self.INTEGER_PHYSICAL_DEPTH)
                 if self.rf1:
-                    self.opCtx[opId]['RS0_VAL_1'] = self.read_reg(self.rf1, phys_rs0)
-                    self.opCtx[opId]['RS1_VAL_1'] = self.read_reg(self.rf1, phys_rs1)
+                    tmp = self.read_reg(self.rf1, phys_rs0, self.ISR_INTEGER_PHYSICAL_DEPTH)
+                    if tmp:
+                        self.opCtx[opId]['RS0_VAL_1'] = tmp
+                    tmp = self.read_reg(self.rf1, phys_rs1, self.ISR_INTEGER_PHYSICAL_DEPTH)
+                    if tmp:
+                        self.opCtx[opId]['RS1_VAL_1'] = tmp
 
         for i, valid in enumerate(self.rob_completions_valid):
             if valid.value:
