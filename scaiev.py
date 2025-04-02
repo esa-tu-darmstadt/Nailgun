@@ -493,12 +493,9 @@ EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
         assert len(plus_defines) == 1
         plus_defines = plus_defines[0]
         defines = [d for d in plus_defines.split("+") if d]
+        defines.append("ENABLE_SIMULATION_ASSERTIONS")
 
         extra_makefile_args = {
-            "default": """
-# Flags
-EXTRA_ARGS+=-DENABLE_SIMULATION_ASSERTIONS
-""",
             "verilator": """
 SRCDIR=../CVA6
 # Mute some verilator warnings
@@ -508,19 +505,17 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
 
         return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", "cva6_ariane_wrapper", include_dirs, defines, extra_makefile_args
     elif (core == "NaxRiscv"):
-        return ["Nax_tb_wrapper.sv"], ["nax.v", "Nax_top.sv", "mkRTOSUnitSynth.v"] + scal_sources, "nax_wrapper", "top", [], [], {
-            "default": """
-# Flags
-EXTRA_ARGS+=-DFORMAL
-"""
-        }
+        defines = [
+            "FORMAL"
+        ]
+
+        return ["Nax_tb_wrapper.sv"], ["nax.v", "Nax_top.sv", "mkRTOSUnitSynth.v"] + scal_sources, "nax_wrapper", "top", [], defines, {}
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
-        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], [], {
-            "default": """
-# Flags
-EXTRA_ARGS+=-DFORMAL
-"""
-        }
+        defines = [
+            "FORMAL"
+        ]
+
+        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], defines, {}
     else:
         error.exit_error("No testbench wrapper found for the selected core!", error.INTERNAL_ERROR)
 

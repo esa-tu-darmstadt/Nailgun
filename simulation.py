@@ -244,7 +244,8 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_file, tb_expect
 
     newline = "\n"
 
-    defines = [f"EXTRA_ARGS += -D{d}" for d in defines]
+    defines_common = [f"EXTRA_ARGS += -D{d}" for d in defines]
+    defines_questa = [f"EXTRA_ARGS += +define+{d}" for d in defines]
     include_dirs = [f"EXTRA_ARGS += -I{os.path.relpath(os.path.join(core_base, inc), sim_dir)}" for inc in include_dirs]
 
     # questa and GLS setup
@@ -317,7 +318,11 @@ endif # SIM == questa
 # Include directories
 {newline.join(include_dirs)}
 # Defines
-{newline.join(defines)}
+ifeq ($(SIM), questa)
+{newline.join(defines_questa)}
+else
+{newline.join(defines_common)}
+endif
 
 # Extra Makefile options
 {newline.join(extra_makefile_opts_strs)}
