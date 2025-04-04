@@ -152,13 +152,16 @@ def core_specific_startup(core_name):
 def get_gcc_objcopy_path():
     return os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
 
-def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None):
+def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
     objdump_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
     arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags} {core_specific_startup(core_name)}"
+    # these sources should only be used when the input is not ASM but source compiled
+    if include_startup_files:
+        flags += " " + os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
 
     return compile_tb(tb_paths, core_name, out_dir, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly, custom_linker_script)
 
@@ -365,13 +368,13 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
-    def patch_and_compile_with_gcc(filepaths, custom_linker_script=None):
+    def patch_and_compile_with_gcc(filepaths, custom_linker_script=None, include_startup_files=False):
         print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
             prepare_gcc(isax_yaml_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
-            return gcc_compile_tb(filepaths, core_name, out_dir, additional_flags, disassemble_tb, custom_linker_script)
+            return gcc_compile_tb(filepaths, core_name, out_dir, additional_flags, disassemble_tb, custom_linker_script, include_startup_files=include_startup_files)
     
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None):
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
@@ -413,6 +416,10 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             tb_folder = os.path.dirname(tb_path)
             test_config = yaml.safe_load(yamlfile)
             compiler = test_config.get("compiler", None)
+            if type(compiler) == str:
+                error.exit_error(f"Specify the compiler via the `name` property", error.USER_ERROR)
+            compiler_name = compiler.get("name", None)
+            gcc_use_startup_files = compiler.get("gcc include startup asm", False)
             files = test_config.get("files", [])
             if len(files) == 0:
                 error.exit_error(f"Field testbench `files` is missing or empty", error.USER_ERROR)
@@ -427,13 +434,12 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
                     custom_linker_script = os.path.join(tb_folder, custom_linker_script)
                     print(f"Using custom linker script {custom_linker_script}")
 
-            if compiler == "gcc":
-                elf_file = patch_and_compile_with_gcc(absolute_file_paths, custom_linker_script)
-            elif compiler == "clang":
+            if compiler_name == "gcc":
+                elf_file = patch_and_compile_with_gcc(absolute_file_paths, custom_linker_script, include_startup_files=gcc_use_startup_files)
+            elif compiler_name == "clang":
                 elf_file = patch_and_compile_with_llvm(absolute_file_paths, custom_linker_script)
             else:
-                error.exit_error(f"Unknown compiler '{compiler}'. Please provider either 'gcc' or 'clang'.", error.USER_ERROR)
-            
+                error.exit_error(f"Unknown compiler name '{compiler_name}'. Either use 'gcc' or 'clang'.", error.USER_ERROR)
             if memory_config is not None:
                 for hex_name, hex_config in memory_config.get("convert_to_hex", {}).items():
                     section_names = hex_config["sections"]
