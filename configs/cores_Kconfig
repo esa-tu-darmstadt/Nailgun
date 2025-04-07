@@ -30,3 +30,10 @@ config CORE_NAX
 	bool "NaxRiscv"
 
 endchoice
+
+menu "Core settings"
+	depends on CORE_VEX_4S || CORE_VEX_5S || CORE_NAX
+	config SPINAL_GEN_ARGS
+		string "Additional SpinalHDL generation arguments"
+		default ""
+endmenu

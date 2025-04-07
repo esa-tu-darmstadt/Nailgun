@@ -84,6 +84,8 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
     isax_desc = os.path.abspath(isax_desc)
     isax_dir = os.path.dirname(isax_desc)
 
+    spinal_gen_args = kconf_syms['SPINAL_GEN_ARGS'].str_value if 'SPINAL_GEN_ARGS' in kconf_syms else ""
+
     num_ctxs = kconf_syms['SCV_INTERNAL_CONTEXTS_AMOUNT'].str_value
     num_ctxs = num_ctxs if num_ctxs else 1
 
@@ -134,7 +136,7 @@ endmodule
         patch_file = os.path.abspath("patches/Vex5.patch")
         run_cmd.run(target_dir, f"patch -p1 < {patch_file}", "Could not patch the VexRiscv sources", error.SCAIEV_BASE + 4, False)
         # Build VexRiscv
-        run_cmd.run(target_dir, 'sbt "runMain vexriscv.demo.VexRiscvAhbLite3"', "Could not generate VexRiscv.v", error.SCAIEV_BASE + 5, False, 100)
+        run_cmd.run(target_dir, f'sbt "runMain vexriscv.demo.VexRiscvAhbLite3 {spinal_gen_args}"', "Could not generate VexRiscv.v", error.SCAIEV_BASE + 5, False, 100)
     elif (core == "NaxRiscv"):
         # Patch the build system and config of NaxRiscv. Tested against commit 1c50e84d9a6f7ea93d7153f12906c25552267b9d
         patch_file = os.path.abspath("patches/Nax5.patch")
@@ -148,7 +150,8 @@ endmodule
         CTRL_SIZE =   "0x100000"
         CLINT_BASE = "0x40000000"
         CLINT_SIZE =   "0x010000"
-        run_cmd.run(target_dir, f'sbt "runMain naxriscv.platform.asic.NaxAsicGen --memory-region={CLINT_BASE},{CLINT_SIZE},io,p --memory-region={CTRL_BASE},{CTRL_SIZE},io,p --memory-region={IMEM_BASE},{IMEM_SIZE},xc,m --memory-region={DMEM_BASE},{DMEM_SIZE},rwc,m --reset-vector={IMEM_BASE}"', "Could not generate nax.v", error.SCAIEV_BASE + 5, False, 100)
+        # Custom available option:  --with-hw-ctx-switch --with-hw-scheduling --baseline-with-switch-tracing --with-dirty-bits
+        run_cmd.run(target_dir, f'sbt "runMain naxriscv.platform.asic.NaxAsicGen {spinal_gen_args} --memory-region={CLINT_BASE},{CLINT_SIZE},io,p --memory-region={CTRL_BASE},{CTRL_SIZE},io,p --memory-region={IMEM_BASE},{IMEM_SIZE},xc,m --memory-region={DMEM_BASE},{DMEM_SIZE},rwc,m --reset-vector={IMEM_BASE}"', "Could not generate nax.v", error.SCAIEV_BASE + 5, True, 100)
     elif (core == "PicoRV32"):
         # Patch in fence support for picorv32: https://github.com/YosysHQ/picorv32/pull/229
         # TODO remove once the coresrcs in scaie-v were updated
@@ -509,7 +512,7 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
             "FORMAL"
         ]
 
-        return ["Nax_tb_wrapper.sv"], ["nax.v", "Nax_top.sv", "mkRTOSUnitSynth.v"] + scal_sources, "nax_wrapper", "top", [], defines, {}
+        return ["Nax_tb_wrapper.sv"], ["nax.v", "Nax_top.sv", "mkRTOSUnitSynth.v", "FIFO2.v"] + scal_sources, "nax_wrapper", "top", [], defines, {}
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
         defines = [
             "FORMAL"
