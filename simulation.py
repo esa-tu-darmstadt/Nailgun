@@ -127,6 +127,11 @@ def get_target_elf_file_path(out_dir):
     # elf file path
     return os.path.join(bin_dir, "tb.elf")
 
+def disas_tb(objdump_path, elf_file, error_code):
+    disas_path = elf_file + "_disasm.txt"
+    disasm_flags = "-D"
+    run_cmd.run(".", f"{objdump_path} {disasm_flags} {elf_file} > {disas_path}", f"Failed to disassemble TB elf file '{elf_file}'!", error_code, False)
+
 def compile_tb(tb_paths, core_name, out_dir, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
     # Build elf file
     elf_file = get_target_elf_file_path(out_dir)
@@ -137,9 +142,7 @@ def compile_tb(tb_paths, core_name, out_dir, cc_path, objdump_path, flags, addit
 
     # Build disassembly file
     if run_disassembly:
-        disasm_txt_path = elf_file + "_disasm.txt"
-        disasm_flags = "-D"
-        run_cmd.run(".", f"{objdump_path} {disasm_flags} {elf_file} > {disasm_txt_path}", "Failed to disassemble TB elf file!", error_code_base + 2, False)
+        disas_tb(objdump_path, elf_file, error_code_base + 2)
 
     return elf_file
 
@@ -151,11 +154,13 @@ def core_specific_startup(core_name):
 
 def get_gcc_objcopy_path():
     return os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
+def get_gcc_objdump_path():
+    return os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
 
 def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
-    objdump_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
+    objdump_path = get_gcc_objdump_path()
     arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags} {core_specific_startup(core_name)}"
@@ -181,7 +186,7 @@ def llvm_compile_tb(tb_paths, core_name, out_dir, llvm_build_path, isax_name, ad
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
     return compile_tb(tb_paths, core_name, out_dir, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
 
-def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config=None, gls=None):
+def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config=None, gls=None):
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
@@ -225,16 +230,23 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_file, tb_expect
     for file in py_files:
         shutil.copy(file, sim_dir)
 
+    assert(len(tb_expected_paths) == len(elf_files))
     # Copy expected output file next to the elf file
-    copied_expected_path = os.path.join(os.path.dirname(get_target_elf_file_path(out_dir)), os.path.basename(tb_expected_path))
-    shutil.copy(tb_expected_path, copied_expected_path)
+    copied_expected_paths = [os.path.join(os.path.dirname(get_target_elf_file_path(out_dir)), os.path.basename(tb_expected_path)) for tb_expected_path in tb_expected_paths]
+    for in_path, out_path in zip(tb_expected_paths, copied_expected_paths):
+        shutil.copy(in_path, out_path)
 
     # Convert the absolute verilog_srcs paths to relative paths from the sim directory
     verilog_srcs = [os.path.relpath(p, sim_dir) for p in verilog_srcs]
 
+    def gen_testprog_arg(elf_file):
+        return f'TESTPROG="{os.path.relpath(elf_file[:-len('.elf')], sim_dir)}"'
+    def gen_expected_res_arg(expected_path):
+        return f'EXPECTED="{os.path.relpath(expected_path, sim_dir)}"'
+
     env_vars = [
-        f"TESTPROG={os.path.relpath(elf_file[:-len('.elf')], sim_dir)}",
-        f"EXPECTED={os.path.relpath(copied_expected_path, sim_dir)}",
+        "TESTPROG=$(TESTPROG)",
+        "EXPECTED=$(EXPECTED)",
         f"CORE_NAME={core_name}",
         f"ISAX_YAML={os.path.relpath(isax_yaml_path, sim_dir)}",
         f"CYCLE_TIMEOUT={kconfig_syms['SIM_CYCLE_TIMEOUT'].str_value}",
@@ -276,6 +288,9 @@ TOPLEVEL = {tb_top_module}
 MODULE ?= test_default
 SIM ?= verilator
 GLS ?= 0
+
+TESTPROG ?= {os.path.relpath(elf_files[0][:-len('.elf')], sim_dir)}
+EXPECTED ?= {os.path.relpath(copied_expected_paths[0], sim_dir)}
 
 # Verilator specific flags
 ifeq ($(SIM), verilator)
@@ -338,8 +353,9 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 """)
 
     results_xml_path = os.path.join(sim_dir, "results.xml")
-    # We ALWAYS want colors, lol
-    run_cmd.run(sim_dir, f"OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", "The simulation failed!", error.SIM_BASE + 1)
+    for elf_file, expected_path in zip(elf_files, copied_expected_paths):
+        # We ALWAYS want colors, lol
+        run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
@@ -365,6 +381,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     isax_yaml_path = find_yaml_file(out_dir)
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
+    tb_expected_paths = [tb_expected_path]
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
@@ -393,39 +410,61 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
             return llvm_compile_tb(filepaths, core_name, out_dir, llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
 
+    def process_bin_file(bin_file, elf_file, first_run):
+        # Convert axf to elf_file
+        if bin_file.endswith(".axf"):
+            if first_run and kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
+                prepare_gcc(isax_yaml_path)
+            objcopy_path = get_gcc_objcopy_path()
+            run_cmd.run(".", f"{objcopy_path} {bin_file} {elf_file}", "Failed to convert axf file to an elf file!", error.GCC_BASE + 5, False)
+        else:
+            # copy the elf file to our target folder
+            shutil.copy(bin_file, elf_file)
+
     memory_config = None
     gls = None
     if tb_path.endswith(".axf") or tb_path.endswith(".elf"):
         elf_file = get_target_elf_file_path(out_dir)
-        # Convert axf to elf_file
-        if tb_path.endswith(".axf"):
-            if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
-                prepare_gcc(isax_yaml_path)
-            objcopy_path = get_gcc_objcopy_path()
-            run_cmd.run(".", f"{objcopy_path} {tb_path} {elf_file}", "Failed to convert axf file to an elf file!", error.GCC_BASE + 5, False)
-        else:
-            # copy the elf file to our target folder
-            shutil.copy(tb_path, elf_file)
+        process_bin_file(tb_path, elf_file, first_run=True)
         # If requested disassemble the elf file
         if disassemble_tb:
-            patch_and_compile_with_gcc(None)
+            objdump_path = get_gcc_objdump_path()
+            disas_tb(objdump_path, elf_file, error.GCC_BASE + 4)
+        elf_files = [elf_file]
     elif tb_path.endswith(".s") or tb_path.endswith(".S"):
-        elf_file = patch_and_compile_with_gcc([tb_path])
+        elf_files = [patch_and_compile_with_gcc([tb_path])]
     elif tb_path.endswith(".yml") or tb_path.endswith(".yaml"):
+        shutil.copy(tb_path, out_dir)
         with open(tb_path, "r") as yamlfile:
-            tb_folder = os.path.dirname(tb_path)
             test_config = yaml.safe_load(yamlfile)
-            compiler = test_config.get("compiler", None)
-            if type(compiler) == str:
-                error.exit_error(f"Specify the compiler via the `name` property", error.USER_ERROR)
-            compiler_name = compiler.get("name", None)
-            gcc_use_startup_files = compiler.get("gcc include startup asm", False)
-            files = test_config.get("files", [])
-            if len(files) == 0:
-                error.exit_error(f"Field testbench `files` is missing or empty", error.USER_ERROR)
 
-            absolute_file_paths = [os.path.join(tb_folder, f) for f in files]
+        gls = test_config.get("gls", None)
+        compiler = test_config.get("compiler", None)
+        if type(compiler) == str:
+            error.exit_error(f"Specify the compiler via the `name` property", error.USER_ERROR)
+        compiler_name = compiler.get("name", None)
+        gcc_use_startup_files = compiler.get("gcc include startup asm", False)
+        files = test_config.get("files", [])
+        if len(files) == 0:
+            error.exit_error(f"Field testbench `files` is missing or empty", error.USER_ERROR)
 
+        multi_binary_test = all([f.endswith(".axf") or f.endswith(".elf") for f in files])
+
+        tb_folder = os.path.dirname(tb_path)
+        absolute_file_paths = [f if os.path.isabs(f) else os.path.join(tb_folder, f) for f in files]
+
+        if multi_binary_test:
+            first_run = True
+            elf_files = []
+            root, ext = os.path.splitext(get_target_elf_file_path(out_dir))
+            for idx, f in enumerate(absolute_file_paths):
+                target_elf_file = f"{root}_{idx}{ext}"
+                elf_files.append(target_elf_file)
+                process_bin_file(f, target_elf_file, first_run=first_run)
+                first_run = False
+            # For now just replicate the expected path... TODO add support for specifiying for each tb file a different expected file
+            tb_expected_paths = tb_expected_paths * len(absolute_file_paths)
+        else:
             custom_linker_script = None
             memory_config = test_config.get("memory", None)
             if memory_config is not None:
@@ -440,6 +479,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
                 elf_file = patch_and_compile_with_llvm(absolute_file_paths, custom_linker_script)
             else:
                 error.exit_error(f"Unknown compiler name '{compiler_name}'. Either use 'gcc' or 'clang'.", error.USER_ERROR)
+
             if memory_config is not None:
                 for hex_name, hex_config in memory_config.get("convert_to_hex", {}).items():
                     section_names = hex_config["sections"]
@@ -447,11 +487,10 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
                     memory_size = int(hex_config["size"])
                     bytes_per_word = int(hex_config["word_width"])
                     elf_to_hex(elf_file, os.path.abspath(os.path.join(out_dir, "tb_bin", hex_name)), section_names, word_size=bytes_per_word, memory_size=memory_size)
-            gls = test_config.get("gls", None)
-        shutil.copy(tb_path, out_dir)
+            elf_files = [elf_file]
     else:
-        elf_file = patch_and_compile_with_llvm([tb_path])
+        elf_files = patch_and_compile_with_llvm([tb_path])
 
     if not only_add_cc_support:
         print(" - Start simulation")
-        run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_file, tb_expected_path, memory_config, gls)
+        run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls)
