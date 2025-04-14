@@ -39,6 +39,7 @@ class BRAMSlave(BusDriver):
                 await ReadOnly()
                 if self.bus.en.value:
                     break
+                await clock_re
 
             if self.bus.we.value != 0:
                 _st = int(self.bus.addr)
