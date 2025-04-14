@@ -240,7 +240,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     verilog_srcs = [os.path.relpath(p, sim_dir) for p in verilog_srcs]
 
     def gen_testprog_arg(elf_file):
-        return f'TESTPROG="{os.path.relpath(elf_file[:-len('.elf')], sim_dir)}"'
+        return f"TESTPROG=\"{os.path.relpath(elf_file[:-len('.elf')], sim_dir)}\""
     def gen_expected_res_arg(expected_path):
         return f'EXPECTED="{os.path.relpath(expected_path, sim_dir)}"'
 
