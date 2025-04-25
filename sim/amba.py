@@ -293,7 +293,7 @@ class AXI4Slave(BusDriver):
     ] + axi4_additional_signals
 
     def __init__(self, entity, name, clock, memview : MemView, event=None,
-                 big_endian=False, artificial_stall=False, enable_prints=True, **kwargs):
+                 big_endian=False, artificial_write_delay=0, artificial_read_delay=0, enable_prints=True, **kwargs):
         self._signals = axi4_lite_signals
         BusDriver.__init__(self, entity, name, clock, **kwargs)
         self.clock = clock
@@ -313,7 +313,8 @@ class AXI4Slave(BusDriver):
         # Assuming _has_prot -> has ARPROT, AWPROT
 
         self.big_endian = big_endian
-        self.artificial_stall = artificial_stall
+        self.artificial_write_delay = artificial_write_delay
+        self.artificial_read_delay = artificial_read_delay
         self.bus.ARREADY.setimmediatevalue(1)
         self.bus.RVALID.setimmediatevalue(0)
         if self._has_burst:
@@ -384,9 +385,9 @@ class AXI4Slave(BusDriver):
             self._w_requests = self._w_requests[1:]
 
             await clock_re
-            if self.artificial_stall:
+            if self.artificial_write_delay > 0:
                 # Artificial delay
-                for i in range(28): #25
+                for _ in range(self.artificial_write_delay):
                     await clock_re
 
             # Assert the word byte length is a power of two
@@ -515,9 +516,9 @@ class AXI4Slave(BusDriver):
             burst_count = burst_length
 
             await clock_re
-            if self.artificial_stall:
+            if self.artificial_read_delay > 0:
                 # Artificial delay
-                for i in range(40): #12
+                for _ in range(self.artificial_read_delay):
                     await clock_re
 
             while True:
