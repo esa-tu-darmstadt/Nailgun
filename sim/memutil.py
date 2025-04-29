@@ -104,7 +104,9 @@ class BytearrayMemView(MemView):
         memoryarr_startoffs = _st - self.memory_baseaddr + self.memory_section_offs
         memoryarr_endoffs = _end - self.memory_baseaddr + self.memory_section_offs
         if memoryarr_endoffs > len(self.memory):
-            return MemViewError("Read from address 0x%08x: Out of bounds of backing array (%08x > %08x)" % (_st, memoryarr_endoffs, len(self.memory)))
+            if not self.auto_resize:
+                return MemViewError("Read from address 0x%08x: Out of bounds of backing array (%08x > %08x)" % (_st, memoryarr_endoffs, len(self.memory)))
+            self.memory += bytearray(memoryarr_endoffs - len(self.memory))
         word.buff = bytes(self.memory[memoryarr_startoffs : memoryarr_endoffs])
         return word
 
