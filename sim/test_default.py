@@ -226,9 +226,6 @@ async def run_test(dut):
     elfLoader = TestLoader(dut._log, [instr_memview, data_memview], [(IMEM_BASE,IMEM_BASE+IMEM_SIZE),(DMEM_BASE,DMEM_BASE+DMEM_SIZE)])
     elfLoader.load_test_case(TESTPROG+".elf")
 
-    #Append to end of instruction memory, needed as cores tend to prefetch instructions
-    instr_mem += bytearray(min(IMEM_SIZE-len(instr_mem),4*32))
-
     testStarted = True
 
     dut._log.info("Setting rst")
