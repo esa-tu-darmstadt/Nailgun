@@ -489,7 +489,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
                     elf_to_hex(elf_file, os.path.abspath(os.path.join(out_dir, "tb_bin", hex_name)), section_names, word_size=bytes_per_word, memory_size=memory_size)
             elf_files = [elf_file]
     else:
-        elf_files = patch_and_compile_with_llvm([tb_path])
+        elf_files = [patch_and_compile_with_llvm([tb_path])]
 
     if not only_add_cc_support:
         print(" - Start simulation")
