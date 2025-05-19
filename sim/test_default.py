@@ -46,6 +46,15 @@ def dump_32bithex(f, data):
 
 @cocotb.test()
 async def run_test(dut):
+    # GLS hacks
+    try:
+        dut.DFT_sdi_1.value = False
+        # dut.top_INST.DFT_sen.value = False
+        dut.test_mode.value = False
+        dut.shift_enable.value = False
+    except:
+        pass
+
     # dut._discover_all()  would allow signals to be searched via the dut._sub_handles dict, but calling it causes issues with Verilator.
     # -> In short: some query methods of Verilator will return ports from inner modules rather than from the TOP pseudo-module, causing any values to be overwritten by the simulator.
     # -> https://github.com/verilator/verilator/issues/3919
