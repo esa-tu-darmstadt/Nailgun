@@ -323,8 +323,15 @@ class AXI4Slave(BusDriver):
         self.bus.BVALID.setimmediatevalue(0)
         self.bus.BRESP.setimmediatevalue(0)
         self.bus.RRESP.setimmediatevalue(0)
-        if self._has_id:
+        self.bus.RDATA.setimmediatevalue(0)
+        try:
             self.bus.BID.setimmediatevalue(0)
+        except:
+            pass
+        try:
+            self.bus.RID.setimmediatevalue(0)
+        except:
+            pass
         self._ar_requests = []
         self._aw_requests = []
         self._w_requests = []
