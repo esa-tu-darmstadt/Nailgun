@@ -64,9 +64,6 @@ menu "Advanced Options"
 		config LN_BINARY
 			string "Path to Longnail binary"
 			default "deps/longnail/build/bin/longnail-opt"
-		config LN_LIB_PATH
-			string "Path to Longnail lib folder"
-			default "deps/longnail/circt/ext/lib64"
 	endmenu
 
 	config USE_PREBUILT_AWESOME
@@ -77,9 +74,6 @@ menu "Advanced Options"
 		config AWESOME_BINARY
 			string "Path to Awesome LLVM binary"
 			default "deps/awesome_llvm/build/bin/longnail-opt"
-		config AWESOME_LIB_PATH
-			string "Path to Awesome LLVM lib folder"
-			default "deps/awesome_llvm/circt/ext/lib64"
 	endmenu
 
 endmenu

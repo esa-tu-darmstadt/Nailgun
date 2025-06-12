@@ -46,16 +46,13 @@ def resolve_opty_lib(kconfig_syms):
 def get_longnail_bin(kconf_syms, opt_prefix = "LN", fallback_folder = "longnail"):
     if kconf_syms[f"USE_PREBUILT_{opt_prefix}"].str_value == "y":
         ln_path = os.path.abspath(kconf_syms[f"{opt_prefix}_BINARY"].str_value)
-        lib_path = os.path.abspath(kconf_syms[f"{opt_prefix}_LIB_PATH"].str_value)
 
         if not os.path.exists(ln_path):
             error.exit_error(f"Specified {fallback_folder} binary path '{ln_path}' does not exist!", error.USER_ERROR)
-        if not os.path.exists(lib_path):
-            error.exit_error(f"Specified {fallback_folder} lib path '{lib_path}' does not exist!", error.USER_ERROR)
 
-        return [f"LD_LIBRARY_PATH={lib_path}:$LD_LIBRARY_PATH", ln_path]
+        return ln_path
     else:
-        return [os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")]
+        return os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")
 
 
 def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
@@ -64,7 +61,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     show_ln_output = kconfig_syms["LN_ALWAYS_SHOW_OUTPUT"].str_value == "y"
 
-    ln_path = " ".join(get_longnail_bin(kconfig_syms))
+    ln_path = get_longnail_bin(kconfig_syms)
     isax_mlir = mlir_paths[0]
     if len(mlir_paths) > 1:
         concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
