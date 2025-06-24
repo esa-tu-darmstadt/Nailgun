@@ -288,6 +288,9 @@ TOPLEVEL = {tb_top_module}
 MODULE ?= test_default
 SIM ?= verilator
 GLS ?= 0
+GUI ?= 0
+# dump waveforms for icarus, questa, ...
+WAVES ?= 1
 
 TESTPROG ?= {os.path.relpath(elf_files[0][:-len('.elf')], sim_dir)}
 EXPECTED ?= {os.path.relpath(copied_expected_paths[0], sim_dir)}
@@ -328,6 +331,7 @@ SDFTYPE ?= -sdfmax
 SIM_ARGS += $(SDFTYPE) $(SDF_FILE)
 else
 COMPILE_ARGS += +delay_mode_unit
+EXTRA_ARGS += +define+IVCS_INIT_MEM
 endif # SDF_FILE != ""
 endif # GLS == 1
 {memory_initializers}
