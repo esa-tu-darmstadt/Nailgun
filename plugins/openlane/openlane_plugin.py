@@ -34,7 +34,7 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
     isax_src = list(map(lambda s: os.path.abspath(s), glob.glob(os.path.join(out_dir, '*.sv'))))
     isax_src = isax_src + list(map(lambda s: os.path.abspath(s), glob.glob(os.path.join(out_dir, '*.v'))))
 
-    if core_name == "CVA5" or core_name == "CVA6":
+    if core_name == "CVA5" or core_name == "CVA6" or core_name == "CVA6_64":
         sv2v_dir = os.path.join(syn_dir, "sv2v")
         os.makedirs(sv2v_dir, exist_ok=False)
         sv2v_outfile = os.path.join(sv2v_dir, "core.v")

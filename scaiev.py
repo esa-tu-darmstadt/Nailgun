@@ -181,8 +181,8 @@ def select_coresrc_folder_name(core):
         return core
     elif (core == "CVA5"):
         return core
-    elif (core == "CVA6"):
-        return core
+    elif (core == "CVA6" or core == "CVA6_64"):
+        return "CVA6"
     elif (core == "NaxRiscv"):
         return core
     elif (core == "VexRiscv_4s" or core == "VexRiscv_5s"):
@@ -231,8 +231,9 @@ def select_compiler_extensions(core):
     elif (core == "CVA5"):
         return "im_zicsr", "ilp32", 32
     elif (core == "CVA6"):
-        # TODO check for available extensions
-        return "im_zicsr", "lp64", 64
+        return "imac_zicsr", "ilp32", 32
+    elif (core == "CVA6_64"):
+        return "imac_zicsr", "lp64", 64
     elif (core == "NaxRiscv"):
         return "ima_zicsr", "ilp32", 32
     elif core == "VexRiscv_4s":
@@ -309,7 +310,8 @@ EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
 """
         }
         return ["CVA5_tb_wrapper.v"], core_srcs + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", [], [], extra_makefile_args
-    elif (core == "CVA6"):
+    elif (core == "CVA6" or core == "CVA6_64"): #CVA6_64 not yet defined (needs Longnail support)
+        is_64 = (core == "CVA6_64")
         core_srcs = [
             "vendor/pulp-platform/fpga-support/rtl/SyncDpRam.sv",
             "vendor/pulp-platform/fpga-support/rtl/AsyncDpRam.sv",
@@ -333,8 +335,9 @@ EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
             "core/cvfpu/src/fpu_div_sqrt_mvp/hdl/norm_div_sqrt_mvp.sv",
             "core/cvfpu/src/fpu_div_sqrt_mvp/hdl/nrbd_nrsc_mvp.sv",
             "core/cvfpu/src/fpu_div_sqrt_mvp/hdl/preprocess_mvp.sv",
+            "core/scaiev_config.sv",
             "core/include/config_pkg.sv",
-            "core/include/cv64a6_imafdc_sv39_config_pkg.sv",
+            "core/include/%s_scaiev_config_pkg.sv" % ("cv64a6_imac_sv39" if is_64 else "cv32a6_imac_sv32"),
             "core/include/riscv_pkg.sv",
             "core/include/ariane_pkg.sv",
             "vendor/pulp-platform/axi/src/axi_pkg.sv",
