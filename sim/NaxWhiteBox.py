@@ -68,15 +68,31 @@ class NaxWhiteBox:
         self.rob_phy_rs0 = [self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_0_banks_{i}", extended=False) for i in range(DISPATCH_COUNT)]
         self.rob_phy_rs1 = [self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_1_banks_{i}", extended=False) for i in range(DISPATCH_COUNT)]
 
+        self.rf_uses_ffs = False
+
         try:
             self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_0.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
             try:
                 self.rf1 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage", extended=False) for i in range(ISR_INTEGER_PHYSICAL_DEPTH - 1)]
             except:
                 self.rf1 = None
+
         except:
-            self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
-            self.rf1 = None
+            try:
+                self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+                self.rf1 = None
+            except:
+                # RF is implemented using FFs
+                self.rf_uses_ffs = True
+                try:
+                    self.rf0 = self.dut._id(f"integer_RegFilePlugin_logic_regfile_fpgaBanks_0.banks_0_ram", extended=False)
+                    try:
+                        self.rf1 = self.dut._id(f"integer_RegFilePlugin_logic_regfile_fpgaBanks_1.banks_0_ram", extended=False)
+                    except:
+                        self.rf1 = None
+                except:
+                    self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_banks_0_ram", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+                    self.rf1 = None
 
         self.issue_valid = [self.dut._id(f"DispatchPlugin_logic_whitebox_issuePorts_{i}_valid", extended=False) for i in range(ISSUE_PORTS)]
         self.issue_robId = [self.dut._id(f"DispatchPlugin_logic_whitebox_issuePorts_{i}_payload_robId", extended=False) for i in range(ISSUE_PORTS)]
@@ -108,6 +124,8 @@ class NaxWhiteBox:
     def read_reg(self, reg, idx, limit):
         if idx >= limit:
             return None
+        if self.rf_uses_ffs:
+            return reg[idx].value.integer
         if idx == 0:
             return 0
         return reg[idx - 1].value.integer
@@ -190,8 +208,13 @@ class NaxWhiteBox:
             fetchId = self.dut.fetchLastId.value
             self.fetchCtx[fetchId]['decodeAt'] = get_cycle_count(self.period)
 
+        try:
+            decoded_fire = self.dut.FrontendPlugin_decoded_isFireing
+        except:
+            decoded_fire = self.dut.FrontendPlugin_decoded_isFiring
+
         for i, decoded_fetch_id in enumerate(self.decoded_fetch_id):
-            if self.dut.FrontendPlugin_decoded_isFireing.value:
+            if decoded_fire.value:
                 fetchId = decoded_fetch_id.value
                 opId = self.dut.FrontendPlugin_decoded_OP_ID.value + i
                 if self.decoded_mask[i].value:
@@ -203,13 +226,22 @@ class NaxWhiteBox:
                     'pc': self.decoded_pc[i].value
                 }
 
-            if self.dut.FrontendPlugin_allocated_isFireing.value:
+            try:
+                allocated_fire = self.dut.FrontendPlugin_allocated_isFireing
+            except:
+                allocated_fire = self.dut.FrontendPlugin_allocated_isFiring
+
+            if allocated_fire.value:
                 robId = self.dut.FrontendPlugin_allocated_ROB_ID.value + i
                 opId = self.dut.FrontendPlugin_allocated_OP_ID.value + i
                 self.robCtx[robId]['opId'] = opId
                 self.opCtx[opId]['robId'] = robId
+        try:
+            dispatch_fire = self.dut.FrontendPlugin_dispatch_isFireing
+        except:
+            dispatch_fire = self.dut.FrontendPlugin_dispatch_isFiring
 
-        if self.dut.FrontendPlugin_dispatch_isFireing.value:
+        if dispatch_fire.value:
             for i, dispatch_mask in enumerate(self.dispatch_mask):
                 if dispatch_mask.value:
                     robId = self.dut.FrontendPlugin_dispatch_ROB_ID.value + i
@@ -234,10 +266,10 @@ class NaxWhiteBox:
                 self.opCtx[opId]['RS1_VAL_0'] = self.read_reg(self.rf0, phys_rs1, self.INTEGER_PHYSICAL_DEPTH)
                 if self.rf1:
                     tmp = self.read_reg(self.rf1, phys_rs0, self.ISR_INTEGER_PHYSICAL_DEPTH)
-                    if tmp:
+                    if tmp is not None:
                         self.opCtx[opId]['RS0_VAL_1'] = tmp
                     tmp = self.read_reg(self.rf1, phys_rs1, self.ISR_INTEGER_PHYSICAL_DEPTH)
-                    if tmp:
+                    if tmp is not None:
                         self.opCtx[opId]['RS1_VAL_1'] = tmp
 
         for i, valid in enumerate(self.rob_completions_valid):
