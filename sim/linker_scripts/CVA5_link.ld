@@ -32,11 +32,9 @@ SECTIONS
     . = ORIGIN(dmem);
     PROVIDE( _test_indata = ORIGIN(dmem) );
     PROVIDE( _test_resdata = ORIGIN(dmem) + __indata_size );
-    .srodata : {
-          * (.srodata);
-    } > dmem
     .rodata : {
-          * (.rodata);
+          * (.srodata*);
+          * (.rodata*);
     } > dmem
     .sdata : {
           * (.sdata*);
@@ -45,10 +43,10 @@ SECTIONS
          * (.sbss*);
     } > dmem
     .data : {
-        * (.data);
+        * (.data*);
     } > dmem
     .bss : {
-         * (.bss);
+         * (.bss*);
     } > dmem
     PROVIDE ( _heap_start = .);
 
