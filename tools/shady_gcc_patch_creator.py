@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import yaml
 import sys
 import pathlib
 import os
@@ -66,17 +65,11 @@ for k, v in expanded_isax.items():
     asmFormat = computeAsmFormat(v)
     op_defs += '{{"{0}", 0, INSN_CLASS_I, "{2}", MATCH_{1}, MASK_{1}, match_opcode, 0 }},\n'.format(k.lower(), k.upper(), asmFormat)
 
-def patch_file(template_path, out_path, replace_str):
-    with open(template_path, "rt") as fin:
-        with open(out_path, "wt") as fout:
-            for line in fin:
-                if line == "/* CUSTOM ISAX DEFINES REPLACE HERE */\n":
-                    fout.write(replace_str)
-                else:
-                    fout.write(line)
-
+# Please ensure that out_dir points Scenario-HLS-DAC folder
 out_dir = sys.argv[2]
 pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
-curr_dir = os.path.dirname(os.path.realpath(__file__))
-patch_file(curr_dir + '/template/riscv-opc.h', out_dir + '/riscv-opc.h', defines)
-patch_file(curr_dir + '/template/riscv-opc.c', out_dir + '/riscv-opc.c', op_defs)
+with open(os.path.join(out_dir, "isax_defs.h"), "wt") as mask_file:
+    mask_file.write(defines)
+
+with open(os.path.join(out_dir, "opcode_defs.h"), "wt") as op_def_file:
+    op_def_file.write(op_defs)

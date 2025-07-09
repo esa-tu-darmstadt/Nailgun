@@ -159,7 +159,7 @@ def get_gcc_objdump_path():
 
 def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
-    gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-gcc")
+    gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv64-unknown-elf-gcc")
     objdump_path = get_gcc_objdump_path()
     arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
     c_flags = "-nostdlib -nostartfiles"
