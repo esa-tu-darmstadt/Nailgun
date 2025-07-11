@@ -113,12 +113,15 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
 
     return build_dir
 
-def prepare_gcc(yaml_file):
+def prepare_gcc(kconfig_syms, yaml_file):
     # Create GCC patches
     patched_files_dir = os.path.abspath("deps/scaie-v-testbenches/Scenario-HLS-DAC/opcodes")
     run_cmd.run(".", f"tools/shady_gcc_patch_creator.py {yaml_file} {patched_files_dir}", "Could not patch gcc", error.GCC_BASE + 1, False)
+    build_args = ""
+    if kconfig_syms['SIM_SKIP_GDB'].str_value == "y":
+        build_args += "--disable-gdb"
     # Rebuild GCC
-    run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
+    run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {build_args} {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
 def get_target_elf_file_path(out_dir):
     # Create the output directory
@@ -153,14 +156,25 @@ def core_specific_startup(core_name):
         return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
     return ""
 
+GNU_PREFIXES=["riscv64-unknown-elf-", "riscv32-unknown-elf-"]
+def get_gnu_util_path(pathformat, prefixes):
+    """Get the absolute path to a GNU utility using the first prefix that exists.
+    :param pathformat: a string with '%s' in place of the tool prefix
+    :param prefixes: a list of tool prefixes to try (e.g., "riscv32-unknown-elf-")
+    """
+    for cur_prefix in prefixes:
+        cur_path = os.path.abspath(pathformat % cur_prefix)
+        if os.path.exists(cur_path):
+            return cur_path
+    return os.path.abspath(pathformat)
 def get_gcc_objcopy_path():
-    return os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objcopy")
+    return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjcopy", GNU_PREFIXES)
 def get_gcc_objdump_path():
-    return os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv32-unknown-elf-objdump")
+    return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjdump", GNU_PREFIXES)
 
 def gcc_compile_tb(tb_paths, core_name, out_dir, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
-    gcc_path = os.path.abspath("deps/scaie-v-testbenches/dep/riscv-prefix/bin/riscv64-unknown-elf-gcc")
+    gcc_path = get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sgcc", GNU_PREFIXES)
     objdump_path = get_gcc_objdump_path()
     arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
     c_flags = "-nostdlib -nostartfiles"
@@ -406,7 +420,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     def patch_and_compile_with_gcc(filepaths, custom_linker_script=None, include_startup_files=False):
         print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
-            prepare_gcc(isax_yaml_path)
+            prepare_gcc(kconfig_syms, isax_yaml_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
             return gcc_compile_tb(filepaths, core_name, out_dir, additional_flags, disassemble_tb, custom_linker_script, include_startup_files=include_startup_files)
@@ -432,7 +446,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         # Convert axf to elf_file
         if bin_file.endswith(".axf"):
             if first_run and kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
-                prepare_gcc(isax_yaml_path)
+                prepare_gcc(kconfig_syms, isax_yaml_path)
             objcopy_path = get_gcc_objcopy_path()
             run_cmd.run(".", f"{objcopy_path} {bin_file} {elf_file}", "Failed to convert axf file to an elf file!", error.GCC_BASE + 5, False)
         else:
@@ -509,7 +523,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     else:
         elf_files = [patch_and_compile_with_llvm([tb_path])]
 
-    setup_renode(elf_files, core_name, out_dir, isax_yaml_path)
     if not only_add_cc_support:
+        setup_renode(elf_files, core_name, out_dir, isax_yaml_path)
         print(" - Start simulation")
         run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls)

@@ -88,11 +88,13 @@ if __name__ == "__main__":
 
     ln_scheduling_config = os.getenv("LN_PREDEFINED_SOLUTION_SELECTION")
     if ln_scheduling_config:
-        kconf.syms[f"LN_PREDEFINED_SOLUTION_SELECTION"].set_value(ln_scheduling_config)
+        kconf.syms["LN_PREDEFINED_SOLUTION_SELECTION"].set_value(ln_scheduling_config)
     else:
         # The CI can not perform user interactions -> we must skip the solution selection process if no solution selection is given
-        kconf.syms[f"LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")
+        kconf.syms["LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")
 
+    # The CI does not use GDB
+    kconf.syms["SIM_SKIP_GDB"].set_value("y")
 
     # Write the generated .config file
     config_out_path = os.getenv("CONFIG_PATH")

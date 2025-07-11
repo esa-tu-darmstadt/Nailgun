@@ -73,7 +73,7 @@ def copy_folder_contents(source_folder, target_folder):
         if os.path.isfile(source_item):
             shutil.copy(source_item, target_folder)
         elif os.path.isdir(source_item):
-            shutil.copytree(source_item, target_item, dirs_exist_ok=True)
+            shutil.copytree(source_item, target_item, dirs_exist_ok=True, ignore_dangling_symlinks=True)
 
 def run_scaiev(core, isax_desc, out_dir, kconf_syms):
     print(f"Invoking SCAIEV:")

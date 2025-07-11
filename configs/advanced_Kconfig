@@ -9,6 +9,10 @@ menu "Advanced Options"
 		depends on SIM_ENABLE
 		bool "Skip patching and rebuilding clang"
 		default n
+	config SIM_SKIP_GDB
+		depends on !SIM_SKIP_AWESOME_LLVM
+		bool "Skip patching and rebuilding gdb"
+		default n
 	config SIM_AWESOME_LLVM_VERSION
 		depends on SIM_ENABLE || ONLY_PATCH_CC
 		string "LLVM / clang version to use"
