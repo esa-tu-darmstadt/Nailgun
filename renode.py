@@ -1,7 +1,7 @@
 import os
 from tools.isax_yaml_tools import *
 
-def gen_renode_confs(sim_dir, yaml_path, tb_path, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE):
+def gen_renode_confs(isax_name, sim_dir, yaml_path, tb_path, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE):
     isax_patterns = extract_encodings(yaml_path)
     renode_dir = os.path.abspath(os.path.join(sim_dir, "renode"))
     os.makedirs(renode_dir, exist_ok=True)
@@ -28,7 +28,7 @@ uart: UART.MiV_CoreUART @ sysbus 0x70001000
     clockFrequency: 50000000
 """)
 
-    custom_instruction_handlers = [ f'# sysbus.cpu InstallCustomInstructionHandlerFromFile "{mask.replace('-', 'x')}" "{renode_dir}/{i}.py"' for i, mask in isax_patterns.items() ]
+    custom_instruction_handlers = [ f'sysbus.cpu InstallCustomInstructionHandlerFromFile "{mask.replace('-', 'x')}" "{renode_dir}/{isax_name}.py" # Custom instruction: {i}' for i, mask in isax_patterns.items() ]
     newline = "\n"
 
     script = os.path.join(renode_dir, "run.resc")
@@ -50,3 +50,4 @@ sysbus LoadELF @{os.path.relpath(tb_path, renode_dir)}
 
 machine StartGdbServer 3333
 """)
+    return renode_dir

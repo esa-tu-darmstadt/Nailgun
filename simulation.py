@@ -376,7 +376,7 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
         # We ALWAYS want colors, lol
         run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
-def setup_renode(tb_paths, core_name, out_dir, yaml_file):
+def setup_renode(isax_name, tb_paths, core_name, out_dir, yaml_file):
     env_vars = scaiev.select_tb_env_vars(core_name)
     def get_env_value(key):
         prefix = f"{key}="
@@ -387,7 +387,9 @@ def setup_renode(tb_paths, core_name, out_dir, yaml_file):
 
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     march = f"rv{bit}{supported_core_exts}"
-    renode.gen_renode_confs(out_dir, yaml_file, tb_paths[0], march, get_env_value("IMEM_BASE"), get_env_value("DMEM_BASE"), get_env_value("DMEM_SIZE"))
+    renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths[0], march, get_env_value("IMEM_BASE"), get_env_value("DMEM_BASE"), get_env_value("DMEM_SIZE"))
+    shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
+    shutil.copy(os.path.join(out_dir, f"{isax_name}.py"), renode_dir)
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
@@ -524,6 +526,6 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         elf_files = [patch_and_compile_with_llvm([tb_path])]
 
     if not only_add_cc_support:
-        setup_renode(elf_files, core_name, out_dir, isax_yaml_path)
+        setup_renode(isax_name, elf_files, core_name, out_dir, isax_yaml_path)
         print(" - Start simulation")
         run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls)

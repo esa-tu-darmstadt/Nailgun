@@ -100,6 +100,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
         verbose = "true"
 
     longnail_schedule_flags = [
+        "-coredsl-to-python",
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
         f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} solver={ilp_solver} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
