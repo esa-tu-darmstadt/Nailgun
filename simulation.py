@@ -397,6 +397,7 @@ def find_yaml_file(out_dir):
     # Use glob to find files matching the pattern
     yaml_files = glob.glob(search_pattern)
     if yaml_files:
+        yaml_files = [f for f in yaml_files if "selected_solutions.yaml" not in f]
         return os.path.abspath(yaml_files[0])
     else:
         return None
