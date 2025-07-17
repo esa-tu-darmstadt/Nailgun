@@ -76,6 +76,9 @@ menu "Longnail HLS configuration"
 			bool "Inter-Instruction sharing"
 			default n
 	endmenu
+	config LN_PREDEFINED_SG_SELECTION
+		depends on LN_SCHED_ALGO_MI
+		string "Longnail apply predefined sharing group selection"
 	menu "Debugging"
 		config LN_ALWAYS_SHOW_OUTPUT
 			bool "Always show the full output of Longnail invocations"

@@ -5,10 +5,31 @@ import kconfiglib
 import menuconfig
 import shutil
 import tempfile
+import yaml
+import re
 
 import error
 import run_cmd
 from tools import sol_sel_to_yaml
+
+
+def run_menuconfig(kconf_path):
+    kconf = kconfiglib.Kconfig(kconf_path)
+
+    # Backup the current .config file to a temporary directory
+    temp_dir = tempfile.mkdtemp()
+    original_config_path = '.config'
+    backup_config_path = os.path.join(temp_dir, '.config_backup')
+    shutil.move(original_config_path, backup_config_path)
+
+    # open menu config to let the user select the desired sharing groups
+    menuconfig.menuconfig(kconf)
+
+    # Restore the .config file
+    shutil.move(backup_config_path, original_config_path)
+    # Clean up the temporary directory
+    shutil.rmtree(temp_dir)
+    return kconf
 
 
 def resolve_solver(kconfig_syms):
@@ -89,6 +110,69 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     else:
         library = ""
 
+    # Sharing group selection is only necessary when sharing between instructions is enabled
+    if "MI_" in sched_algo:
+        sharing_group_sel_yaml = os.path.join(out_dir, "sharing_groups.yaml")
+        if kconfig_syms['LN_PREDEFINED_SG_SELECTION'].str_value:
+            sg_sel = os.path.abspath(kconfig_syms['LN_PREDEFINED_SG_SELECTION'].str_value)
+            # Copy sg selection:
+            shutil.copyfile(sg_sel, sharing_group_sel_yaml)
+        else:
+            run_cmd.run(out_dir, f"{ln_path} -export-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 7, show_ln_output, 200)
+
+            # Load the original YAML
+            with open(sharing_group_sel_yaml, "r") as f:
+                instr_map = yaml.safe_load(f)
+
+            # Remap group numbers to a dense range 1..N
+            unique_groups = sorted(set(instr_map.values()))
+            group_remap = {old: new for new, old in enumerate(unique_groups, start=1)}
+            remapped_instr_map = {instr: group_remap[group] for instr, group in instr_map.items()}
+            num_groups = len(unique_groups)
+
+            # Create kconfig file
+            sharing_group_sel_kconfig = os.path.join(out_dir, "sharing_groups.kconfig")
+            with open(sharing_group_sel_kconfig, "w") as f:
+                f.write("mainmenu \"Sharing Group Assignment\"\n")
+                for instr, group in remapped_instr_map.items():
+                    f.write("choice\n")
+                    f.write(f"    prompt \"SG for {instr}\"\n")
+                    f.write(f"    default SG_{group}_{instr}\n")
+                    for i in range(1, num_groups + 1):
+                        f.write(f"config SG_{i}_{instr}\n")
+                        f.write("    bool\n")
+                        f.write(f"    prompt \"SG {i}\"\n")
+                    f.write("endchoice\n")
+                #f.write("endmenu\n")
+
+            kconf = run_menuconfig(sharing_group_sel_kconfig)
+
+            # Update the isax map again
+            for choice in kconf.choices:
+                # Check the selected choice
+                selected_sym = choice.selection
+                assert (selected_sym)
+
+                # Define the regex pattern with capture groups
+                pattern = r"^SG_(\d+)_(\w+)$"
+
+                # Search for the pattern in the string
+                match = re.search(pattern, selected_sym.name)
+
+                # Extract the numbers using the groups
+                assert (match)
+                sg_id = int(match.group(1))
+                instr_name = match.group(2)
+                assert (instr_name in remapped_instr_map)
+                remapped_instr_map[instr_name] = sg_id
+
+            # Save chosen mapping
+            with open(sharing_group_sel_yaml, "w") as f:
+                yaml.dump(remapped_instr_map, f)
+
+        # Apply the chosen mapping
+        run_cmd.run(out_dir, f"{ln_path} -import-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 8, show_ln_output, 200)
+
     sched_sol_mlir_file = os.path.join(out_dir, "scheduling_solutions.mlir")
     sched_sol_kconf_file = os.path.join(out_dir, "Kconfig")
     sched_sol_config_file = os.path.join(out_dir, ".config")
@@ -121,22 +205,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
     if not force_min_II_solutions and kconfig_syms['LN_PREDEFINED_SOLUTION_SELECTION'].str_value:
         sol_selection_file = os.path.abspath(kconfig_syms['LN_PREDEFINED_SOLUTION_SELECTION'].str_value)
     elif not force_min_II_solutions and os.path.exists(sched_sol_kconf_file):
-        kconf = kconfiglib.Kconfig(sched_sol_kconf_file)
-
-        # Backup the current .config file to a temporary directory
-        temp_dir = tempfile.mkdtemp()
-        original_config_path = '.config'
-        backup_config_path = os.path.join(temp_dir, '.config_backup')
-        shutil.move(original_config_path, backup_config_path)
-
-        # open menu config to let the user select the desired solutions
-        menuconfig.menuconfig(kconf)
-
-        # Restore the .config file
-        shutil.move(backup_config_path, original_config_path)
-        # Clean up the temporary directory
-        shutil.rmtree(temp_dir)
-
+        kconf = run_menuconfig(sched_sol_kconf_file)
         # Then convert the selection to a yaml file for longnail to process
         sol_sel_to_yaml.convert_selection_to_yaml(kconf, sol_selection_file)
         # Note this is optional:
