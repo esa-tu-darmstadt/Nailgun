@@ -41,7 +41,7 @@ uart: UART.MiV_CoreUART @ sysbus 0x{int(CTRL_BASE, 16) + 8:X}
         f.write(f"""
 mach create
 machine LoadPlatformDescription @./riscv.repl
-sysbus LogAllPeripheralsAccess true
+# sysbus LogAllPeripheralsAccess true
 
 # Custom instruction handlers
 {newline.join(custom_instruction_handlers)}
@@ -51,10 +51,18 @@ sysbus.cpu LogFunctionNames true
 sysbus.cpu CreateExecutionTracing "cputracer" @{renode_dir}/trace.log Disassembly
 
 sysbus LoadELF @{os.path.relpath(tb_path, renode_dir)}
-# showAnalyzer sysbus.uart
+showAnalyzer sysbus.uart
 
 machine StartGdbServer 3333
 
-sysbus SetHookBeforePeripheralWrite stop_sim "machine.PauseAndRequestEmulationPause()
+sysbus SetHookBeforePeripheralWrite stop_sim "machine.PauseAndRequestEmulationPause()"
 """)
+
+    script = os.path.join(renode_dir, "run.sh")
+    with open(script, 'w') as f:
+        f.write(f"""#!/bin/sh
+renode --console --disable-gui run.resc
+""")
+    # Make the script executable
+    os.chmod(script, 0o755)
     return renode_dir
