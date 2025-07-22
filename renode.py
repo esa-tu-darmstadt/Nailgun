@@ -1,7 +1,7 @@
 import os
 from tools.isax_yaml_tools import *
 
-def gen_renode_confs(isax_name, sim_dir, yaml_path, tb_path, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE):
+def gen_renode_confs(isax_name, sim_dir, yaml_path, tb_path, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE, CTRL_BASE):
     isax_patterns = extract_encodings(yaml_path)
     renode_dir = os.path.abspath(os.path.join(sim_dir, "renode"))
     os.makedirs(renode_dir, exist_ok=True)
@@ -24,7 +24,7 @@ clint: IRQControllers.MiV_CoreLevelInterruptor  @ sysbus 0x40000000
     prescaler: 100
     [0, 1] -> cpu@[3, 7]
 
-uart: UART.MiV_CoreUART @ sysbus 0x70001000
+uart: UART.MiV_CoreUART @ sysbus 0x{int(CTRL_BASE, 16) + 8:X}
     clockFrequency: 50000000
 """)
 

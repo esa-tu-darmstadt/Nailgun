@@ -12,6 +12,7 @@ from TestLoader import TestLoader
 
 import clint
 import disas
+from UARTPrinter import *
 
 CLK_PERIOD = 1 # Length of a clock period in ns
 TIMEOUT_PERIODS = int(cocotb.plusargs["CYCLE_TIMEOUT"]) # Number of clock periods until timeout
@@ -117,8 +118,8 @@ async def run_test(dut):
     TESTPROG = cocotb.plusargs["TESTPROG"]
     EXPECTED = cocotb.plusargs["EXPECTED"]
 
+    uart_printer = UARTPrinter()
     instr_mem = bytearray()
-    printf_mem = bytearray()
     if EXPECTED.endswith(".bin"):
         with open(EXPECTED, "rb") as f:
             expected_data = bytearray(f.read())
@@ -192,11 +193,9 @@ async def run_test(dut):
             return True
         elif addr_begin == CTRL_BASE + 8:
             if word[0] != 0 and wstrb[0] != 0:
-                # Find the index of the first null byte
-                null_index = printf_mem[12:].find(b'\0')
-                assert(null_index != -1)
-                # Perform print based on written data
-                print(f"\n\n\nSIMULATION PERFORMED A PRINTF:\n{printf_mem[12:12+null_index].decode('utf-8')}\n\n\n")
+                for i in range(len(wstrb.binstr)):  # For a 32-bit word (4 bytes)
+                    if wstrb[i] != 0:
+                        uart_printer.write_byte(word[i])
                 return True
 
         return False
@@ -214,7 +213,7 @@ async def run_test(dut):
     data_memview = BytearrayMemView(data_mem, 0, DMEM_SIZE, DMEM_BASE, read_cb=check_data_read, write_cb=check_data_write)
     memsi[DMEM_BUSIDX].memview.children.append(data_memview)
 
-    ctrl_memview = BytearrayMemView(printf_mem, 0, IMEM_SIZE, CTRL_BASE, read_cb=check_ctrl_read, write_cb=check_ctrl_write, auto_resize=True)
+    ctrl_memview = MemView(read_cb=check_ctrl_read, write_cb=check_ctrl_write)
     memsi[CTRL_BUSIDX].memview.children.append(ctrl_memview)
 
     # Create and register a CLINT
@@ -258,6 +257,8 @@ async def run_test(dut):
         await with_timeout(core_done_trigger, TIMEOUT_PERIODS * CLK_PERIOD, timeout_unit='ns')
     else:
         await core_done_trigger
+
+    uart_printer.flush()
 
     if (trap is not None) and trap.value == 1:
         raise CoreExceptionException("The core set its trap pin")

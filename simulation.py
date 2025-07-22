@@ -387,9 +387,10 @@ def setup_renode(isax_name, tb_paths, core_name, out_dir, yaml_file):
 
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     march = f"rv{bit}{supported_core_exts}"
-    renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths[0], march, get_env_value("IMEM_BASE"), get_env_value("DMEM_BASE"), get_env_value("DMEM_SIZE"))
+    renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths[0], march, get_env_value("IMEM_BASE"), get_env_value("DMEM_BASE"), get_env_value("DMEM_SIZE"), get_env_value("CTRL_BASE"))
     shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
-    shutil.copy(os.path.join(out_dir, f"{isax_name}.py"), renode_dir)
+    if isax_name:
+        shutil.copy(os.path.join(out_dir, f"{isax_name}.py"), renode_dir)
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
