@@ -24,6 +24,11 @@ clint: IRQControllers.MiV_CoreLevelInterruptor  @ sysbus 0x40000000
     prescaler: 100
     [0, 1] -> cpu@[3, 7]
 
+stop_sim: Python.PythonPeripheral @ sysbus 0x{CTRL_BASE}
+    size: 0x08
+    initable: false
+    script: ""
+
 uart: UART.MiV_CoreUART @ sysbus 0x{int(CTRL_BASE, 16) + 8:X}
     clockFrequency: 50000000
 """)
@@ -49,5 +54,7 @@ sysbus LoadELF @{os.path.relpath(tb_path, renode_dir)}
 # showAnalyzer sysbus.uart
 
 machine StartGdbServer 3333
+
+sysbus SetHookBeforePeripheralWrite stop_sim "machine.PauseAndRequestEmulationPause()
 """)
     return renode_dir
