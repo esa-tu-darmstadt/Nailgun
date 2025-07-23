@@ -9,6 +9,34 @@ from typing import Optional
 class MemViewError(Exception):
     pass
 
+def rotate_left(data: bytes, n: int) -> bytes:
+    """
+    Rotate an entire bytes object to the left by `n` bits.
+    """
+    total_bits = len(data) * 8
+    n = n % total_bits  # Normalize
+
+    if n == 0:
+        return data
+
+    as_int = int.from_bytes(data, byteorder='big')
+    rotated = ((as_int << n) | (as_int >> (total_bits - n))) & ((1 << total_bits) - 1)
+    return rotated.to_bytes(len(data), byteorder='big')
+
+def rotate_right(data: bytes, n: int) -> bytes:
+    """
+    Rotate an entire bytes object to the right by `n` bits.
+    """
+    total_bits = len(data) * 8
+    n = n % total_bits  # Normalize
+
+    if n == 0:
+        return data
+
+    as_int = int.from_bytes(data, byteorder='big')
+    rotated = ((as_int >> n) | (as_int << (total_bits - n))) & ((1 << total_bits) - 1)
+    return rotated.to_bytes(len(data), byteorder='big')
+
 def _extend_word(_st, word : BinaryValue, n_word_bits, big_endian) -> BinaryValue:
     if word.n_bits < n_word_bits:
         if (n_word_bits & 7) != 0 or (word.n_bits & 7) != 0:
@@ -17,7 +45,7 @@ def _extend_word(_st, word : BinaryValue, n_word_bits, big_endian) -> BinaryValu
         word_new = BinaryValue(n_bits=n_word_bits, bigEndian=big_endian)
         in_word_byte_rotate_amount = _st & ((n_word_bits>>3) - 1) #>>3 -> uint div by 8
         word_new_buff = word.buff + (b'\x00' * ((n_word_bits - word.n_bits) >> 3))
-        word_new_buff = word_new_buff[in_word_byte_rotate_amount:] + word_new_buff[0:in_word_byte_rotate_amount] #Rotate depending on misalignment of _st by the word byte width
+        word_new_buff = rotate_right(word_new_buff, in_word_byte_rotate_amount * 8)
         word_new.buff = word_new_buff
         return word_new
     return word
