@@ -1,7 +1,7 @@
 import os
 from tools.isax_yaml_tools import *
 
-def gen_renode_confs(isax_name, sim_dir, yaml_path, tb_path, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE, CTRL_BASE):
+def gen_renode_confs(isax_name, sim_dir, yaml_path, tb_paths, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE, CTRL_BASE):
     isax_patterns = extract_encodings(yaml_path)
     renode_dir = os.path.abspath(os.path.join(sim_dir, "renode"))
     os.makedirs(renode_dir, exist_ok=True)
@@ -40,7 +40,7 @@ uart: UART.MiV_CoreUART @ sysbus 0x{int(CTRL_BASE, 16) + 8:X}
     with open(script, 'w') as f:
         f.write(f"""
 mach create
-machine LoadPlatformDescription @./riscv.repl
+machine LoadPlatformDescription @{core_desc}
 # sysbus LogAllPeripheralsAccess true
 
 # Custom instruction handlers
@@ -48,12 +48,13 @@ machine LoadPlatformDescription @./riscv.repl
 
 # Logging
 sysbus.cpu LogFunctionNames true
-sysbus.cpu CreateExecutionTracing "cputracer" @{renode_dir}/trace.log Disassembly
+# sysbus.cpu CreateExecutionTracing "cputracer" @{renode_dir}/trace.log Disassembly
 
-sysbus LoadELF @{os.path.relpath(tb_path, renode_dir)}
+sysbus LoadELF @{os.path.abspath(tb_paths[0])}
 showAnalyzer sysbus.uart
 
-machine StartGdbServer 3333
+# Do not auto start on gdb attach
+# machine StartGdbServer 3333 false
 
 sysbus SetHookBeforePeripheralWrite stop_sim "machine.PauseAndRequestEmulationPause()"
 """)
@@ -65,4 +66,32 @@ renode --console --disable-gui run.resc
 """)
     # Make the script executable
     os.chmod(script, 0o755)
+
+    robot_dir = os.path.join(renode_dir, "robots")
+    os.makedirs(robot_dir)
+    timeout = 600
+    for idx, tb_path in enumerate(tb_paths):
+        script = os.path.join(robot_dir, f"run_tb_{idx}.robot")
+        with open(script, 'w') as f:
+            f.write(f"""*** Variables ***
+${{SCRIPT}}         ${{CURDIR}}/../run.resc
+
+*** Test Cases ***
+RUN TB {idx}
+    Execute Script             ${{SCRIPT}}
+    Execute Command            sysbus LoadELF @${{CURDIR}}/{os.path.relpath(tb_path, robot_dir)}
+    Start Emulation
+    Wait For Pause             {timeout}
+    """)
+
+    script = os.path.join(renode_dir, "run_robots.sh")
+    with open(script, 'w') as f:
+        f.write(f"""#!/bin/sh
+cd robots
+renode-test --keep-renode-output --test-timeout {timeout} -j`nproc` {" ".join([f"run_tb_{i}.robot" for i in range(len(tb_paths))])}
+""")
+    # Make the script executable
+    os.chmod(script, 0o755)
+
+
     return renode_dir
