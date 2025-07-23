@@ -525,6 +525,13 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
     else:
         error.exit_error("No testbench wrapper found for the selected core!", error.INTERNAL_ERROR)
 
+def get_env_value(env_vars, key):
+    prefix = f"{key}="
+    for entry in env_vars:
+        if entry.startswith(prefix):
+            return entry[len(prefix):]
+    error.exit_error(f"Setup renode: scaiev.select_tb_env_vars variable '{key}' not found", error.INTERNAL_ERROR)
+
 def select_tb_env_vars(core):
     if (core == "PicoRV32"):
         return [

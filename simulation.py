@@ -191,16 +191,9 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 def setup_renode(isax_name, tb_paths, core_name, out_dir, yaml_file):
     env_vars = scaiev.select_tb_env_vars(core_name)
-    def get_env_value(key):
-        prefix = f"{key}="
-        for entry in env_vars:
-            if entry.startswith(prefix):
-                return entry[len(prefix):]
-        error.exit_error(f"Setup renode: scaiev.select_tb_env_vars variable '{key}' not found", error.INTERNAL_ERROR)
-
     supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
     march = f"rv{bit}{supported_core_exts}"
-    renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths[0], march, get_env_value("IMEM_BASE"), get_env_value("DMEM_BASE"), get_env_value("DMEM_SIZE"), get_env_value("CTRL_BASE"))
+    renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths[0], march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
     shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
     if isax_name:
         shutil.copy(os.path.join(out_dir, f"{isax_name}.py"), renode_dir)
@@ -252,7 +245,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None):
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
-        clang_exists, _ = check_clang_exists(llvm_version)
+        clang_exists, _ = toolchain.check_clang_exists(llvm_version)
         skip_clang_build = kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value == "y" and clang_exists
         unpatched_clang = (not skip_clang_build) and (not mlir_path)
         if unpatched_clang:
