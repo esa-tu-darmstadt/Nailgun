@@ -9,7 +9,7 @@ SECTIONS
 {
     __stack_size = 0x1000;
     __indata_size = 0x1000;
-    __resdata_offset = 0x0C;
+    __resdata_offset = 0x1000;
     __ctx_size = 0x1000;
 
     . = ORIGIN(imem);

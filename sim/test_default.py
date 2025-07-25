@@ -21,6 +21,7 @@ PRINT_IMEM = int(cocotb.plusargs["PRINT_IMEM"]) > 0
 PRINT_DMEM = int(cocotb.plusargs["PRINT_DMEM"]) > 0
 PRINT_BRAM = int(cocotb.plusargs["PRINT_BRAM"]) > 0
 PRINT_AXI = int(cocotb.plusargs["PRINT_AXI"]) > 0
+RESDATA_OFFSET = 0x1000
 
 @cocotb.coroutine
 def clock_print(clk):
@@ -104,7 +105,6 @@ async def run_test(dut):
     DMEM_BUSIDX=int(cocotb.plusargs["DMEM_BUSIDX"])
     DMEM_BASE=int(cocotb.plusargs["DMEM_BASE"], 16)
     DMEM_SIZE=int(cocotb.plusargs["DMEM_SIZE"], 16)
-    DMEM_RESULTS_OFFS=int(cocotb.plusargs["DMEM_RESULTS_OFFS"], 16)
 
     CTRL_BUSIDX=int(cocotb.plusargs["CTRL_BUSIDX"])
     CTRL_BASE=int(cocotb.plusargs["CTRL_BASE"], 16)
@@ -132,8 +132,6 @@ async def run_test(dut):
                 line_lstrip = line.lstrip()
                 if len(line_lstrip) != 0 and line_lstrip[0] != '#':
                     expected_data += bytearray(int(line_lstrip, 16).to_bytes(4, byteorder='little'))
-    if DMEM_SIZE - DMEM_RESULTS_OFFS < len(expected_data):
-        raise InputBinaryException("Expected results file is larger than the physical data memory section")
 
     event_irq = Event('core_irq')
 
@@ -266,12 +264,12 @@ async def run_test(dut):
 
     dut._log.info("expected_data: " + str(expected_data))
     for i in range(0, len(expected_data), 4):
-        got = resdata_mem[12+i:12+i+4]
+        got = resdata_mem[RESDATA_OFFSET+i:RESDATA_OFFSET+i+4]
         expected = expected_data[i:i+4]
         dut._log.info("got: 0x" + str(got.hex()) + ", expected: 0x" + str(expected.hex()))
         if got != expected:
             with open("outputs_got.txt", "w") as f:
-                dump_32bithex(f, resdata_mem[12:12+len(expected_data)])
+                dump_32bithex(f, resdata_mem[RESDATA_OFFSET:RESDATA_OFFSET+len(expected_data)])
             with open("outputs_expected.txt", "w") as f:
                 dump_32bithex(f, expected_data)
             raise ResultMismatchException("At 0x%X: Got 0x%08x, expected 0x%08x. Wrote complete results to outputs_got.txt and outputs_expected.txt." % (i, struct.unpack('<L', got)[0], struct.unpack('<L', expected)[0]))

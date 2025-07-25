@@ -552,8 +552,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=00100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -580,8 +578,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=00100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -608,8 +604,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=00100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -636,8 +630,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=80100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -666,8 +658,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=80100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -692,8 +682,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=0",
             # The base address of the data memory on the bus.
             "DMEM_BASE=80100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -722,8 +710,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=80100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.
@@ -753,8 +739,6 @@ def select_tb_env_vars(core):
             "DMEM_BUSIDX=1",
             # The base address of the data memory on the bus.
             "DMEM_BASE=80100000",
-            # The offset to program results within the data memory.
-            "DMEM_RESULTS_OFFS=00001000",
             # The physical size of the data memory.
             "DMEM_SIZE=00100000",
             # Bus SI index for CTRL.

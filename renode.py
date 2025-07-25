@@ -31,6 +31,9 @@ stop_sim: Python.PythonPeripheral @ sysbus 0x{CTRL_BASE}
 
 uart: UART.MiV_CoreUART @ sysbus 0x{int(CTRL_BASE, 16) + 8:X}
     clockFrequency: 50000000
+
+resdata: Memory.MappedMemory @ sysbus 0x{int(CTRL_BASE, 16) + 0x1000:X}
+    size: 0x0FE000
 """)
 
     custom_instruction_handlers = [ f'sysbus.cpu InstallCustomInstructionHandlerFromFile "{mask.replace('-', 'x')}" "{renode_dir}/{isax_name}.py" # Custom instruction: {i}' for i, mask in isax_patterns.items() ]
