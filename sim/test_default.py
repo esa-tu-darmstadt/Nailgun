@@ -213,7 +213,8 @@ async def run_test(dut):
     data_memview = BytearrayMemView(data_mem, 0, DMEM_SIZE, DMEM_BASE, read_cb=check_data_read, write_cb=check_data_write)
     memsi[DMEM_BUSIDX].memview.children.append(data_memview)
 
-    ctrl_memview = MemView(read_cb=check_ctrl_read, write_cb=check_ctrl_write)
+    resdata_mem = bytearray()
+    ctrl_memview = BytearrayMemView(resdata_mem, 0, IMEM_SIZE, CTRL_BASE, read_cb=check_ctrl_read, write_cb=check_ctrl_write, auto_resize=True)
     memsi[CTRL_BUSIDX].memview.children.append(ctrl_memview)
 
     # Create and register a CLINT
@@ -265,12 +266,12 @@ async def run_test(dut):
 
     dut._log.info("expected_data: " + str(expected_data))
     for i in range(0, len(expected_data), 4):
-        got = data_mem[DMEM_RESULTS_OFFS+i:DMEM_RESULTS_OFFS+i+4]
+        got = resdata_mem[12+i:12+i+4]
         expected = expected_data[i:i+4]
         dut._log.info("got: 0x" + str(got.hex()) + ", expected: 0x" + str(expected.hex()))
         if got != expected:
             with open("outputs_got.txt", "w") as f:
-                dump_32bithex(f, data_mem[DMEM_RESULTS_OFFS:DMEM_RESULTS_OFFS+len(expected_data)])
+                dump_32bithex(f, resdata_mem[12:12+len(expected_data)])
             with open("outputs_expected.txt", "w") as f:
                 dump_32bithex(f, expected_data)
             raise ResultMismatchException("At 0x%X: Got 0x%08x, expected 0x%08x. Wrote complete results to outputs_got.txt and outputs_expected.txt." % (i, struct.unpack('<L', got)[0], struct.unpack('<L', expected)[0]))

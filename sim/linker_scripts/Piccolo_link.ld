@@ -9,7 +9,7 @@ SECTIONS
 {
     __stack_size = 0x1000;
     __indata_size = 0x1000;
-    __resdata_size = 0x1000;
+    __resdata_offset = 0x0C;
     __ctx_size = 0x1000;
 
     . = ORIGIN(imem);
@@ -31,7 +31,6 @@ SECTIONS
 
     . = ORIGIN(dmem);
     PROVIDE( _test_indata = ORIGIN(dmem) );
-    PROVIDE( _test_resdata = ORIGIN(dmem) + __indata_size );
     .rodata : {
           * (.srodata*);
           * (.rodata*);
@@ -62,4 +61,5 @@ SECTIONS
         PROVIDE (_stack_top = . + __stack_size);
     } > dmem
     PROVIDE( _ctrlmem = ORIGIN(ctrl) );
+    PROVIDE( _test_resdata = ORIGIN(ctrl) + __resdata_offset );
 }
