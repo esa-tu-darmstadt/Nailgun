@@ -34,6 +34,7 @@ uart: UART.MiV_CoreUART @ sysbus 0x{int(CTRL_BASE, 16) + 8:X}
 """)
 
     custom_instruction_handlers = [ f'sysbus.cpu InstallCustomInstructionHandlerFromFile "{mask.replace('-', 'x')}" "{renode_dir}/{isax_name}.py" # Custom instruction: {i}' for i, mask in isax_patterns.items() ]
+    load_elfs = [ f'{"# " if i != 0 else ""}sysbus LoadELF @{os.path.abspath(tb_path)}' for i, tb_path in enumerate(tb_paths) ]
     newline = "\n"
 
     script = os.path.join(renode_dir, "run.resc")
@@ -49,14 +50,17 @@ machine LoadPlatformDescription @{core_desc}
 # Logging
 sysbus.cpu LogFunctionNames true
 # sysbus.cpu CreateExecutionTracing "cputracer" @{renode_dir}/trace.log Disassembly
+# cputracer TrackMemoryAccesses
 
-sysbus LoadELF @{os.path.abspath(tb_paths[0])}
+{newline.join(load_elfs)}
 showAnalyzer sysbus.uart
 
 # Do not auto start on gdb attach
 # machine StartGdbServer 3333 false
 
 sysbus SetHookBeforePeripheralWrite stop_sim "machine.PauseAndRequestEmulationPause()"
+
+# start
 """)
 
     script = os.path.join(renode_dir, "run.sh")
