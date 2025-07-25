@@ -73,7 +73,8 @@ renode --console --disable-gui run.resc
 
     robot_dir = os.path.join(renode_dir, "robots")
     os.makedirs(robot_dir)
-    timeout = 600
+    global_timeout = 600
+    test_timeout = 60
     for idx, tb_path in enumerate(tb_paths):
         script = os.path.join(robot_dir, f"run_tb_{idx}.robot")
         with open(script, 'w') as f:
@@ -82,17 +83,19 @@ ${{SCRIPT}}         ${{CURDIR}}/../run.resc
 
 *** Test Cases ***
 RUN TB {idx}
+    [Timeout]                  {test_timeout} seconds
     Execute Script             ${{SCRIPT}}
     Execute Command            sysbus LoadELF @${{CURDIR}}/{os.path.relpath(tb_path, robot_dir)}
+    Create Log Tester          {test_timeout}
     Start Emulation
-    Wait For Pause             {timeout}
-    """)
+    Wait For Log Entry         Machine paused
+""")
 
     script = os.path.join(renode_dir, "run_robots.sh")
     with open(script, 'w') as f:
         f.write(f"""#!/bin/sh
 cd robots
-renode-test --keep-renode-output --test-timeout {timeout} -j`nproc` {" ".join([f"run_tb_{i}.robot" for i in range(len(tb_paths))])}
+renode-test --keep-renode-output --test-timeout {global_timeout} -j`nproc` {" ".join([f"run_tb_{i}.robot" for i in range(len(tb_paths))])}
 """)
     # Make the script executable
     os.chmod(script, 0o755)
