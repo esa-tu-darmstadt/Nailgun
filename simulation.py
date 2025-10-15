@@ -270,16 +270,16 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         else:
             # copy the elf file to our target folder
             shutil.copy(bin_file, elf_file)
+        # If requested disassemble the elf file
+        if disassemble_tb:
+            objdump_path = toolchain.get_gcc_objdump_path()
+            toolchain.disas_tb(objdump_path, elf_file, error.GCC_BASE + 4)
 
     memory_config = None
     gls = None
     if tb_path.endswith(".axf") or tb_path.endswith(".elf"):
         elf_file = get_target_elf_file_path(out_dir)
         process_bin_file(tb_path, elf_file, first_run=True)
-        # If requested disassemble the elf file
-        if disassemble_tb:
-            objdump_path = toolchain.get_gcc_objdump_path()
-            toolchain.disas_tb(objdump_path, elf_file, error.GCC_BASE + 4)
         elf_files = [elf_file]
     elif tb_path.endswith(".s") or tb_path.endswith(".S"):
         elf_files = [patch_and_compile_with_gcc([tb_path])]
