@@ -196,7 +196,7 @@ def llvm_compile_tb(tb_paths, core_name, elf_out_path, llvm_build_path, isax_nam
     startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
     isax_ext_name = f"_x{isax_name}0p1" if isax_name else ""
-    picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -lsemihost"
+    picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -Wl,--whole-archive -lsemihost -Wl,--no-whole-archive"
     flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{mabi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags} {picolibc_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
 
