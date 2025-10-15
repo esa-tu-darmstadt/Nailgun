@@ -11,8 +11,10 @@ import longnail
 import scaiev
 import simulation
 
+from tools.critical_chains import merge_chains
 
 def execute_plugins(entry_point_name):
+    results = []
     plugin_folder = "plugins"
     # Walk through the directory, including subdirectories
     for root, dirs, files in os.walk(plugin_folder):
@@ -27,7 +29,10 @@ def execute_plugins(entry_point_name):
                     # Use the import statement to import the module by its name
                     exec(f"import {plugin_folder}.{os.path.basename(root)}.{entry_point_name}")
                     print(f"INFO: Running {entry_point_name} from {root}")
-                    exec(f"{plugin_folder}.{os.path.basename(root)}.{entry_point_name}.main(globals())")
+                    res = eval(f"{plugin_folder}.{os.path.basename(root)}.{entry_point_name}.main(globals())")
+                    if res:
+                        results.append(res)
+    return results
 
 def create_output_folder(base_path, base_name):
     # Start with the base path
@@ -90,29 +95,46 @@ if __name__ == "__main__":
 
     mlir_paths, isax_yaml = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
 
-    mlir_path = None
-    if mlir_paths:
-        # LN mlir to .sv
-        longnail.build_longnail(kconf.syms)
-        datasheet = longnail.select_core_datasheet(core_name)
-        mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir)
-        isax_yaml = longnail.provide_isax_yaml(out_dir)
+    critical_chains = []
+    iteration = 0
+    while True:
+        mlir_path = None
+        if mlir_paths:
+            # LN mlir to .sv
+            longnail.build_longnail(kconf.syms)
+            datasheet = longnail.select_core_datasheet(core_name)
+            mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
+            isax_yaml = longnail.provide_isax_yaml(out_dir)
 
-    if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
-        isax_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
-    else:
-        isax_name = extract_isax_name(mlir_path)
+        if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
+            isax_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
+        else:
+            isax_name = extract_isax_name(mlir_path)
 
-    only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
+        only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
 
-    # SCAIE-V integrate into core
-    if not only_add_cc_support:
-        scaiev.build_scaiev(kconf.syms)
-        scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
+        # SCAIE-V integrate into core
+        if not only_add_cc_support:
+            scaiev.build_scaiev(kconf.syms)
+            scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
-    # Optionally run the simulation
-    simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
+        # Optionally run the simulation
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
 
-    if not only_add_cc_support:
-        # Optionally run synthesis plugins
-        execute_plugins("synthesis_plugin")
+        new_critical_chains = []
+        if not only_add_cc_support:
+            syn_dir_suffix = f"_{iteration}"
+            # Optionally run synthesis plugins
+            new_critical_chains = execute_plugins("synthesis_plugin")
+
+        # None or empty
+        if not new_critical_chains or len(new_critical_chains) == 0 or len(new_critical_chains[0]) == 0:
+            print("Done!")
+            break
+        else:
+            assert(len(new_critical_chains) == 1)
+            assert(len(new_critical_chains[0]) > 0)
+            print(f"Found critical chains: {new_critical_chains[0]}\n")
+            critical_chains = merge_chains(critical_chains, new_critical_chains[0])
+
+        iteration += 1

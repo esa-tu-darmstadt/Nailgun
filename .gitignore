@@ -6,3 +6,6 @@ test_results
 *.elf
 *.axf
 *.bin
+*.png
+*.mlir
+*.csv

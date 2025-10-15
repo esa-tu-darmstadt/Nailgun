@@ -11,7 +11,7 @@ import re
 import error
 import run_cmd
 from tools import sol_sel_to_yaml
-
+from tools.critical_chains import export_chains_as_yaml
 
 def run_menuconfig(kconf_path):
     kconf = kconfiglib.Kconfig(kconf_path)
@@ -75,36 +75,10 @@ def get_longnail_bin(kconf_syms, opt_prefix = "LN", fallback_folder = "longnail"
     else:
         return os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")
 
-
-def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
-    # gather src files
-    skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
-
-    show_ln_output = kconfig_syms["LN_ALWAYS_SHOW_OUTPUT"].str_value == "y"
-
-    ln_path = get_longnail_bin(kconfig_syms)
-    isax_mlir = mlir_paths[0]
-    if len(mlir_paths) > 1:
-        concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
-        isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
-        with open(concated_isax_mlir, "w") as isax_mlir_file:
-            for f in mlir_paths:
-                with open(f, "r") as fo:
-                    isax_mlir_file.write(fo.read())
-            os.fsync(isax_mlir_file)
-        run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, show_ln_output, 200)
-
-    # check inputs
-    try:
-        float(kconfig_syms['LN_CLOCK_PERIOD'].str_value)
-    except ValueError:
-        error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!", error.USER_ERROR)
-
+def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, datasheet, kconfig_syms, skip_scheduling, show_ln_output):
     sched_algo = resolve_sched_algo(kconfig_syms)
     optylib = resolve_opty_lib(kconfig_syms)
-    ilp_solver = resolve_solver(kconfig_syms)
     out_dir = os.path.abspath(out_dir)
-    datasheet = os.path.abspath(datasheet)
     if kconfig_syms['LN_CELL_LIBRARY'].str_value:
         library = os.path.abspath(kconfig_syms['LN_CELL_LIBRARY'].str_value)
     else:
@@ -118,7 +92,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
             # Copy sg selection:
             shutil.copyfile(sg_sel, sharing_group_sel_yaml)
         else:
-            run_cmd.run(out_dir, f"{ln_path} -export-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 7, show_ln_output, 200)
+            run_cmd.run(out_dir, f"{ln_path} -export-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 5, show_ln_output, 200)
 
             # Load the original YAML
             with open(sharing_group_sel_yaml, "r") as f:
@@ -171,37 +145,49 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
                 yaml.dump(remapped_instr_map, f)
 
         # Apply the chosen mapping
-        run_cmd.run(out_dir, f"{ln_path} -import-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 8, show_ln_output, 200)
+        run_cmd.run(out_dir, f"{ln_path} -import-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, show_ln_output, 200)
 
-    sched_sol_mlir_file = os.path.join(out_dir, "scheduling_solutions.mlir")
-    sched_sol_kconf_file = os.path.join(out_dir, "Kconfig")
-    sched_sol_config_file = os.path.join(out_dir, ".config")
-    sol_selection_file = os.path.join(out_dir, "selected_solutions.yaml")
-    force_min_II_solutions = kconfig_syms['LN_FORCE_MIN_II_SOLUTIONS'].str_value == "y"
-
-    verbose = "false"
-    if kconfig_syms['LN_VERBOSE_SCHEDULING'].str_value == "y":
-        verbose = "true"
-
-    longnail_schedule_flags = [
+    longnail_prepare_schedule_flags = [
         "-coredsl-to-python",
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",
-        f"-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} schedulingAlgo={sched_algo} solver={ilp_solver} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
+        f"-prepare-schedule-lil=\"datasheet={datasheet} library={library} opTyLibrary={optylib} schedulingAlgo={sched_algo}\"",
+        f"-o {prepared_sched_mlir_file}",
+    ]
+
+    if not skip_scheduling:
+        longnail_prep_flags_str = functools.reduce(
+            lambda a, b: a+" "+b, longnail_prepare_schedule_flags)
+        run_cmd.run(out_dir, f"{ln_path} {longnail_prep_flags_str} {isax_mlir}", f"Longnail scheduling preparation failed", error.LN_BASE + 7, show_ln_output, 200)
+
+def run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, sched_sol_mlir_file, sched_sol_kconf_file, iteration, kconfig_syms, show_ln_output):
+    verbose = "false"
+    if kconfig_syms['LN_VERBOSE_SCHEDULING'].str_value == "y":
+        verbose = "true"
+    ilp_solver = resolve_solver(kconfig_syms)
+
+    chains_yaml_path = ""
+    # Export the critical chains as yaml to be usable by LN
+    if critical_chains:
+        chains_yaml_path = os.path.abspath(os.path.join(out_dir, f"critical_chains_run_{iteration}.yaml"))
+        export_chains_as_yaml(chains_yaml_path, critical_chains)
+
+    longnail_schedule_flags = [
+        f"-schedule-lil=\"chainPaths={chains_yaml_path} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} solver={ilp_solver} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
         f"-o {sched_sol_mlir_file}",
     ]
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":
         longnail_schedule_flags.append("-debug-only=hw-sched")
 
     # execute LN
-    if not skip_scheduling:
-        longnail_flags_str = functools.reduce(
-            lambda a, b: a+" "+b, longnail_schedule_flags)
-        run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, show_ln_output, 200)
-    else:
-        sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
-        sched_sol_kconf_file = os.path.join(os.path.dirname(sched_sol_mlir_file), "Kconfig")
+    longnail_sched_flags_str = functools.reduce(
+        lambda a, b: a+" "+b, longnail_schedule_flags)
+    run_cmd.run(out_dir, f"{ln_path} {longnail_sched_flags_str} {prepared_sched_mlir_file}", f"Longnail scheduling failed", error.LN_BASE + 8, show_ln_output, 200)
+    return sched_sol_mlir_file, sched_sol_kconf_file
 
+
+def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sched_sol_config_file, sol_selection_file, kconfig_syms, show_ln_output):
+    force_min_II_solutions = kconfig_syms['LN_FORCE_MIN_II_SOLUTIONS'].str_value == "y"
     if not force_min_II_solutions and kconfig_syms['LN_PREDEFINED_SOLUTION_SELECTION'].str_value:
         sol_selection_file = os.path.abspath(kconfig_syms['LN_PREDEFINED_SOLUTION_SELECTION'].str_value)
     elif not force_min_II_solutions and os.path.exists(sched_sol_kconf_file):
@@ -215,9 +201,9 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     longnail_hw_gen_flags = [
         "-lower-lil-to-hw=forceUseMinIISolution=true" if force_min_II_solutions else f"-lower-lil-to-hw=solutionSelection={sol_selection_file}",
-        "-simplify-structure", "-cse", "-canonicalize", "-print-stats",
-        "-lower-seq-to-sv", "-hw-cleanup", "-prettify-verilog", "-hw-legalize-modules",
-        f"-export-split-verilog=dir-name={out_dir}", "-o /dev/null"
+        "-simplify-structure", "-cse", "-print-stats",
+        "-lower-seq-to-sv", "-hw-cleanup", "-cse", "-hw-legalize-modules", "-prettify-verilog",
+        f"-export-split-verilog=dir-name={os.path.abspath(out_dir)}", "-o /dev/null"
     ]
     if kconfig_syms['LN_DEBUG_HWGEN'].str_value == "y":
         longnail_hw_gen_flags.append("-debug-only=hw-gen")
@@ -226,7 +212,51 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir):
 
     longnail_flags_str = functools.reduce(
         lambda a, b: a+" "+b, longnail_hw_gen_flags)
-    run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 5, show_ln_output, 200)
+    run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 9, show_ln_output, 200)
+
+def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critical_chains):
+    # check inputs
+    try:
+        float(kconfig_syms['LN_CLOCK_PERIOD'].str_value)
+    except ValueError:
+        error.exit_error(f"Target clock period='{kconfig_syms['LN_CLOCK_PERIOD'].str_value}' could not be converted to a floating point value!", error.USER_ERROR)
+
+    is_first_iter = iteration == 0
+
+    skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
+    show_ln_output = kconfig_syms["LN_ALWAYS_SHOW_OUTPUT"].str_value == "y"
+
+    ln_path = get_longnail_bin(kconfig_syms)
+    datasheet = os.path.abspath(datasheet)
+
+    prepared_sched_mlir_file = os.path.abspath(os.path.join(out_dir, "prepared_scheduling.mlir"))
+    sched_sol_mlir_file = os.path.abspath(os.path.join(out_dir, f"scheduling_solutions_{iteration}.mlir"))
+    sched_sol_kconf_file = os.path.abspath(os.path.join(out_dir, f"Kconfig_{iteration}"))
+    sched_sol_config_file = os.path.abspath(os.path.join(out_dir, f".config_{iteration}"))
+    sol_selection_file = os.path.abspath(os.path.join(out_dir, f"selected_solutions_{iteration}.yaml"))
+
+    isax_mlir = mlir_paths[0]
+    if len(mlir_paths) > 1:
+        concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
+        isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
+        if is_first_iter:
+            with open(concated_isax_mlir, "w") as isax_mlir_file:
+                for f in mlir_paths:
+                    with open(f, "r") as fo:
+                        isax_mlir_file.write(fo.read())
+                os.fsync(isax_mlir_file)
+            run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, show_ln_output, 200)
+
+    if is_first_iter:
+        prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, datasheet, kconfig_syms, skip_scheduling, show_ln_output)
+    if not skip_scheduling:
+        sched_sol_mlir_file, sched_sol_kconf_file = run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, sched_sol_mlir_file, sched_sol_kconf_file, iteration, kconfig_syms, show_ln_output)
+    else:
+        sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
+        sched_sol_kconf_file = os.path.join(os.path.dirname(sched_sol_mlir_file), "Kconfig")
+
+    run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sched_sol_config_file, sol_selection_file, kconfig_syms, show_ln_output)
+
     return isax_mlir
 
 
@@ -274,6 +304,6 @@ def select_core_datasheet(kconfig_core):
 
 
 def provide_isax_yaml(out_dir):
-    filelist = open(f"{out_dir}/filelist.f")
+    filelist = open(os.path.abspath(os.path.join(out_dir, "filelist.f")))
     yamls = [f[:-1] for f in filelist if f[-6:-1] == ".yaml"]
     return f"{out_dir}/"+yamls[0]

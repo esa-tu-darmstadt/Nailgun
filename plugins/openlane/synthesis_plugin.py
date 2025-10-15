@@ -16,4 +16,5 @@ def main(vars):
     scaiev_core_name = vars['scaiev_core_name']
     kconf = vars['kconf']
     isax_name = vars['isax_name']
-    openlane_plugin.run_synthesis(out_dir, scaiev_core_name, kconf.syms, isax_name)
+    syn_dir_suffix = vars['syn_dir_suffix']
+    return openlane_plugin.run_synthesis(out_dir, scaiev_core_name, kconf.syms, isax_name, syn_dir_suffix)

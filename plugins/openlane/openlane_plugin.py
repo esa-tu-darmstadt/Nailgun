@@ -16,13 +16,13 @@ def run_yosys_slang(srcs, include_dirs, defines, out_src, top_module):
     # TODO having to run bwmuxmap manually might be a bug: https://github.com/YosysHQ/yosys/issues/4751
     run_cmd.run(".", f'yosys -m deps/yosys-slang/build/slang.so -p "read_slang --allow-dup-initial-drivers --top {top_module} {" ".join(include_dirs)} {" ".join(defines)} {" ".join(srcs)}; bwmuxmap; opt_clean; write_verilog \\"{out_src}\\""', "Failed to preprocess core files with yosys-slang", error.OPENLANE_BASE + 1)
 
-def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
+def run_synthesis(out_dir, core_name, kconfig_syms, isax_name, syn_dir_suffix):
     if kconfig_syms['OL2_ENABLE'].str_value != "y":
-        return
+        return None
 
     print("Running OpenLane 2")
     # Create the output directory
-    syn_dir = os.path.abspath(os.path.join(out_dir, "hw_syn"))
+    syn_dir = os.path.abspath(os.path.join(out_dir, f"hw_syn{syn_dir_suffix}"))
     os.makedirs(syn_dir, exist_ok=False)
 
     _external_tb_srcs, core_srcs, _tb_top_module, core_top_module, include_dirs, defines,_extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
@@ -67,3 +67,5 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name):
         config_values = dse.get_config_values(top_module, clk_name, clock_period, fp_util, defines, include_dirs)
         config_values['{{SRC_FILES}}'] = dse.get_ol_config_src_entries(verilog_srcs, syn_dir)
         run_openlane.run_openlane(syn_dir, config_template, config_values, None, None)
+
+    return None # NYI
