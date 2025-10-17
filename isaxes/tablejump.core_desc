@@ -1,0 +1,26 @@
+InstructionSet tablejump {
+  architectural_state {
+    register unsigned<32> X[32] [[is_main_reg]];
+    extern unsigned<8> MEM[0x100000000] [[is_main_mem]];
+    register unsigned<32> PC [[is_pc]];
+    register unsigned<32> ADDR;
+  }
+
+  instructions {
+    set_jump_table_addr {
+      encoding: 12'd0 :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0001011;
+      behavior: {
+        ADDR = X[rs1];
+      }
+    }
+    jalt {
+      encoding: simm[11:0] :: 5'b00000 :: 3'b010 :: rd[4:0] :: 7'b0101011;
+      behavior: {
+        unsigned<32> addr = (unsigned<32>) (((signed)(simm<<2)) + ((signed)ADDR));
+        unsigned<32> res = MEM[addr+3:addr];
+        PC = res & ~((unsigned<32>)0x1);
+        X[rd] = (unsigned<32>) (PC+4);
+      }
+    }
+  }
+}
