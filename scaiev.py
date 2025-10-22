@@ -57,6 +57,8 @@ def copy_folder_contents(source_folder, target_folder):
         "deps/scaie-v/CoresSrc/Piccolo/Tests", # unnecessary
         # CV32E40P
         "deps/scaie-v/CoresSrc/CV32E40P/.git", # unnecessary
+        # CV32E40X
+        "deps/scaie-v/CoresSrc/CV32E40X/.git", # unnecessary
         # NaxRiscv
         # "deps/scaie-v/CoresSrc/NaxRiscv/.git", # actually necessary, lol
     ]
@@ -177,7 +179,7 @@ def select_coresrc_folder_name(core):
         return core
     elif (core == "Piccolo"):
         return core
-    elif (core == "CV32E40P"):
+    elif (core == "CV32E40P" or core == "CV32E40X"):
         return core
     elif (core == "CVA5"):
         return core
@@ -197,7 +199,7 @@ def select_wrapper_gen(core):
         return f"{core}_maketop.py"
     elif (core == "Piccolo"):
         return f"{core}_maketop.py"
-    elif (core == "CV32E40P"):
+    elif (core == "CV32E40P" or core == "CV32E40X"):
         return f"{core.lower()}_maketop.py"
     elif (core == "CVA5"):
         return f"{core}_maketop.py"
@@ -226,7 +228,7 @@ def select_compiler_extensions(core):
         return "im_zicsr", "ilp32", 32
     elif (core == "Piccolo"):
         return "imac_zicsr", "ilp32", 32
-    elif (core == "CV32E40P"):
+    elif (core == "CV32E40P" or core == "CV32E40X"):
         return "im_zicsr", "ilp32", 32
     elif (core == "CVA5"):
         return "im_zicsr", "ilp32", 32
@@ -296,6 +298,21 @@ EXTRA_ARGS+=-Wno-WIDTHEXPAND -Wno-LITENDIAN -Wno-WIDTHTRUNC -Wno-BLKANDNBLK
 """
         }
         return ["cv32e40x_tb_wrapper.v", "obi_axi_adapter.sv"], core_srcs + ["cv32e40p_top.sv"] + scal_sources, "testbench", "top", include_dirs, defines, extra_makefile_args
+    elif (core == "CV32E40X"):
+        with open(os.path.join("deps/scaie-v/CoresSrc", core, "cv32e40x_manifest.flist")) as prj_flist:
+            prj_flist_lines = [line.strip().replace('${DESIGN_RTL_DIR}', "rtl") for line in prj_flist.readlines() if len(line.strip()) > 0 and not line.startswith("//")]
+            include_dirs = [line[8:] for line in prj_flist_lines if line.startswith("+incdir+")]
+            core_srcs = [line for line in prj_flist_lines if not line.startswith("+")]
+        defines = [
+            "COREV_ASSERT_OFF"
+        ]
+        extra_makefile_args = {
+            "verilator": """
+# Verilator throws lots of warnings on the core. Ignoring some of them.
+EXTRA_ARGS+=-Wno-WIDTHEXPAND -Wno-LITENDIAN -Wno-WIDTHTRUNC -Wno-BLKANDNBLK
+"""
+        }
+        return ["cv32e40x_tb_wrapper.v", "obi_axi_adapter.sv"], core_srcs + ["cv32e40x_top.sv"] + scal_sources, "testbench", "top", include_dirs, defines, extra_makefile_args
     elif (core == "CVA5"):
         compile_order = os.path.join("deps/scaie-v/CoresSrc", core, "tools/compile_order")
         core_srcs = read_file_lines(compile_order)
@@ -637,6 +654,32 @@ def select_tb_env_vars(core):
             # The base address of the MMIO control block on the bus (for completion IRQ).
             "CTRL_BASE=80200000",
         ]
+    elif (core == "CV32E40X"):
+        return [
+            # Number of Bus slave interfaces the simulator should instantiate.
+            "NUM_BUSSI=2",
+            # Types and port names for each Bus SI.
+            "BUSSI0_TYPE=AXI4",
+            "BUSSI0_SIGNAME=m_axi_instr",
+            "BUSSI1_TYPE=AXI4",
+            "BUSSI1_SIGNAME=m_axi_data",
+            # Bus SI index for IMEM.
+            "IMEM_BUSIDX=0",
+            # The base address of the instruction memory on the bus.
+            "IMEM_BASE=80000000",
+            # The address of the exception handler on the instruction bus, for error detection (optional).
+            "EXCEPTION_BASE=00000020",
+            # Bus SI index for DMEM.
+            "DMEM_BUSIDX=1",
+            # The base address of the data memory on the bus.
+            "DMEM_BASE=80100000",
+            # The physical size of the data memory.
+            "DMEM_SIZE=00100000",
+            # Bus SI index for CTRL.
+            "CTRL_BUSIDX=1",
+            # The base address of the MMIO control block on the bus (for completion IRQ).
+            "CTRL_BASE=80200000",
+        ]
     elif (core == "CVA5"):
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
@@ -770,6 +813,8 @@ def select_core(kconfig_core):
         return "Piccolo"
     elif (kconfig_core == "CORE_CV32E40P"):
         return "CV32E40P"
+    elif (kconfig_core == "CORE_CV32E40X"):
+        return "CV32E40X"
     elif (kconfig_core == "CORE_CVA5"):
         return "CVA5"
     elif (kconfig_core == "CORE_CVA6"):

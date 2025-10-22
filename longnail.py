@@ -299,6 +299,8 @@ def select_core_datasheet(kconfig_core):
         return f"{datasheet_folder}/CVA5.yaml"
     elif (kconfig_core == "CORE_CVA6"):
         return f"{datasheet_folder}/CVA6.yaml"
+    elif (kconfig_core == "CORE_CV32E40X"):
+        return f"{datasheet_folder}/CV32E40X.yaml"
     else:
         error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!", error.USER_ERROR)
 

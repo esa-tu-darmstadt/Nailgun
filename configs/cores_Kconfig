@@ -20,6 +20,9 @@ config CORE_PICCOLO
 config CORE_CV32E40P
 	bool "CV32E40P"
 
+config CORE_CV32E40X
+	bool "CV32E40X"
+
 config CORE_VEX_4S
 	bool "VexRiscv (4-Stage)"
 

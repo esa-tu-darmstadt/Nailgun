@@ -8,6 +8,7 @@ import shutil
 import re
 import pandas as pd
 from tabulate import tabulate
+from enum import Flag, auto
 
 
 # Add the parent directory to the sys.path
@@ -32,50 +33,74 @@ sequential_commands = [
 ]
 # Tests that can be executed in parallel, once the compilers has been patched
 parallelizable_commands = [
-    # RdRD is only supported on CVA5 & CVA6
 ]
+
+# Flags indicating the advanced SCAIE-V features supported for a core.
+class CoreFeature(Flag):
+    # RdMem, WrMem
+    Memory = auto()
+    # Decoupled WrRD_spawn, (if Memory: RdMem_spawn,WrMem_spawn)
+    Decoupled = auto()
+    # WrPC, WrFlush (both in-pipeline and Fetch-stage always)
+    Control = auto()
+    # Read rd as third operand
+    RdRD = auto()
+
+    # Only basic functionality required for arithmetic ISAXes (includes semi-coupled).
+    # Includes RdInstr, RdPC, RdRS1/2, RdFlush, Rd/WrStall, WrRD, (custom registers via SCAL)
+    NONE = 0
+    # Advanced features present for all properly-supported cores
+    STANDARD = Memory | Decoupled | Control
 
 # Integration tests that are run for EVERY available core
+# (cmd:str, parallel:bool, required_features:CoreFeature)
 command_templates = [
-    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"', True),
-    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True),
-    ('ISAXES="BRIMM" SIM_EN="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True),
-    ('ISAXES="TABLEJUMP" SIM_EN="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True),
-    ('ISAXES="DOTPROD" SIM_EN="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt"', True),
-    ('TB_CPP_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True),
-    ('ISAXES="SBOX" SIM_EN="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', True),
-    ('ISAXES="SPARKLE" SIM_EN="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True),
-    ('ISAXES="SQRT" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True),
-    ('TB_CPP_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True),
-    ('ISAXES="ZOL" SIM_EN="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt"', True),
-    ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,TABLEJUMP,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', True),
-    ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,TABLEJUMP,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True),
+    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"', True, CoreFeature.Memory),
+    ('ISAXES="AUTOINC" SIM_EN="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory),
+    ('ISAXES="BRIMM" SIM_EN="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Control),
+    ('ISAXES="DOTPROD" SIM_EN="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt"', True, CoreFeature.NONE),
+    ('TB_CPP_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_EN="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory | CoreFeature.Control),
+    ('ISAXES="TABLEJUMP" SIM_EN="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory | CoreFeature.Control),
+    ('ISAXES="SBOX" SIM_EN="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', True, CoreFeature.NONE),
+    ('ISAXES="SPARKLE" SIM_EN="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True, CoreFeature.NONE),
+    ('ISAXES="SQRT" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True, CoreFeature.NONE),
+    ('TB_CPP_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True, CoreFeature.NONE),
+    ('ISAXES="ZOL" SIM_EN="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt"', True, CoreFeature.Control),
+    ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_EN="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', True, CoreFeature.Memory | CoreFeature.Control),
+    ('TB_CPP_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_EN="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"', True, CoreFeature.Memory | CoreFeature.Control),
     # MLIR entrypoint tests
     # complex ISAX
-    ('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_EN="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" USE_OL2_MODEL="y" CLOCK_TIME="150.0"', False),
+    ('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_EN="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" USE_OL2_MODEL="y" CLOCK_TIME="150.0"', False, CoreFeature.Decoupled),
     # vector ISAX
-    ('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_EN="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" USE_OL2_MODEL="y"', False),
+    ('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_EN="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" USE_OL2_MODEL="y"', False, CoreFeature.Decoupled),
     # Baseline tests gcc
-    ('NO_ISAX="y" SIM_EN="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True),
+    ('NO_ISAX="y" SIM_EN="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True, CoreFeature.NONE),
     # Baseline tests clang
-    ('NO_ISAX="y" SIM_EN="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True),
+    ('NO_ISAX="y" SIM_EN="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True, CoreFeature.NONE),
 ]
 
+# (core:str, core_features:CoreFeature)
 cores = [
-    "CVA6",
-    "CVA5",
-    "PICORV32",
-    "PICCOLO",
-    "ORCA",
-    "VEX_4S",
-    "VEX_5S",
+    ("CVA6", CoreFeature.STANDARD),
+    ("CVA5", CoreFeature.STANDARD | CoreFeature.RdRD),
+    ("PICORV32", CoreFeature.STANDARD),
+    ("PICCOLO", CoreFeature.STANDARD),
+    ("ORCA", CoreFeature.STANDARD),
+    ("VEX_4S", CoreFeature.STANDARD),
+    ("VEX_5S", CoreFeature.STANDARD),
+    ("CV32E40X", CoreFeature.NONE),
 ]
 
-for core in cores:
-    for cmd, parallel in command_templates:
+for core, core_features in cores:
+    for cmd, parallel, required_features in command_templates:
+        if (core_features & required_features) != required_features:
+            # Filter out unsupported tests for the core
+            continue
         if parallel:
+            # Run test in the parallel section once the all-ISAX compilers are built
             parallelizable_commands.append(f'CLANG_EXT_ISAX_NAME="merged" SKIP_AWESOME_LLVM="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}')
         else:
+            # Run test sequentially, build compiler per run
             sequential_commands.append(f'CORE="{core}" {cmd}')
 
 integration_test_working_dir = os.path.abspath("test_results")
