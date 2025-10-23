@@ -196,7 +196,9 @@ def setup_renode(isax_name, tb_paths, core_name, out_dir, yaml_file):
     renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
     shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
     if isax_name:
-        shutil.copy(os.path.join(out_dir, f"{isax_name}.py"), renode_dir)
+        py_file = os.path.join(out_dir, f"{isax_name}.py")
+        if os.path.exists(py_file):
+            shutil.copy(py_file, renode_dir)
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
