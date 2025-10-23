@@ -1,4 +1,5 @@
 import os
+import functools
 
 import error
 import run_cmd
