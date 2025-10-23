@@ -116,7 +116,7 @@ def prepare_gcc(kconfig_syms, yaml_file):
     if kconfig_syms['SIM_SKIP_GDB'].str_value == "y":
         build_args += "--disable-gdb"
     # Rebuild GCC
-    run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh {build_args} {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
+    run_cmd.run("deps/scaie-v-testbenches/dep", f"./riscv-gnu-build.sh --initial-make-parallel {build_args} {patched_files_dir}", "Recompiling the patched gcc failed!", error.GCC_BASE + 2, False)
 
 def disas_tb(objdump_path, elf_file, error_code):
     disas_path = elf_file + "_disasm.txt"
