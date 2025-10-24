@@ -261,6 +261,9 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             if not unpatched_clang and not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
             return toolchain.llvm_compile_tb(filepaths, core_name, get_target_elf_file_path(out_dir), llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
+        else:
+            # Ensure that picolibc exists for all cores
+            toolchain.precompile_picolibc_for_all_cores(llvm_version)
 
     def process_bin_file(bin_file, elf_file, first_run):
         # Convert axf to elf_file

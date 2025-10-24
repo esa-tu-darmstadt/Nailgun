@@ -202,3 +202,21 @@ def llvm_compile_tb(tb_paths, core_name, elf_out_path, llvm_build_path, isax_nam
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
 
     return compile_tb(tb_paths, core_name, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
+
+def precompile_picolibc_for_all_cores(llvm_version):
+    clang_exists, clang_path = check_clang_exists(llvm_version)
+    assert clang_exists
+
+    # Compile / prepare picolibc
+    pico_dir = picolibc.prepare_picolibc()
+    llvm_bin_dir = os.path.dirname(clang_path)
+    ar_path = os.path.join(llvm_bin_dir, "llvm-ar")
+    as_path = os.path.join(llvm_bin_dir, "llvm-as")
+    nm_path = os.path.join(llvm_bin_dir, "llvm-nm")
+    strip_path = os.path.join(llvm_bin_dir, "llvm-strip")
+
+    for core_name in scaiev.get_known_cores():
+        env_vars = scaiev.select_tb_env_vars(core_name)
+        supported_core_exts, mabi, bit = scaiev.select_compiler_extensions(core_name)
+        march = f"rv{bit}{supported_core_exts}"
+        pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, mabi, scaiev.get_env_value(env_vars, "CTRL_BASE"))

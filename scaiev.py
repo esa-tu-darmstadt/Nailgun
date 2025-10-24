@@ -549,7 +549,22 @@ def get_env_value(env_vars, key):
             return entry[len(prefix):]
     error.exit_error(f"Setup renode: scaiev.select_tb_env_vars variable '{key}' not found", error.INTERNAL_ERROR)
 
+def get_known_cores():
+    return [
+        "PicoRV32",
+        "ORCA",
+        "Piccolo",
+        "CV32E40P",
+        "CV32E40X",
+        "CVA5",
+        "CVA6",
+        "NaxRiscv",
+        "VexRiscv_4s",
+        "VexRiscv_5s",
+    ]
+
 def select_tb_env_vars(core):
+    assert(core in get_known_cores())
     if (core == "PicoRV32"):
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
