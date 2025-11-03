@@ -237,17 +237,18 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
     sched_sol_config_file = os.path.abspath(os.path.join(out_dir, f".config_{iteration}"))
     sol_selection_file = os.path.abspath(os.path.join(out_dir, f"selected_solutions_{iteration}.yaml"))
 
-    isax_mlir = mlir_paths[0]
+    concated_isax_mlir = mlir_paths[0]
     if len(mlir_paths) > 1:
         concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
-        isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
         if is_first_iter:
             with open(concated_isax_mlir, "w") as isax_mlir_file:
                 for f in mlir_paths:
                     with open(f, "r") as fo:
                         isax_mlir_file.write(fo.read())
                 os.fsync(isax_mlir_file)
-            run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, show_ln_output, 200)
+    isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
+    print(" - Merge ISAXes")
+    run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_ln_output, 200)
 
     if is_first_iter:
         print(" - Prepare for scheduling")
