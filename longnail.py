@@ -215,6 +215,8 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
     run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 9, show_ln_output, 200)
 
 def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critical_chains):
+    print("Running Longnail:")
+
     # check inputs
     try:
         float(kconfig_syms['LN_CLOCK_PERIOD'].str_value)
@@ -248,13 +250,16 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
             run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 4, show_ln_output, 200)
 
     if is_first_iter:
+        print(" - Prepare for scheduling")
         prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, datasheet, kconfig_syms, skip_scheduling, show_ln_output)
     if not skip_scheduling:
+        print(" - Run scheduling")
         sched_sol_mlir_file, sched_sol_kconf_file = run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, sched_sol_mlir_file, sched_sol_kconf_file, iteration, kconfig_syms, show_ln_output)
     else:
         sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
         sched_sol_kconf_file = os.path.join(os.path.dirname(sched_sol_mlir_file), "Kconfig")
 
+    print(" - Run HW generation")
     run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sched_sol_config_file, sol_selection_file, kconfig_syms, show_ln_output)
 
     return isax_mlir
