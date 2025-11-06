@@ -42,9 +42,10 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
     llvm_exists, llvm_repo = llvm_repo_exists(version)
 
     # Ensure the llvm repo is setup
+    commit = f"release/{version}.x"
     if not llvm_exists:
         # Clone llvm
-        run_cmd.run(".", f"git clone --depth=1 -b release/{version}.x https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.AWESOME_BASE + 1, False)
+        run_cmd.run(".", f"git clone --depth=1 -b {commit} https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.AWESOME_BASE + 1, False)
         # Configure cmake
         ccache_path = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/ccache")
         targets = [
@@ -97,7 +98,7 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
     build_dir = llvm_build_dir(llvm_repo)
 
     if rebuild:
-        run_cmd.run(".", f"git -C {llvm_repo} reset --hard ", "Failed to reset the llvm work directory", error.AWESOME_BASE + 3, False)
+        run_cmd.run(".", f"git -C {llvm_repo} reset --hard origin/{commit}", "Failed to reset the llvm work directory", error.AWESOME_BASE + 3, False)
         # Patch LLVM
         if not do_not_patch:
             llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
