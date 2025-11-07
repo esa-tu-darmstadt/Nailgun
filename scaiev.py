@@ -104,6 +104,8 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
         scv_args.append("-decoupled_without_DH")
     if kconf_syms[f"SCV_DISABLE_DECOUPLED_INPUT_FIFO"].str_value == "y":
         scv_args.append("-decoupled_without_input_fifo")
+    if kconf_syms[f"SCV_RT_LIFE_SUPPORT"].str_value == "y":
+        scv_args.append("-rt_life_support")
     
 
     # Copy the unchanged core source file to our target directory
