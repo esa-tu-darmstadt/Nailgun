@@ -102,7 +102,8 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
         # Patch LLVM
         if not do_not_patch:
             llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
-            pass_opts = "disableISelGen=true" # No ISel patterns for now
+            datasheet_path = os.path.abspath(f"{awesome_path}/datasheets/CVA5.yaml") # Awesome runs prepare-schedule-lil internally and therefore needs a valid datasheet as argument, so lets choose the one with most capabilities
+            pass_opts = f"disableISelGen=true datasheet={datasheet_path}" # No ISel patterns for now
             run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.AWESOME_BASE + 4, False, 200)
         # Build LLVM
         run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the {'unpatched' if do_not_patch else 'patched'} LLVM {version}", error.AWESOME_BASE + 5, False, 200)
