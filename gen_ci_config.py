@@ -21,9 +21,6 @@ if __name__ == "__main__":
         for isax in isaxes:
             kconf.syms[f"ISAX_{isax}_EN"].set_value("y")
 
-    sim_en = os.getenv("SIM_EN")
-    if sim_en:
-        kconf.syms["SIM_ENABLE"].set_value(sim_en)
     tb_path = os.getenv("TB_PATH")
     tb_expected_path = os.getenv("TB_EXPECTED_PATH")
     if tb_path and tb_expected_path:
@@ -36,26 +33,9 @@ if __name__ == "__main__":
     if ilp_solver:
         kconf.syms["LN_SOLVER_USE_" + ilp_solver].set_value("y")
 
-    llvm_ver = os.getenv("AWESOME_LLVM_VERSION")
-    if llvm_ver:
-        kconf.syms["SIM_AWESOME_LLVM_VERSION"].set_value(llvm_ver)
-
-    skip_llvm_build = os.getenv("SKIP_AWESOME_LLVM")
-    if skip_llvm_build:
-        kconf.syms["SIM_SKIP_AWESOME_LLVM"].set_value(skip_llvm_build)
-
-    ol2_optylib = os.getenv("USE_OL2_MODEL")
-    if ol2_optylib:
-        kconf.syms["LN_OPTY_OL2_MODEL"].set_value(ol2_optylib)
-
-    clk_period = os.getenv("CLOCK_TIME")
-    if clk_period:
-        kconf.syms["LN_CLOCK_PERIOD"].set_value(clk_period)
-
-    custom_opty_model_path = os.getenv("LN_OPTY_CUSTOM_MODEL_PATH")
-    if custom_opty_model_path:
+    # Activate the custom model option, the path will be automatically set
+    if os.getenv("LN_OPTY_CUSTOM_MODEL_PATH"):
         kconf.syms["LN_OPTY_CUSTOM_MODEL"].set_value("y")
-        kconf.syms["LN_OPTY_CUSTOM_MODEL_PATH"].set_value(custom_opty_model_path)
 
     mlir_path = os.getenv("MLIR_ENTRY_POINT_PATH")
     if mlir_path:
@@ -81,10 +61,6 @@ if __name__ == "__main__":
     if isax_name:
         kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].set_value("y")
         kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].set_value(isax_name)
-
-    tb_flags = os.getenv("TB_CPP_FLAGS")
-    if tb_flags:
-        kconf.syms["SIM_TB_COMPILE_FLAGS"].set_value(tb_flags)
 
     ln_scheduling_config = os.getenv("LN_PREDEFINED_SOLUTION_SELECTION")
     if ln_scheduling_config:
