@@ -65,6 +65,8 @@ class OrcaSupport(CoreSupport):
         return self._get_linker_file("ORCA")
     def get_specific_startup_file(self) -> str:
         return self._get_specific_startup_file("ORCA")
+    def get_longnail_datasheet_name(self) -> str:
+        return "ORCA.yaml"
 
 def get_supported_cores():
     return [

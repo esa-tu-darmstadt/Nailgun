@@ -74,6 +74,8 @@ EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
         return self._get_linker_file("CVA5")
     def get_specific_startup_file(self) -> str:
         return self._get_specific_startup_file("CVA5")
+    def get_longnail_datasheet_name(self) -> str:
+        return "CVA5.yaml"
 
 def get_supported_cores():
     return [

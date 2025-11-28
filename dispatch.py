@@ -86,6 +86,7 @@ if __name__ == "__main__":
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
     scaiev.register_cores()
     scaiev_core_name = scaiev.select_core(core_name)
+    core_support = scaiev.get_core_support(scaiev_core_name)
 
     # Package all results in an output folder
     out_dir = get_output_folder()
@@ -103,7 +104,7 @@ if __name__ == "__main__":
         if mlir_paths:
             # LN mlir to .sv
             longnail.build_longnail(kconf.syms)
-            datasheet = longnail.select_core_datasheet(core_name)
+            datasheet = longnail.select_core_datasheet(core_support)
             mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
             isax_yaml = longnail.provide_isax_yaml(out_dir)
 

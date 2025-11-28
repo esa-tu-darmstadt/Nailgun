@@ -5,8 +5,9 @@ import run_cmd
 from scaiev import CoreSupport
 
 class VexSupport(CoreSupport):
-    def __init__(self, with_mul : bool):
+    def __init__(self, with_mul : bool, datasheet : str):
         self.with_mul = with_mul
+        self.datasheet = datasheet
 
     def copy_blacklist(self) -> list[str]:
         return [
@@ -73,9 +74,11 @@ class VexSupport(CoreSupport):
         return self._get_linker_file("VexRiscv")
     def get_specific_startup_file(self) -> str:
         return self._get_specific_startup_file("VexRiscv")
+    def get_longnail_datasheet_name(self) -> str:
+        return self.datasheet
 
 def get_supported_cores():
     return [
-        ("CORE_VEX_4S", "VexRiscv_4s", VexSupport(False)),
-        ("CORE_VEX_5S", "VexRiscv_5s", VexSupport(True)),
+        ("CORE_VEX_4S", "VexRiscv_4s", VexSupport(False, "VexRiscv_4s.yaml")),
+        ("CORE_VEX_5S", "VexRiscv_5s", VexSupport(True, "VexRiscv_5s.yaml")),
     ]

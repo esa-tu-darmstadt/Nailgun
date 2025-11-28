@@ -282,33 +282,13 @@ def build_longnail(kconf_syms):
 
 
 # Selects the core datasheet file based on selected core
-# TODO: if we would make the files in LN all lowercase, we could simply generate the file name
-def select_core_datasheet(kconfig_core):
-    if len(kconfig_core) != 1:
-        error.exit_error(
-            f"No or more than one core selected in Kconfig: {kconfig_core}", error.USER_ERROR)
-    kconfig_core = kconfig_core[0]
-
+def select_core_datasheet(core_support):
     datasheet_folder = "deps/longnail/datasheets"
-
-    if (kconfig_core == "CORE_PICORV32"):
-        return f"{datasheet_folder}/PicoRV32.yaml"
-    elif (kconfig_core == "CORE_ORCA"):
-        return f"{datasheet_folder}/ORCA.yaml"
-    elif (kconfig_core == "CORE_PICCOLO"):
-        return f"{datasheet_folder}/Piccolo.yaml"
-    elif (kconfig_core == "CORE_VEX_4S"):
-        return f"{datasheet_folder}/VexRiscv_4s.yaml"
-    elif (kconfig_core == "CORE_VEX_5S"):
-        return f"{datasheet_folder}/VexRiscv_5s.yaml"
-    elif (kconfig_core == "CORE_CVA5"):
-        return f"{datasheet_folder}/CVA5.yaml"
-    elif (kconfig_core == "CORE_CVA6"):
-        return f"{datasheet_folder}/CVA6.yaml"
-    elif (kconfig_core == "CORE_CV32E40X"):
-        return f"{datasheet_folder}/CV32E40X.yaml"
+    datasheet_name = core_support.get_longnail_datasheet_name()
+    if datasheet_name:
+        return os.path.join(datasheet_folder, datasheet_name)
     else:
-        error.exit_error(f"No LN datasheet for selected core '{kconfig_core}' found!", error.USER_ERROR)
+        error.exit_error(f"No LN datasheet found for the selected core!", error.USER_ERROR)
 
 
 def provide_isax_yaml(out_dir):

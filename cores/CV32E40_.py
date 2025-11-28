@@ -52,6 +52,8 @@ class CV32E40_Support(CoreSupport):
 class CV32E40XSupport(CV32E40_Support):
     def has_isax_support(self) -> bool:
         return True
+    def get_longnail_datasheet_name(self) -> str:
+        return "CV32E40X.yaml"
     def get_srcs_folder_name(self) -> str:
         return "CV32E40X"
     def get_maketop(self) -> str:
@@ -77,6 +79,8 @@ EXTRA_ARGS+=-Wno-WIDTHEXPAND -Wno-LITENDIAN -Wno-WIDTHTRUNC -Wno-BLKANDNBLK
 class CV32E40PSupport(CV32E40_Support):
     def has_isax_support(self) -> bool:
         return False
+    def get_longnail_datasheet_name(self) -> str:
+        return None
     def get_srcs_folder_name(self) -> str:
         return "CV32E40P"
     def get_maketop(self) -> str:

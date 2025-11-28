@@ -35,6 +35,9 @@ class CoreSupport(ABC):
     @abstractmethod
     def get_linker_file(self) -> str:
         pass
+    @abstractmethod
+    def get_longnail_datasheet_name(self) -> str:
+        pass
 
     def _get_linker_file(self, core) -> str:
         base_path = os.path.abspath(os.path.join("sim", "linker_scripts"))

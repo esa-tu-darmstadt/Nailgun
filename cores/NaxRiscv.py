@@ -87,6 +87,8 @@ class NaxSupport(CoreSupport):
         return self._get_linker_file("NaxRiscv")
     def get_specific_startup_file(self) -> str:
         return self._get_specific_startup_file("NaxRiscv")
+    def get_longnail_datasheet_name(self) -> str:
+        return None
 
 def get_supported_cores():
     return [
