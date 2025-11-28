@@ -56,7 +56,7 @@ class CoreSupport(ABC):
 supported_cores = dict()
 kconfig_to_core_name = dict()
 
-def register_cores():
+def _collect_available_cores(callback):
     plugin_folder = "cores"
     # Walk through the directory, including subdirectories
     for root, dirs, files in os.walk(plugin_folder):
@@ -71,12 +71,17 @@ def register_cores():
                     py_mod_name = os.path.basename(file)[:-3]
                     exec(f"import {plugin_folder}.{py_mod_name}")
                     res = eval(f"{plugin_folder}.{py_mod_name}.get_supported_cores()")
-                    for kconf_name, core_name, core_support in res:
-                        print(f"INFO: Registering core {core_name}")
-                        assert(kconf_name not in kconfig_to_core_name)
-                        assert(core_name not in supported_cores)
-                        kconfig_to_core_name[kconf_name] = core_name
-                        supported_cores[core_name] = core_support
+                    callback(res)
+
+def register_cores():
+    def callback(res):
+        for kconf_name, core_name, core_support in res:
+            print(f"INFO: Registering core {core_name}")
+            assert(kconf_name not in kconfig_to_core_name)
+            assert(core_name not in supported_cores)
+            kconfig_to_core_name[kconf_name] = core_name
+            supported_cores[core_name] = core_support
+    _collect_available_cores(callback)
 
 def read_file_lines(filename):
     lines = []
