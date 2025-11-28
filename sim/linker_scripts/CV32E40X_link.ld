@@ -1,1 +1,1 @@
-VexRiscv_4s_link.ld
+VexRiscv_link.ld

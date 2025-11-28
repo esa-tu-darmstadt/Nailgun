@@ -189,9 +189,9 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
         # We ALWAYS want colors, lol
         run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
-def setup_renode(isax_name, tb_paths, core_name, out_dir, yaml_file):
-    env_vars = scaiev.select_tb_env_vars(core_name)
-    supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
+def setup_renode(isax_name, tb_paths, core_support, out_dir, yaml_file):
+    env_vars = core_support.get_tb_env_vars()
+    supported_core_exts, abi, bit = core_support.get_compiler_extensions()
     march = f"rv{bit}{supported_core_exts}"
     renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
     shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
@@ -220,6 +220,7 @@ def get_target_elf_file_path(out_dir):
     return os.path.join(bin_dir, "tb.elf")
 
 def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_add_cc_support):
+    core_support = scaiev.get_core_support(core_name)
     if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
     if not only_add_cc_support:
@@ -243,7 +244,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             toolchain.prepare_gcc(kconfig_syms, isax_yaml_path)
         if not only_add_cc_support:
             print(" - Compiling assembly TB")
-            return toolchain.gcc_compile_tb(filepaths, core_name, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, custom_linker_script, include_startup_files=include_startup_files)
+            return toolchain.gcc_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, custom_linker_script, include_startup_files=include_startup_files)
     
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None):
         llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
@@ -260,7 +261,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             print(" - Compiling C++ TB")
             if not unpatched_clang and not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
-            return toolchain.llvm_compile_tb(filepaths, core_name, get_target_elf_file_path(out_dir), llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
+            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
         else:
             # Ensure that picolibc exists for all cores
             toolchain.precompile_picolibc_for_all_cores(llvm_version)
@@ -347,6 +348,6 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         elf_files = [patch_and_compile_with_llvm([tb_path])]
 
     if not only_add_cc_support:
-        setup_renode(isax_name, elf_files, core_name, out_dir, isax_yaml_path)
+        setup_renode(isax_name, elf_files, core_support, out_dir, isax_yaml_path)
         print(" - Start simulation")
         run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls)

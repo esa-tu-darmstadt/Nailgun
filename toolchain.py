@@ -125,9 +125,9 @@ def disas_tb(objdump_path, elf_file, error_code):
     disasm_flags = "-D"
     run_cmd.run(".", f"{objdump_path} {disasm_flags} {elf_file} > {disas_path}", f"Failed to disassemble TB elf file '{elf_file}'!", error_code, False)
 
-def compile_tb(tb_paths, core_name, elf_out_path, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
+def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
     # Build elf file
-    linker_file = scaiev.select_linker_file(core_name) if custom_linker_script is None else custom_linker_script
+    linker_file = core_support.get_linker_file() if custom_linker_script is None else custom_linker_script
     if tb_paths:
         src_files_str = " ".join(tb_paths)
         run_cmd.run(".", f"{cc_path} {flags} {additional_flags} -T {linker_file} {src_files_str} -o {elf_out_path}", "Compiling the test program failed!", error_code_base + 1, False)
@@ -137,12 +137,6 @@ def compile_tb(tb_paths, core_name, elf_out_path, cc_path, objdump_path, flags, 
         disas_tb(objdump_path, elf_out_path, error_code_base + 2)
 
     return elf_out_path
-
-def core_specific_startup(core_name):
-    core_specific_asm = os.path.abspath(os.path.join("sim", "startup_scripts", f"{core_name}_init.s"))
-    if os.path.exists(core_specific_asm):
-        return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
-    return ""
 
 GNU_PREFIXES=["riscv64-unknown-elf-", "riscv32-unknown-elf-"]
 def get_gnu_util_path(pathformat, prefixes):
@@ -160,26 +154,26 @@ def get_gcc_objcopy_path():
 def get_gcc_objdump_path():
     return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjdump", GNU_PREFIXES)
 
-def gcc_compile_tb(tb_paths, core_name, elf_out_path, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
-    supported_core_exts, abi, bit = scaiev.select_compiler_extensions(core_name)
+def gcc_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
+    supported_core_exts, abi, bit = core_support.get_compiler_extensions()
     gcc_path = get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sgcc", GNU_PREFIXES)
     objdump_path = get_gcc_objdump_path()
     arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
     c_flags = "-nostdlib -nostartfiles"
-    flags = f"{arch_flags} {c_flags} {core_specific_startup(core_name)}"
+    flags = f"{arch_flags} {c_flags} {core_support.get_specific_startup_file()}"
     # these sources should only be used when the input is not ASM but source compiled
     if include_startup_files:
         flags += " " + os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
 
-    return compile_tb(tb_paths, core_name, elf_out_path, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly, custom_linker_script)
+    return compile_tb(tb_paths, core_support, elf_out_path, gcc_path, objdump_path, flags, additional_flags, error.GCC_BASE + 2, run_disassembly, custom_linker_script)
 
-def llvm_compile_tb(tb_paths, core_name, elf_out_path, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly, custom_linker_script=None):
+def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly, custom_linker_script=None):
     if isax_name:
         def legalize_isax_name(isax_name):
             return isax_name.lower().replace("_", "").replace(".", "")
         isax_name = legalize_isax_name(isax_name)
 
-    supported_core_exts, mabi, bit = scaiev.select_compiler_extensions(core_name)
+    supported_core_exts, mabi, bit = core_support.get_compiler_extensions()
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
 
@@ -193,17 +187,17 @@ def llvm_compile_tb(tb_paths, core_name, elf_out_path, llvm_build_path, isax_nam
     nm_path = os.path.join(llvm_bin_dir, "llvm-nm")
     strip_path = os.path.join(llvm_bin_dir, "llvm-strip")
 
-    env_vars = scaiev.select_tb_env_vars(core_name)
+    env_vars = core_support.get_tb_env_vars()
     pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, mabi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
 
     startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
     isax_ext_name = f"_x{isax_name}0p1" if isax_name else ""
     picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -Wl,--whole-archive -lsemihost -Wl,--no-whole-archive"
-    flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{mabi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_specific_startup(core_name)} {compiler_rt_flags} {picolibc_flags}'
+    flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{mabi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
 
-    return compile_tb(tb_paths, core_name, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
+    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
 
 def precompile_picolibc_for_all_cores(llvm_version):
     clang_exists, clang_path = check_clang_exists(llvm_version)
@@ -218,7 +212,8 @@ def precompile_picolibc_for_all_cores(llvm_version):
     strip_path = os.path.join(llvm_bin_dir, "llvm-strip")
 
     for core_name in scaiev.get_known_cores():
-        env_vars = scaiev.select_tb_env_vars(core_name)
-        supported_core_exts, mabi, bit = scaiev.select_compiler_extensions(core_name)
+        core_support = scaiev.get_core_support(core_name)
+        env_vars = core_support.get_tb_env_vars()
+        supported_core_exts, mabi, bit = core_support.get_compiler_extensions()
         march = f"rv{bit}{supported_core_exts}"
         pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, mabi, scaiev.get_env_value(env_vars, "CTRL_BASE"))

@@ -84,6 +84,7 @@ if __name__ == "__main__":
     kconf.load_config(config_path)
 
     core_name = kconfig.extract_kconfig_enabled(kconfig.extract_core_from_config(kconf.syms))
+    scaiev.register_cores()
     scaiev_core_name = scaiev.select_core(core_name)
 
     # Package all results in an output folder
