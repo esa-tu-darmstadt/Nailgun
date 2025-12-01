@@ -27,7 +27,8 @@ int main() {
   // - loop body must not contain compressed instructions
   // -> hardware assumes only one instruction leaves the realigner at a time
   asm volatile(
-      ".p2align 2\n" //Enforce 32bit alignment for the ZOL setup instruction (may insert nop)
+      ".p2align 3\n" // Enforce 64bit alignment
+                     // -> Set so the instr >after the loop end< is 64bit aligned
       ASM_PREFIX ".setupzol 4, 41\n" // Initialize the loop
                                      // - first arg: PC offset to one-past-end instruction divided by 2
                                      // - second arg: iteration count -1

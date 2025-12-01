@@ -107,14 +107,15 @@ SIM_CYCLE_TIMEOUT_DEFAULT=50000
 
 # (core:str, core_features:CoreFeature, is_scala: bool, timeout_scale:float)
 cores = [
-    ("CVA6",     CoreFeature.STANDARD,                    False, 1.0),
-    ("CVA5",     CoreFeature.STANDARD | CoreFeature.RdRD, False, 1.0),
-    ("PICORV32", CoreFeature.STANDARD,                    False, 3.0),
-    ("PICCOLO",  CoreFeature.STANDARD,                    False, 1.5),
-    ("ORCA",     CoreFeature.STANDARD,                    False, 2.0),
-    ("VEX_4S",   CoreFeature.STANDARD,                    True,  2.5),
-    ("VEX_5S",   CoreFeature.STANDARD,                    True,  2.0),
-    ("CV32E40X", CoreFeature.NONE,                        False, 2.0),
+    ("CVA6",      CoreFeature.STANDARD,                    False, 1.0),
+    ("CVA6_DUAL", CoreFeature.STANDARD,                    False, 1.0),
+    ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD, False, 1.0),
+    ("PICORV32",  CoreFeature.STANDARD,                    False, 3.0),
+    ("PICCOLO",   CoreFeature.STANDARD,                    False, 1.5),
+    ("ORCA",      CoreFeature.STANDARD,                    False, 2.0),
+    ("VEX_4S",    CoreFeature.STANDARD,                    True,  2.5),
+    ("VEX_5S",    CoreFeature.STANDARD,                    True,  2.0),
+    ("CV32E40X",  CoreFeature.NONE,                        False, 2.0),
 ]
 
 for core, core_features, is_scala, timeout_scale in cores:
