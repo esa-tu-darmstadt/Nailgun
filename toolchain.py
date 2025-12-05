@@ -112,8 +112,15 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
 
 def prepare_gcc(kconfig_syms, yaml_file):
     # Create GCC patches
-    patched_files_dir = os.path.abspath("deps/scaie-v-testbenches/Scenario-HLS-DAC/opcodes")
-    run_cmd.run(".", f"tools/shady_gcc_patch_creator.py {yaml_file} {patched_files_dir}", "Could not patch gcc", error.GCC_BASE + 1, False)
+    if kconfig_syms['SIM_GCC_USE_PATCHGEN'].str_value == "y":
+        patched_files_dir = os.path.abspath("deps/scaie-v-testbenches/Scenario-HLS-DAC/opcodes")
+        run_cmd.run(".", f"tools/shady_gcc_patch_creator.py {yaml_file} {patched_files_dir}", "Could not patch gcc", error.GCC_BASE + 1, False)
+    elif kconfig_syms['SIM_GCC_OPCODES_DIR'].str_value != "":
+        patched_files_dir = kconfig_syms['SIM_GCC_OPCODES_DIR'].str_value
+    else:
+        # Fail if auto-patching is disabled and no patch directory is provided
+        # (user should provide an empty directory if no custom opcodes are desired)
+        error.exit_error(f"If the GCC patch generator is disabled, a custom directory must be provided", error.USER_ERROR)
     build_args = ""
     if kconfig_syms['SIM_SKIP_GDB'].str_value == "y":
         build_args += "--disable-gdb"

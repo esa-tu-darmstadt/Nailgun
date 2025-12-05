@@ -7,7 +7,7 @@ menu "Advanced Options"
 		default n
 	config SIM_SKIP_AWESOME_LLVM
 		depends on SIM_ENABLE
-		bool "Skip patching and rebuilding clang"
+		bool "Skip patching and rebuilding clang / gcc"
 		default n
 	config SIM_SKIP_GDB
 		depends on !SIM_SKIP_AWESOME_LLVM
@@ -58,6 +58,16 @@ menu "Advanced Options"
 			string "Path to SV file"
 		config SV_ENTRY_POINT_ISAX_YAML_PATH
 			string "Path to ISAX YAML file"
+	endmenu
+
+	menu "GCC/Binutils opcode settings (assembly tests)"
+		depends on !SIM_SKIP_AWESOME_LLVM
+		config SIM_GCC_USE_PATCHGEN
+			bool "Use automatic patch generator"
+			default y
+		config SIM_GCC_OPCODES_DIR
+			depends on !SIM_GCC_USE_PATCHGEN
+			string "Directory with custom opcode patches"
 	endmenu
 
 	config USE_PREBUILT_LN

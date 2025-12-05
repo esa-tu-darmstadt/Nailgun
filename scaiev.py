@@ -2,6 +2,7 @@
 import os
 import shutil
 from abc import ABC, abstractmethod
+import importlib.util
 
 import error
 import run_cmd
@@ -70,10 +71,13 @@ def _collect_available_cores(callback):
         if depth == 0:
             for file in files:
                 if file.endswith(".py"):
-                    # Use the import statement to import the module by its name
+                    # Use importlib to import the py file
                     py_mod_name = os.path.basename(file)[:-3]
-                    exec(f"import {plugin_folder}.{py_mod_name}")
-                    res = eval(f"{plugin_folder}.{py_mod_name}.get_supported_cores()")
+                    py_mod_spec = importlib.util.spec_from_file_location(py_mod_name, f"{plugin_folder}/{file}")
+                    py_mod = importlib.util.module_from_spec(py_mod_spec)
+                    py_mod_spec.loader.exec_module(py_mod)
+
+                    res = py_mod.get_supported_cores()
                     callback(res)
 
 def register_cores():
@@ -145,6 +149,10 @@ def run_scaiev(core, isax_desc, out_dir, kconf_syms):
         scv_args.append("-decoupled_without_DH")
     if kconf_syms[f"SCV_DISABLE_DECOUPLED_INPUT_FIFO"].str_value == "y":
         scv_args.append("-decoupled_without_input_fifo")
+    if kconf_syms[f"SCV_DISABLE_DECOUPLED_ISAXKILL"].str_value == "y":
+        scv_args.append("-decoupled_disable_disaxkill")
+    if kconf_syms[f"SCV_DISABLE_DECOUPLED_ISAXFENCE"].str_value == "y":
+        scv_args.append("-decoupled_disable_disaxfence")
     if kconf_syms[f"SCV_RT_LIFE_SUPPORT"].str_value == "y":
         scv_args.append("-rt_life_support")
     
