@@ -69,11 +69,11 @@ class CLINT:
 def start_clint(dut, clk, CLINT_BASE, CLINT_BUSIDX):
     try:
         dut.irq_i.value = 0
-        clint = CLINT(CLINT_BASE)
-        clint_memview = MemView(read_cb=clint.check_clint_read, write_cb=clint.check_clint_write)
-
-        cocotb.start_soon(clint.run(dut, clk))
-
-        return clint_memview
     except:
         return None
+    clint = CLINT(CLINT_BASE)
+    clint_memview = MemView(read_cb=clint.check_clint_read, write_cb=clint.check_clint_write)
+
+    cocotb.start_soon(clint.run(dut, clk))
+
+    return clint_memview

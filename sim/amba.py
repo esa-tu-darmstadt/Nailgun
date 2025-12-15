@@ -29,11 +29,12 @@
 """Drivers for Advanced Microcontroller Bus Architecture."""
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Lock
+from cocotb.triggers import RisingEdge, ReadOnly, Lock, Timer
 from cocotb_bus.drivers import BusDriver
 from cocotb.binary import BinaryValue
 
 from memutil import MemView
+from busutil import BusDelay
 
 import array
 
@@ -284,54 +285,69 @@ class AXI4Slave(BusDriver):
     Monitors an internal memory and handles read and write requests.
     '''
 
-
-    # Not currently supported by this driver
-    _optional_signals = [
-        "RCOUNT",  "WCOUNT",  "RACOUNT", "WACOUNT",
-        "ARLOCK",  "AWLOCK",  "ARCACHE", "AWCACHE",
-        "ARQOS",   "AWQOS",   "WID"
-    ] + axi4_additional_signals
-
     def __init__(self, entity, name, clock, memview : MemView, event=None,
-                 big_endian=False, artificial_write_delay=0, artificial_read_delay=0, enable_prints=True, **kwargs):
+                 big_endian=False, artificial_write_delay=0, artificial_read_delay=0,
+                 SAMPLE_DELAY=0, ASSIGN_DELAY=0, enable_prints=True,
+                 **kwargs):
         self._signals = axi4_lite_signals
+        self._optional_signals = [
+            "RCOUNT",  "WCOUNT",  "RACOUNT", "WACOUNT",
+            "ARLOCK",  "AWLOCK",  "ARCACHE", "AWCACHE",
+            "ARQOS",   "AWQOS",   "WID"
+        ] + axi4_additional_signals
+        # cocotb-bus weirdness
+        self._optional_signals = self._optional_signals + [sig.lower() for sig in self._optional_signals]
         BusDriver.__init__(self, entity, name, clock, **kwargs)
         self.clock = clock
+        self.busdelay = BusDelay(SAMPLE_DELAY, ASSIGN_DELAY)
 
         self.memview = memview
 
-        self._has_id = hasattr(self.bus, "ARID")
+        self._has_id = hasattr(self.bus, "ARID") or hasattr(self.bus, "arid")
         # Assuming _has_id -> has ARID,RID,AWID,BID
+        if self._has_id:
+            self.bus_arid = self.bus.ARID if hasattr(self.bus, "ARID") else self.bus.arid
+            self.bus_rid = self.bus.RID if hasattr(self.bus, "ARID") else self.bus.rid
+            self.bus_awid = self.bus.AWID if hasattr(self.bus, "ARID") else self.bus.awid
+            self.bus_bid = self.bus.BID if hasattr(self.bus, "ARID") else self.bus.bid
 
-        self._has_size = hasattr(self.bus, "ARSIZE")
+        self._has_size = hasattr(self.bus, "ARSIZE") or hasattr(self.bus, "arsize")
         # Assuming _has_size -> has ARSIZE,AWSIZE
+        if self._has_size:
+            self.bus_arsize = self.bus.ARSIZE if hasattr(self.bus, "ARSIZE") else self.bus.arsize
+            self.bus_awsize = self.bus.AWSIZE if hasattr(self.bus, "AWSIZE") else self.bus.awsize
 
-        self._has_burst = hasattr(self.bus, "ARBURST")
+        self._has_burst = hasattr(self.bus, "ARBURST") or hasattr(self.bus, "arburst")
         # Assuming _has_burst -> has WLAST,RLAST,ARBURST,AWBURST,ARLEN,AWLEN
+        if self._has_burst:
+            self.bus_wlast = self.bus.WLAST if hasattr(self.bus, "ARBURST") else self.bus.wlast
+            self.bus_rlast = self.bus.RLAST if hasattr(self.bus, "ARBURST") else self.bus.rlast
+            self.bus_arlen = self.bus.ARLEN if hasattr(self.bus, "ARBURST") else self.bus.arlen
+            self.bus_awlen = self.bus.AWLEN if hasattr(self.bus, "ARBURST") else self.bus.awlen
+            self.bus_arburst = self.bus.ARBURST if hasattr(self.bus, "ARBURST") else self.bus.arburst
+            self.bus_awburst = self.bus.AWBURST if hasattr(self.bus, "ARBURST") else self.bus.awburst
 
-        self._has_prot = hasattr(self.bus, "ARPROT")
+        self._has_prot = hasattr(self.bus, "ARPROT") or hasattr(self.bus, "arprot")
         # Assuming _has_prot -> has ARPROT, AWPROT
+        if self._has_prot:
+            self.bus_arprot = self.bus.ARPROT if hasattr(self.bus, "ARPROT") else self.bus.arprot
+            self.bus_awprot = self.bus.AWPROT if hasattr(self.bus, "ARPROT") else self.bus.awprot
 
         self.big_endian = big_endian
-        self.artificial_write_delay = artificial_write_delay
-        self.artificial_read_delay = artificial_read_delay
+        self.artificial_write_delay=artificial_write_delay
+        self.artificial_read_delay=artificial_read_delay
         self.bus.ARREADY.setimmediatevalue(1)
         self.bus.RVALID.setimmediatevalue(0)
         if self._has_burst:
-            self.bus.RLAST.setimmediatevalue(0)
+            self.bus_rlast.setimmediatevalue(0)
         self.bus.AWREADY.setimmediatevalue(0)
         self.bus.BVALID.setimmediatevalue(0)
         self.bus.BRESP.setimmediatevalue(0)
         self.bus.RRESP.setimmediatevalue(0)
         self.bus.RDATA.setimmediatevalue(0)
-        try:
-            self.bus.BID.setimmediatevalue(0)
-        except:
-            pass
-        try:
-            self.bus.RID.setimmediatevalue(0)
-        except:
-            pass
+        if self._has_id:
+            self.bus_bid.setimmediatevalue(0)
+            self.bus_rid.setimmediatevalue(0)
         self._ar_requests = []
         self._aw_requests = []
         self._w_requests = []
@@ -385,7 +401,7 @@ class AXI4Slave(BusDriver):
                     break
                 await clock_re
 
-            await ReadOnly()
+            await self.busdelay.sample_delay()
 
             _st, _end, word, wstrb, wlast, aw_request = self._w_requests[0]
             _awaddr, _awlen, _awsize, _awburst, _awprot, _awid = aw_request
@@ -401,22 +417,26 @@ class AXI4Slave(BusDriver):
             assert(len(word) == len(word) & ~(len(word) - 1))
             if (len(word) > _end - _st):
                 # Select the active byte lanes for a narrow transfer
-                #TODO: Is this correct for big endian?
+                #Note: Big endian is untested
                 _st_wordoffs = _st & (len(word) - 1)
                 word = word[_st_wordoffs:_end-_st+_st_wordoffs]
                 wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if wstrb.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
             self.memview.write(_st,_end,word,wstrb)
 
             if wlast:
+                await self.busdelay.assign_delay()
+                assign_delay_applied = True
                 self.bus.BVALID.value = 1
                 if self._has_id:
-                    self.bus.BID.value = _awid
+                    self.bus_bid.value = _awid
                 while True:
-                    await ReadOnly()
+                    await self.busdelay.sample_delay(assign_delay_applied)
                     if self.bus.BREADY.value:
                         break
                     await clock_re
+                    assign_delay_applied = False
                 await clock_re
+                await self.busdelay.assign_delay()
                 self.bus.BVALID.value = 0
 
 
@@ -429,18 +449,18 @@ class AXI4Slave(BusDriver):
         while True:
             while True:
                 await clock_re
+                await self.busdelay.assign_delay()
                 self.bus.WREADY.value = 0 if (len(self._aw_requests) == 0 or len(self._w_requests) >= 8) else 1
-                await ReadOnly()
+                await self.busdelay.sample_delay(assign_delay_applied=True)
                 if self.bus.WREADY.value and self.bus.WVALID.value:
                     break
 
             _awaddr, _awlen, _awsize, _awburst, _awprot, _awid = self._aw_requests[0]
 
-            await ReadOnly()
             word = self.bus.WDATA.value
             word.big_endian = self.big_endian
             word = array.array('B', word.buff)
-            wlast = self.bus.WLAST.value if self._has_burst else 1
+            wlast = self.bus_wlast.value if self._has_burst else 1
             wstrb = self.bus.WSTRB.value
             wstrb.big_endian = self.big_endian
 
@@ -474,17 +494,18 @@ class AXI4Slave(BusDriver):
         while True:
             while True:
                 await clock_re
+                await self.busdelay.assign_delay()
                 self.bus.AWREADY.value = 0 if (len(self._aw_requests) > 4) else 1
-                await ReadOnly()
+                await self.busdelay.sample_delay(assign_delay_applied=True)
                 if self.bus.AWREADY.value and self.bus.AWVALID.value:
                     break
 
             _awaddr = int(self.bus.AWADDR)
-            _awlen = int(self.bus.AWLEN) if self._has_burst else 0
-            _awsize = int(self.bus.AWSIZE) if self._has_size else 2 #Default 4 bytes per beat
-            _awburst = int(self.bus.AWBURST) if self._has_burst else 0b00
-            _awprot = int(self.bus.AWPROT) if self._has_prot else 0b000
-            _awid = int(self.bus.AWID) if self._has_id else 0
+            _awlen = int(self.bus_awlen) if self._has_burst else 0
+            _awsize = int(self.bus_awsize) if self._has_size else 2 #Default 4 bytes per beat
+            _awburst = int(self.bus_awburst) if self._has_burst else 0b00
+            _awprot = int(self.bus_awprot) if self._has_prot else 0b000
+            _awid = int(self.bus_awid) if self._has_id else 0
 
             burst_length = _awlen + 1
             bytes_in_beat = self._size_to_bytes_in_beat(_awsize)
@@ -506,6 +527,7 @@ class AXI4Slave(BusDriver):
     async def _read_data(self):
         clock_re = RisingEdge(self.clock)
         self.bus.RVALID.value = 0
+        bus_bytelen=(len(self.bus.RDATA.value)>>3)
 
         while True:
             while True:
@@ -527,8 +549,12 @@ class AXI4Slave(BusDriver):
                 # Artificial delay
                 for _ in range(self.artificial_read_delay):
                     await clock_re
-
+            _st = _araddr
+            assign_delay_applied = False
             while True:
+                if not assign_delay_applied:
+                    await self.busdelay.assign_delay()
+                    assign_delay_applied = True
                 self.bus.RVALID.value = 1
                 _burst_diff = burst_length - burst_count
 
@@ -540,9 +566,9 @@ class AXI4Slave(BusDriver):
 
                 self.bus.RDATA.value = rdata
                 if self._has_id:
-                    self.bus.RID.value = _arid
+                    self.bus_rid.value = _arid
                 if self._has_burst:
-                    self.bus.RLAST.value = rlast
+                    self.bus_rlast.value = rlast
                 if self.enable_prints:
                     print(
                         "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
@@ -550,16 +576,19 @@ class AXI4Slave(BusDriver):
                         "RLAST  %d\n" % rlast)
 
                 while True:
-                    await ReadOnly()
+                    await self.busdelay.sample_delay(assign_delay_applied)
                     if self.bus.RREADY.value:
                         break
                     await clock_re
+                    assign_delay_applied = False
                 await clock_re
+                await self.busdelay.assign_delay()
+                assign_delay_applied = True
                 self.bus.RVALID.value = 0
 
                 burst_count -= 1
                 if self._has_burst:
-                    self.bus.RLAST.value = 0
+                    self.bus_rlast.value = 0
                 if burst_count == 0:
                     break
 
@@ -572,17 +601,18 @@ class AXI4Slave(BusDriver):
         while True:
             while True:
                 await clock_re
+                await self.busdelay.assign_delay()
                 self.bus.ARREADY.value = 0 if (len(self._ar_requests) > 4) else 1
-                await ReadOnly()
+                await self.busdelay.sample_delay(assign_delay_applied=True)
                 if self.bus.ARREADY.value and self.bus.ARVALID.value:
                     break
 
             _araddr = int(self.bus.ARADDR)
-            _arlen = int(self.bus.ARLEN) if self._has_burst else 0
-            _arsize = int(self.bus.ARSIZE) if self._has_size else 2 #Default 4 bytes per beat
-            _arburst = int(self.bus.ARBURST) if self._has_burst else 0b00
-            _arprot = int(self.bus.ARPROT) if self._has_prot else 0b000
-            _arid = int(self.bus.ARID) if self._has_id else 0
+            _arlen = int(self.bus_arlen) if self._has_burst else 0
+            _arsize = int(self.bus_arsize) if self._has_size else 2 #Default 4 bytes per beat
+            _arburst = int(self.bus_arburst) if self._has_burst else 0b00
+            _arprot = int(self.bus_arprot) if self._has_prot else 0b000
+            _arid = int(self.bus_arid) if self._has_id else 0
 
             self._ar_requests.append((_araddr, _arlen, _arsize, _arburst, _arprot, _arid))
 

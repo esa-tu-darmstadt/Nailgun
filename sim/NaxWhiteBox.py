@@ -4,7 +4,7 @@ from cocotb.triggers import FallingEdge
 
 
 def get_cycle_count(CLK_PERIOD):
-    return cocotb.utils.get_sim_time(units="ns") / CLK_PERIOD
+    return cocotb.utils.get_sim_time(units="ps") / CLK_PERIOD
 
 def read_defines(file_path):
     defines = {}

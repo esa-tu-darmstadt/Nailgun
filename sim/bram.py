@@ -4,6 +4,7 @@ from cocotb_bus.drivers import BusDriver
 from cocotb.binary import BinaryValue
 
 from memutil import MemView
+from busutil import BusDelay
 
 import array
 
@@ -17,29 +18,35 @@ bram_signals = [
 ]
 
 class BRAMSlave(BusDriver):
-    def __init__(self, entity, name, clock, memview, event=None,
-                 big_endian=False, enable_prints = True, **kwargs):
+    def __init__(self, entity, name, clock, memview,
+                 big_endian=False, SAMPLE_DELAY=0, ASSIGN_DELAY=0,
+                 enable_prints=True, **kwargs):
         self._signals = bram_signals
         BusDriver.__init__(self, entity, name, clock, **kwargs)
         self.clock = clock
+        self.busdelay = BusDelay(SAMPLE_DELAY, ASSIGN_DELAY)
 
         self.memview = memview
 
         self.big_endian = big_endian
         self.enable_prints = enable_prints
 
+        self.bus.dout.setimmediatevalue(0)
+
         cocotb.start_soon(self._process())
 
     @cocotb.coroutine
     async def _process(self):
         clock_re = RisingEdge(self.clock)
+        assign_delay_applied = False
 
         while True:
             while True:
-                await ReadOnly()
+                await self.busdelay.sample_delay(assign_delay_applied)
                 if self.bus.en.value:
                     break
                 await clock_re
+                assign_delay_applied = False
 
             if self.bus.we.value != 0:
                 _st = int(self.bus.addr)
@@ -62,6 +69,8 @@ class BRAMSlave(BusDriver):
             _end = _st + (self.bus.dout.value.n_bits >> 3) #/ 8
 
             await clock_re
+            await self.busdelay.assign_delay()
+            assign_delay_applied = True
 
             read_val = self.memview.read(_st,_end, self.bus.dout.value.n_bits, self.big_endian)
             self.bus.dout.value = read_val

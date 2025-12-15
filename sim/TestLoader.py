@@ -49,14 +49,16 @@ class TestLoader:
                 strb = BinaryValue("1" * step_size, n_bits=step_size, bigEndian=False)
                 memview.write(start_addr + i, start_addr + i + step_size, section_data[i:i + step_size], strb)
 
-    def load_test_case(self, path: str):
+    def load_test_case(self, path: str) -> int|None:
         """
         Load the specified ELF file into the memory model. Make sure that the ELF files entrypoint matches
         the DUT's PC reset value
 
         :param path: Path to the current testcase ELF file.
         :type path: str
+        :return: The _test_resdata symbol location, or None if not present
         """
+        ret = None
         with open(path, "rb") as f:
             elf = ELFFile(f)
             sections = [elf.get_section(i) for i in range(0, elf.num_sections())]
@@ -68,4 +70,10 @@ class TestLoader:
                 relevant_sections = list(filter(lambda x: x["sh_flags"] & 2 == 2 and x["sh_size"] > 0 and x["sh_addr"] >= mem_start_addr and x["sh_addr"] + x["sh_size"] < mem_end_addr, sections)) # this assumes that an entire section fits into the same memory
                 self.logger.debug("Copying section {}".format(relevant_sections))
                 self.write_sections(memview, relevant_sections)
+            symtab = elf.get_section_by_name('.symtab')
+            if symtab is not None:
+                resdata_syms = symtab.get_symbol_by_name('_test_resdata')
+                if resdata_syms is not None and len(resdata_syms) == 1:
+                    ret = resdata_syms[0]['st_value']
+        return ret
 
