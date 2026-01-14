@@ -80,7 +80,7 @@ class NaxSupport(CoreSupport):
             f"CTRL_BASE={self.CTRL_BASE}",
             # Bus SI index for CLINT.
             "CLINT_BUSIDX=2",
-            "ALLOW_SPECULATIVE_READS", # NaxRiscv sometimes wants to read at 0x0 which is not mapped.... NOTE that this might hide segmentation faults...
+            "ALLOW_SPECULATIVE_READS=1", # NaxRiscv sometimes wants to read at 0x0 which is not mapped.... NOTE that this might hide segmentation faults...
         ]
 
     def get_linker_file(self) -> str:
