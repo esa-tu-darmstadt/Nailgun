@@ -6,7 +6,7 @@ import os
 import glob
 
 from gather_syn_results import gather_syn_results  # Import the gather_syn_results function
-from run_openlane import run_openlane
+from run_librelane import run_librelane
 
 def run_synth_jobs(jobs):
     if len(jobs) == 0:
@@ -19,7 +19,7 @@ def run_synth_jobs(jobs):
     # Create a ThreadPoolExecutor with the desired number of threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         # Submit tasks to the executor and store the Future objects
-        futures = [executor.submit(run_openlane, dir_name, template, args, log_file) for dir_name, template, args, log_file in jobs]
+        futures = [executor.submit(run_librelane, dir_name, template, args, log_file) for dir_name, template, args, log_file in jobs]
 
         # Wait for all jobs to complete
         for future in concurrent.futures.as_completed(futures):
@@ -54,11 +54,11 @@ def test_freq(src_files, syn_dir, design_name, algorithm, project_name, clock_pe
     syn_values = get_config_values(design_name, clk_name, clock_period, initial_utilization, defines, include_dirs)
 
     def create_args_and_log_name(util):
-        # Construct the OpenLane run command
+        # Construct the LibreLane run command
         args = syn_values.copy()
         args["{{FP_CORE_UTIL}}"] = util
         dir_name = os.path.join(syn_dir, f"{project_name}_{algorithm}_{clock_period}ns_{util}%")
-        log_file = f"{log_dir}/openlane_run_{project_name}_{algorithm}_{clock_period}ns_{util}%.log"
+        log_file = f"{log_dir}/librelane_run_{project_name}_{algorithm}_{clock_period}ns_{util}%.log"
         # Setup syn dir
         os.makedirs(dir_name, exist_ok = True)
         args['{{SRC_FILES}}'] = get_ol_config_src_entries(src_files, dir_name)

@@ -7,20 +7,20 @@ import scaiev
 import error
 import run_cmd
 
-import dse
-import run_openlane
+import ol_dse
+import run_librelane
 
 def run_yosys_slang(srcs, include_dirs, defines, out_src, top_module):
     include_dirs = [f"-I {d}" for d in include_dirs]
     defines = [f"-D {d}" for d in defines]
     # TODO having to run bwmuxmap manually might be a bug: https://github.com/YosysHQ/yosys/issues/4751
-    run_cmd.run(".", f'yosys -m deps/yosys-slang/build/slang.so -p "read_slang --allow-dup-initial-drivers --top {top_module} {" ".join(include_dirs)} {" ".join(defines)} {" ".join(srcs)}; bwmuxmap; opt_clean; write_verilog \\"{out_src}\\""', "Failed to preprocess core files with yosys-slang", error.OPENLANE_BASE + 1)
+    run_cmd.run(".", f'yosys -m deps/yosys-slang/build/slang.so -p "read_slang --allow-dup-initial-drivers --top {top_module} {" ".join(include_dirs)} {" ".join(defines)} {" ".join(srcs)}; bwmuxmap; opt_clean; write_verilog \\"{out_src}\\""', "Failed to preprocess core files with yosys-slang", error.LIBRELANE_BASE + 1)
 
 def run_synthesis(out_dir, core_name, kconfig_syms, isax_name, syn_dir_suffix):
-    if kconfig_syms['OL2_ENABLE'].str_value != "y":
+    if kconfig_syms['LL_ENABLE'].str_value != "y":
         return None
 
-    print("Running OpenLane 2")
+    print("Running LibreLane")
     # Create the output directory
     syn_dir = os.path.abspath(os.path.join(out_dir, f"hw_syn{syn_dir_suffix}"))
     os.makedirs(syn_dir, exist_ok=False)
@@ -49,23 +49,23 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name, syn_dir_suffix):
     verilog_srcs = core_srcs + isax_src
 
     algo_name = longnail.resolve_sched_algo(kconfig_syms)
-    config_template = kconfig_syms["OL2_CONFIG_TEMPLATE"].str_value
-    clock_period = 1000.0 / int(kconfig_syms["OL2_TARGET_FREQ"].str_value)
-    fp_util = int(kconfig_syms["OL2_TARGET_UTIL"].str_value)
+    config_template = kconfig_syms["LL_CONFIG_TEMPLATE"].str_value
+    clock_period = 1000.0 / int(kconfig_syms["LL_TARGET_FREQ"].str_value)
+    fp_util = int(kconfig_syms["LL_TARGET_UTIL"].str_value)
     top_module = core_top_module
     clk_name = "clk"
-    if kconfig_syms["OL2_ONLY_SYN_ISAX"].str_value == "y":
+    if kconfig_syms["LL_ONLY_SYN_ISAX"].str_value == "y":
         top_module = f"ISAX_{isax_name}"
         verilog_srcs = isax_src
         clk_name = "clk_i"
     
-    if kconfig_syms["OL2_DSE"].str_value == "y":
+    if kconfig_syms["LL_DSE"].str_value == "y":
         # Start DSE
-        dse.run_dse(verilog_srcs, syn_dir, isax_name, algo_name, clock_period, fp_util, top_module, clk_name, config_template, defines, include_dirs)
+        ol_dse.run_dse(verilog_srcs, syn_dir, isax_name, algo_name, clock_period, fp_util, top_module, clk_name, config_template, defines, include_dirs)
     else:
-        # Only perfom a single openlane run
-        config_values = dse.get_config_values(top_module, clk_name, clock_period, fp_util, defines, include_dirs)
-        config_values['{{SRC_FILES}}'] = dse.get_ol_config_src_entries(verilog_srcs, syn_dir)
-        run_openlane.run_openlane(syn_dir, config_template, config_values, None, None)
+        # Only perfom a single librelane run
+        config_values = ol_dse.get_config_values(top_module, clk_name, clock_period, fp_util, defines, include_dirs)
+        config_values['{{SRC_FILES}}'] = ol_dse.get_ol_config_src_entries(verilog_srcs, syn_dir)
+        run_librelane.run_librelane(syn_dir, config_template, config_values, None, None)
 
     return None # NYI
