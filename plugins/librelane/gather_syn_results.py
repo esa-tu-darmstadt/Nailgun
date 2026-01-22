@@ -83,6 +83,7 @@ def process_runs(run_dir, project_name, algorithm, clock_period, utilization):
         run_data['design_core_bbox'] = metrics.get('design__core__bbox')
         run_data['design_die_area'] = metrics.get('design__die__area')
         run_data['design_core_area'] = metrics.get('design__core__area')
+        run_data['design_stdcell_area'] = metrics.get('design__instance__area__stdcell')
         run_data['design_instance_utilization'] = metrics.get('design__instance__utilization')
 
         # Store requested timing metrics, counts, and violations
@@ -104,20 +105,30 @@ def process_runs(run_dir, project_name, algorithm, clock_period, utilization):
 
     return run_data_list
 
-def gather_syn_results(runs_dir):
+def gather_syn_results(syn_dir, additional_dirs = []):
     # Collect all process_runs results in one list
     all_run_data = []
 
     # Loop through subdirectories using regex to split the directory name
-    for subdirectory in os.listdir(runs_dir):
+    for subdirectory in os.listdir(syn_dir) + additional_dirs:
         match = re.match(r'(.+?)_(LEGACY|MS|PAMS|RAMS|PARAMS|MI_MS|MI_PAMS|MI_RAMS|MI_PARAMS)_([\d.]+)ns_([\d.]+)%', subdirectory)
 
-        if match:
-            project_name, algorithm, clock_period, utilization = match.groups()
-            run_data_list = process_runs(os.path.join(runs_dir, subdirectory, 'runs'), project_name, algorithm, float(clock_period), float(utilization))
-            all_run_data.extend(run_data_list)
+        runs_dir = os.path.join(syn_dir, subdirectory, 'runs')
+        if os.path.exists(runs_dir):
+            if match:
+                project_name, algorithm, clock_period, utilization = match.groups()
+                run_data_list = process_runs(runs_dir, project_name, algorithm, float(clock_period), float(utilization))
+                all_run_data.extend(run_data_list)
+            else:
+                print(f"Folder does not match expected pattern: '{subdirectory}', using dummy values")
+                algorithm = "Unknown"
+                project_name = "Unknown Project"
+                clock_period = -1
+                utilization = -1
+                run_data_list = process_runs(runs_dir, project_name, algorithm, float(clock_period), float(utilization))
+                all_run_data.extend(run_data_list)
         else:
-            print(f"Folder does not match expected pattern: {subdirectory}")
+            print(f"{subdirectory} does not contain runs folder {runs_dir}, ignoring")
 
     # Group the results based on project_name, clock_period, and utilization
     grouped_data = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))
@@ -140,7 +151,7 @@ if __name__ == "__main__":
 
     # Directory containing the runs
     runs_dir = sys.argv[1]
-    grouped_data = gather_syn_results(runs_dir)
+    grouped_data = gather_syn_results(runs_dir, ["."])
     # Now you have grouped_data with the results organized by project_name, clock_period, and utilization
     # You can access the data as needed
     best_results = []
@@ -166,7 +177,9 @@ if __name__ == "__main__":
                                     print(f"  timing_setup_tns  : {run_data['timing_setup_tns']} ns")
                                     print(f"  timing_hold_wns   : {run_data['timing_hold_wns']} ns")
                                     print(f"  timing_setup_wns  : {run_data['timing_setup_wns']} ns")
-                                print(f"Die Area: {run_data['design_die_area']} µm²")
+                                print(f"Die     Area: {run_data['design_die_area']} µm²")
+                                print(f"Core    Area: {run_data['design_core_area']} µm²")
+                                print(f"Stdcell Area: {run_data['design_stdcell_area']} µm²")
                                 if not run_data['timing_failed'] and (best_run_data is None or best_period > clock_period or (best_period == clock_period and best_util < utilization)):
                                     best_util = utilization
                                     best_period = clock_period
