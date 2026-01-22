@@ -7,7 +7,7 @@ import scaiev
 import error
 import run_cmd
 
-import ol_dse
+import ll_dse
 import run_librelane
 
 def run_yosys_slang(srcs, include_dirs, defines, out_src, top_module):
