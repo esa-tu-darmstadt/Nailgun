@@ -1,0 +1,45 @@
+InstructionSet MultiMemReadWrite {
+    architectural_state {
+        unsigned int XLEN = 32;
+        register unsigned<XLEN> X[32] [[is_main_reg]];
+        extern unsigned<8> MEM[0x100000000] [[is_main_mem]];
+    }
+
+    instructions {
+        MEMSET {
+            encoding: 7'd6 :: rs2[4:0] :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0101011;
+            behavior: {
+                unsigned<XLEN> addr = X[rs1];
+                unsigned<XLEN> val = X[rs2];
+                for (unsigned int i = 0; i < 8; i += 1) {
+                    MEM[addr + 3 : addr] = val;
+                    addr += XLEN / 8;
+                }
+            }
+        }
+        MEMADD {
+            encoding: 7'd6 :: 5'd0 :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0111011;
+            behavior: {
+                unsigned<XLEN> addr = X[rs1];
+                unsigned<XLEN> acc = 0;
+                for (unsigned int i = 0; i < 8; i += 1) {
+                    acc += MEM[addr + 3 : addr];
+                    addr += XLEN / 8;
+                }
+                X[rd] = acc;
+            }
+        }
+        MEMCPY {
+            encoding: 7'd6 :: rs2[4:0] :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b1111011;
+            behavior: {
+                unsigned<XLEN> from = X[rs1];
+                unsigned<XLEN> to = X[rs2];
+                for (unsigned int i = 0; i < 8; i += 1) {
+                    MEM[to + 3 : to] = MEM[from + 3 : from];
+                    to += XLEN / 8;
+                    from += XLEN / 8;
+                }
+            }
+        }
+    }
+}
