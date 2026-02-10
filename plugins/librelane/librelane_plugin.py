@@ -61,11 +61,11 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name, syn_dir_suffix):
     
     if kconfig_syms["LL_DSE"].str_value == "y":
         # Start DSE
-        ol_dse.run_dse(verilog_srcs, syn_dir, isax_name, algo_name, clock_period, fp_util, top_module, clk_name, config_template, defines, include_dirs)
+        ll_dse.run_dse(verilog_srcs, syn_dir, isax_name, algo_name, clock_period, fp_util, top_module, clk_name, config_template, defines, include_dirs)
     else:
         # Only perfom a single librelane run
-        config_values = ol_dse.get_config_values(top_module, clk_name, clock_period, fp_util, defines, include_dirs)
-        config_values['{{SRC_FILES}}'] = ol_dse.get_ol_config_src_entries(verilog_srcs, syn_dir)
+        config_values = ll_dse.get_config_values(top_module, clk_name, clock_period, fp_util, defines, include_dirs)
+        config_values['{{SRC_FILES}}'] = ll_dse.get_ol_config_src_entries(verilog_srcs, syn_dir)
         run_librelane.run_librelane(syn_dir, config_template, config_values, None, None)
 
     return None # NYI
