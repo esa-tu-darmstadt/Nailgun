@@ -1,3 +1,4 @@
+eval*
 __pycache__
 .config*
 build
@@ -9,3 +10,4 @@ test_results
 *.png
 *.mlir
 *.csv
+*.gtkw
