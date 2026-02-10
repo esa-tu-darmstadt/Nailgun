@@ -14,7 +14,7 @@ import toolchain
 
 from tools.elftohex import elf_to_hex
 
-def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config=None, gls=None):
+def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config=None, gls=None, renode_isax_py_path=None):
     # Create the output directory
     sim_dir = os.path.abspath(os.path.join(out_dir, "sim"))
     os.makedirs(sim_dir, exist_ok=False)
@@ -54,9 +54,11 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     # Also copy additionally required tools
     py_files.append(os.path.join("tools", "isax_yaml_tools.py"))
 
-    # Copy each file to the output simulation folder
+    # Copy each file and package to the output simulation folder
     for file in py_files:
         shutil.copy(file, sim_dir)
+    for package in ("iss", "trace"):
+        shutil.copytree(os.path.join("sim", package), os.path.join(sim_dir, package))
 
     assert(len(tb_expected_paths) == len(elf_files))
     # Copy expected output file next to the elf file
@@ -72,17 +74,27 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     def gen_expected_res_arg(expected_path):
         return f'EXPECTED="{os.path.relpath(expected_path, sim_dir)}"'
 
+    num_ctxs = kconfig_syms['SCV_INTERNAL_CONTEXTS_AMOUNT'].str_value
+    num_ctxs = num_ctxs if num_ctxs else "1"
+
+    ext = scaiev.get_core_support(core_name).get_extensions()
+
     env_vars = [
         "TESTPROG=$(TESTPROG)",
         "EXPECTED=$(EXPECTED)",
         f"CORE_NAME={core_name}",
+        f"CORE_ISA_EXT={','.join(ext.archext_list)}",
         f"ISAX_YAML={os.path.relpath(isax_yaml_path, sim_dir)}",
+        f"ISAX_RENODE={os.path.relpath(renode_isax_py_path, sim_dir)}" if renode_isax_py_path is not None else "",
+        f"ISAX_PYTHON={kconfig_syms['SIM_ISS_PREDEFINED_ISAXES'].str_value}",
+        f"NUMBER_OF_CONTEXTS={num_ctxs}",
         f"CYCLE_TIMEOUT={kconfig_syms['SIM_CYCLE_TIMEOUT'].str_value}",
         f"PRINT_CLK={1 if kconfig_syms['SIM_PRINT_CLK'].str_value == 'y' else 0}",
         f"PRINT_IMEM={1 if kconfig_syms['SIM_PRINT_IMEM'].str_value == 'y' else 0}",
         f"PRINT_DMEM={1 if kconfig_syms['SIM_PRINT_DMEM'].str_value == 'y' else 0}",
         f"PRINT_BRAM={1 if kconfig_syms['SIM_PRINT_BRAM'].str_value == 'y' else 0}",
         f"PRINT_AXI={1 if kconfig_syms['SIM_PRINT_AXI'].str_value == 'y' else 0}",
+        f"PRINT_ISS={1 if kconfig_syms['SIM_PRINT_ISS'].str_value == 'y' else 0}",
     ] + scaiev.select_tb_env_vars(core_name)
 
     newline = "\n"
@@ -106,6 +118,8 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         standard_cell_sources = list(map(lambda cell_verilog: f"VERILOG_SOURCES += {cell_verilog}", cell_paths))
         standard_cell_sources = "\n".join(standard_cell_sources)
 
+    sim_lockstep = kconfig_syms['SIM_ENABLE_ISS_LOCKSTEP'].str_value == 'y'
+
     # Create a makefile to run the simulation
     sim_mk = os.path.join(sim_dir, "Makefile")
     with open(sim_mk, 'w') as f:
@@ -113,7 +127,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
 VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
 TOPLEVEL = {tb_top_module}
-MODULE ?= test_default
+MODULE ?= {"test_iss_lockstep" if sim_lockstep else "test_default"}
 SIM ?= verilator
 GLS ?= 0
 GUI ?= 0
@@ -179,7 +193,7 @@ endif
 
 # test_default.py configuration settings
 PLUSARGS = ""
-{newline.join([f'PLUSARGS += "+{var}"' for var in env_vars])}
+{newline.join([f'PLUSARGS += "+{var}"' for var in env_vars if len(var)>0])}
 
 ifeq ($(GLS), 1)
 PLUSARGS += "+GLS=1"
@@ -209,16 +223,21 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
         # We ALWAYS want colors, lol
         run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
-def setup_renode(isax_name, tb_paths, core_support, out_dir, yaml_file):
+def setup_renode(py_isax_file, tb_paths, core_support, out_dir, yaml_file):
     env_vars = core_support.get_tb_env_vars()
-    supported_core_exts, abi, bit = core_support.get_compiler_extensions()
-    march = f"rv{bit}{supported_core_exts}"
-    renode_dir = renode.gen_renode_confs(isax_name, out_dir, yaml_file, tb_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
+    ext = core_support.get_extensions()
+    march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
+    py_isax_file_name = os.path.basename(py_isax_file) if py_isax_file else ""
+
+    renode_dir = renode.gen_renode_confs(py_isax_file_name, out_dir, yaml_file, tb_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
+
     shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
-    if isax_name:
-        py_file = os.path.join(out_dir, f"{isax_name}.py")
-        if os.path.exists(py_file):
-            shutil.copy(py_file, renode_dir)
+    isax_py_path = None
+    # copy python ISAX model to renode directory
+    if py_isax_file and os.path.exists(py_isax_file):
+        isax_py_path = f"{renode_dir}/{py_isax_file_name}"
+        shutil.copy(py_isax_file, renode_dir)
+    return isax_py_path
 
 def find_yaml_file(out_dir):
     # Construct the search pattern
@@ -368,6 +387,9 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
         elf_files = [patch_and_compile_with_llvm([tb_path])]
 
     if not only_add_cc_support:
-        setup_renode(isax_name, elf_files, core_support, out_dir, isax_yaml_path)
+        renode_py_file = kconfig_syms["SIM_ISS_RENODE_OVERRIDE"].str_value
+        if isax_name and not renode_py_file:
+            renode_py_file = os.path.join(out_dir, f"{isax_name}.py")
+        renode_isax_py_path = setup_renode(renode_py_file, elf_files, core_support, out_dir, isax_yaml_path)
         print(" - Start simulation")
-        run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls)
+        run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls, renode_isax_py_path)

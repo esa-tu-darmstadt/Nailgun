@@ -1,7 +1,7 @@
 import os
 from tools.isax_yaml_tools import *
 
-def gen_renode_confs(isax_name, sim_dir, yaml_path, tb_paths, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE, CTRL_BASE):
+def gen_renode_confs(isax_model_filename, sim_dir, yaml_path, tb_paths, march, IMEM_BASE, DMEM_BASE, DMEM_SIZE, CTRL_BASE):
     isax_patterns = extract_encodings(yaml_path)
     renode_dir = os.path.abspath(os.path.join(sim_dir, "renode"))
     os.makedirs(renode_dir, exist_ok=True)
@@ -36,7 +36,7 @@ resdata: Memory.MappedMemory @ sysbus 0x{int(CTRL_BASE, 16) + 0x20000:X}
     size: 0x0E0000
 """)
 
-    custom_instruction_handlers = [ f'sysbus.cpu InstallCustomInstructionHandlerFromFile "{mask.replace('-', 'x')}" "{renode_dir}/{isax_name}.py" # Custom instruction: {i}' for i, mask in isax_patterns.items() ]
+    custom_instruction_handlers = [ f'sysbus.cpu InstallCustomInstructionHandlerFromFile "{mask.replace('-', 'x')}" "{renode_dir}/{isax_model_filename}" # Custom instruction: {i}' for i, mask in isax_patterns.items() ]
     load_elfs = [ f'{"# " if i != 0 else ""}sysbus LoadELF @{os.path.abspath(tb_path)}' for i, tb_path in enumerate(tb_paths) ]
     newline = "\n"
 

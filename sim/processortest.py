@@ -3,11 +3,13 @@ import struct
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event, with_timeout, First
+from cocotb.queue import Queue
 from amba import AXI4Slave
 from bram import BRAMSlave
 from simplebus import SimpleBusSlave
 from memutil import HierarchicalMemView, BytearrayMemView
 from TestLoader import TestLoader
+from trace.instr_trace import TracedInstr
 from testutil import dump_32bithex, test_envarg_true, get_envarg_or
 import clint
 import disas
@@ -21,6 +23,8 @@ class CoreExceptionException(Exception):
     pass
 class ResultMismatchException(Exception):
     pass
+class TraceMismatchException(Exception):
+    pass
 
 @cocotb.coroutine
 def clock_print(clk):
@@ -30,13 +34,15 @@ def clock_print(clk):
 
 class ProcessorTest:
 
-    def __init__(self, dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS,
+    def __init__(self, dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS, core_trace_queue: Queue[TracedInstr], iss_trace_queue: Queue[TracedInstr],
                  env=os.environ):
         self.dut = dut
         self.CLK_PERIOD = CLK_PERIOD
         self.SAMPLE_DELAY = SAMPLE_DELAY
         self.ASSIGN_DELAY = ASSIGN_DELAY
         self.TIMEOUT_PERIODS = TIMEOUT_PERIODS
+        self.core_trace_queue = core_trace_queue
+        self.iss_trace_queue = iss_trace_queue
         self.clk = dut.clk
         self.rst = dut.rst
         self.rst.setimmediatevalue(1) # High active reset
@@ -46,8 +52,12 @@ class ProcessorTest:
         self.PRINT_DMEM = test_envarg_true(env, "PRINT_DMEM")
         self.PRINT_BRAM = test_envarg_true(env, "PRINT_BRAM")
         self.PRINT_AXI = test_envarg_true(env, "PRINT_AXI")
+        self.PRINT_ISS = test_envarg_true(env, "PRINT_ISS")
         self.CORE_NAME = env["CORE_NAME"]
         self.ISAX_YAML = env["ISAX_YAML"]
+        self.RESET_CYCLES = 20
+        self.RESET_CLKGATE_CYCLES_PRE = int(get_envarg_or(cocotb.plusargs, "RESET_CLKGATE_CYCLES_PRE", "0"))
+        self.RESET_CLKGATE_CYCLES_POST = int(get_envarg_or(cocotb.plusargs, "RESET_CLKGATE_CYCLES_POST", "0"))
 
         disas.register_isax_yaml(self.ISAX_YAML)
         # Optionally you can manually add patterns like so:
@@ -183,33 +193,34 @@ class ProcessorTest:
         #Append to end of instruction memory, needed as cores tend to prefetch instructions
         self.instr_mem += bytearray(min(self.IMEM_SIZE-len(self.instr_mem),4*32))
 
-    async def run(self, print_clk, reset_cycles, reset_clkgate_cycles_pre, reset_clkgate_cycles_post):
+    async def run(self, print_clk):
         clkdriver = Clock(self.clk, self.CLK_PERIOD, units='ps')
-        assert(reset_cycles > reset_clkgate_cycles_pre)
+        assert(self.RESET_CYCLES > self.RESET_CLKGATE_CYCLES_PRE)
         if print_clk:
             cocotb.start_soon(clock_print(self.clk))
 
         # Reset the core
-        cocotb.start_soon(clkdriver.start(reset_cycles - reset_clkgate_cycles_pre))
+        cocotb.start_soon(clkdriver.start(self.RESET_CYCLES - self.RESET_CLKGATE_CYCLES_PRE))
         self.dut._log.info("Setting rst")
 
         self.rst.value = 1
-        await Timer(self.CLK_PERIOD * reset_cycles + self.ASSIGN_DELAY, units='ps')
+        await Timer(self.CLK_PERIOD * self.RESET_CYCLES + self.ASSIGN_DELAY, units='ps')
         self.rst.value = 0
         self.dut._log.info("Reset done")
 
         if self.ASSIGN_DELAY > 0:
             await Timer(self.CLK_PERIOD - self.ASSIGN_DELAY, units='ps')
 
-        if reset_clkgate_cycles_post > 0:
-            self.dut._log.info("Waiting for %d ps" % (self.CLK_PERIOD * reset_clkgate_cycles_post))
-            await Timer(self.CLK_PERIOD * reset_clkgate_cycles_post, units='ps')
+        if self.RESET_CLKGATE_CYCLES_POST > 0:
+            self.dut._log.info("Waiting for %d ps" % (self.CLK_PERIOD * self.RESET_CLKGATE_CYCLES_POST))
+            await Timer(self.CLK_PERIOD * self.RESET_CLKGATE_CYCLES_POST, units='ps')
 
         # Start the simulation until completion / timeout
         cocotb.start_soon(clkdriver.start())
         self.dut._log.info("Driving clock again")
         self.testStarted = True
 
+        cocotb.start_soon(self._observe_traces())
         await self._run_test()
 
     def check_instr_read(self, addr_begin, addr_end, big_endian):
@@ -274,6 +285,17 @@ class ProcessorTest:
         if addr_begin >= self.CTRL_BASE and addr_end <= self.CTRL_BASE+8:
             return bytes([0] * (addr_end - addr_begin))
         return None
+
+    @cocotb.coroutine
+    async def _observe_traces(self):
+        while True:
+            core_trace_entry = await self.core_trace_queue.get()
+            iss_trace_entry = await self.iss_trace_queue.get()
+            if not (core_trace_entry == iss_trace_entry):
+                self.dut._log.error("-TRACE mismatch ISS %s; Core %s" % (str(iss_trace_entry), str(core_trace_entry)))
+                raise TraceMismatchException("ISS trace not matching core")
+            elif self.PRINT_ISS:
+                self.dut._log.info("-TRACE match ISS %s; Core %s" % (str(iss_trace_entry), str(core_trace_entry)))
 
     async def _sample_delay(self):
         if self.SAMPLE_DELAY > 0:

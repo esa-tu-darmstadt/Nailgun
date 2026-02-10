@@ -28,6 +28,9 @@ if __name__ == "__main__":
         tb_expected_path = os.path.abspath(tb_expected_path)
         kconf.syms["SIM_TB_PATH"].set_value(tb_path)
         kconf.syms["SIM_TB_EXPECTED_PATH"].set_value(tb_expected_path)
+    iss_lockstep = os.getenv("SIM_ENABLE_ISS_LOCKSTEP")
+    if iss_lockstep:
+        kconf.syms["SIM_ENABLE"].set_value("y")
 
     ilp_solver = os.getenv("LN_ILP_SOLVER")
     if ilp_solver:

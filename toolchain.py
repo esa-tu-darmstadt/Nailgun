@@ -162,10 +162,10 @@ def get_gcc_objdump_path():
     return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjdump", GNU_PREFIXES)
 
 def gcc_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
-    supported_core_exts, abi, bit = core_support.get_compiler_extensions()
+    ext = core_support.get_extensions()
     gcc_path = get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sgcc", GNU_PREFIXES)
     objdump_path = get_gcc_objdump_path()
-    arch_flags = f"-march=rv{bit}{supported_core_exts} -mabi={abi}"
+    arch_flags = f"-march=rv{ext.xlen}{ext.get_compiler_extensions()} -mabi={ext.abi}"
     c_flags = "-nostdlib -nostartfiles"
     flags = f"{arch_flags} {c_flags} {core_support.get_specific_startup_file()}"
     # these sources should only be used when the input is not ASM but source compiled
@@ -180,11 +180,11 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_
             return isax_name.lower().replace("_", "").replace(".", "")
         isax_name = legalize_isax_name(isax_name)
 
-    supported_core_exts, mabi, bit = core_support.get_compiler_extensions()
+    ext = core_support.get_extensions()
     clang_exists, clang_path = check_clang_exists(llvm_version)
     assert clang_exists
 
-    march = f"rv{bit}{supported_core_exts}"
+    march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
 
     # Compile / prepare picolibc
     pico_dir = picolibc.prepare_picolibc()
@@ -195,13 +195,13 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_
     strip_path = os.path.join(llvm_bin_dir, "llvm-strip")
 
     env_vars = core_support.get_tb_env_vars()
-    pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, mabi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
+    pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, ext.abi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
 
     startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
-    compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{bit}-unknown-elf')}"
+    compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{ext.xlen}-unknown-elf')}"
     isax_ext_name = f"_x{isax_name}0p1" if isax_name else ""
     picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -Wl,--whole-archive -lsemihost -Wl,--no-whole-archive"
-    flags = f'--target="riscv{bit}-unknown-elf" -menable-experimental-extensions -mabi="{mabi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
+    flags = f'--target="riscv{ext.xlen}-unknown-elf" -menable-experimental-extensions -mabi="{ext.abi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
 
     return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
@@ -221,6 +221,6 @@ def precompile_picolibc_for_all_cores(llvm_version):
     for core_name in scaiev.get_known_cores():
         core_support = scaiev.get_core_support(core_name)
         env_vars = core_support.get_tb_env_vars()
-        supported_core_exts, mabi, bit = core_support.get_compiler_extensions()
-        march = f"rv{bit}{supported_core_exts}"
-        pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, mabi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
+        ext = core_support.get_extensions()
+        march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
+        pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, ext.abi, scaiev.get_env_value(env_vars, "CTRL_BASE"))

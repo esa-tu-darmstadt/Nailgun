@@ -3,7 +3,7 @@ import functools
 
 import error
 import run_cmd
-from scaiev import CoreSupport
+from scaiev import CoreSupport, CoreExtensions
 from cores.utils.helpers import read_file_lines
 
 class OrcaSupport(CoreSupport):
@@ -27,8 +27,8 @@ class OrcaSupport(CoreSupport):
         return "ORCA"
     def get_maketop(self) -> str:
         return "ORCA_maketop.py"
-    def get_compiler_extensions(self) -> tuple[str, str, int]:
-        return "im_zicsr", "ilp32", 32
+    def get_extensions(self) -> CoreExtensions:
+        return CoreExtensions(['I','M','Zicsr'], "ilp32", 32)
 
     # -> tb srcs, core srcs, tb top module, core top module, include dirs, defines, extra sim makefile args
     def get_core_srcs(self, scal_sources, core_dir) -> tuple[list[str], list[str], str, str, list[str], list[str], dict[str, str]]:

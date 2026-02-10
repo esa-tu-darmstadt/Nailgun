@@ -16,6 +16,24 @@ menu "Simulation configuration"
 	config SIM_CYCLE_TIMEOUT
 		string "Cycle limit"
 		default "1000000"
+	menu "Lock-step"
+		depends on CORE_CVA5 || CORE_CVA6 || CORE_CVA6_DUAL
+		config SIM_ENABLE_ISS_LOCKSTEP
+			bool "Enable ISS lock-step comparison"
+			default n
+		config SIM_ISS_RENODE_OVERRIDE_ENABLED
+			depends on SIM_ENABLE_ISS_LOCKSTEP
+			bool "Override the ISAX python model path"
+			default n
+		config SIM_ISS_RENODE_OVERRIDE
+			depends on SIM_ISS_RENODE_OVERRIDE_ENABLED
+			string "ISAX python model path (override)"
+			default ""
+		config SIM_ISS_PREDEFINED_ISAXES
+			depends on SIM_ENABLE_ISS_LOCKSTEP
+			string "Predefined ISAX handlers to select (comma-separated list)"
+			default ""
+	endmenu
 	menu "Verbosity"
 		config SIM_PRINT_CLK
 			bool "Print CLK"
@@ -31,6 +49,9 @@ menu "Simulation configuration"
 			default y
 		config SIM_PRINT_AXI
 			bool "Print AXI transactions"
+			default y
+		config SIM_PRINT_ISS
+			bool "Print ISS trace output"
 			default y
 	endmenu
 endmenu

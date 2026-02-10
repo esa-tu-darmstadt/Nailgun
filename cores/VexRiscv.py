@@ -2,7 +2,7 @@ import os
 
 import error
 import run_cmd
-from scaiev import CoreSupport
+from scaiev import CoreSupport, CoreExtensions
 
 class VexSupport(CoreSupport):
     def __init__(self, with_mul : bool, datasheet : str):
@@ -32,8 +32,8 @@ class VexSupport(CoreSupport):
         return "VexRiscv"
     def get_maketop(self) -> str:
         return "Vex_maketop.py"
-    def get_compiler_extensions(self) -> tuple[str, str, int]:
-        return "im_zicsr" if self.with_mul else "i_zicsr", "ilp32", 32
+    def get_extensions(self) -> CoreExtensions:
+        return CoreExtensions(['I','M','Zicsr'] if self.with_mul else ['I','Zicsr'], "ilp32", 32)
 
     # -> tb srcs, core srcs, tb top module, core top module, include dirs, defines, extra sim makefile args
     def get_core_srcs(self, scal_sources, core_dir) -> tuple[list[str], list[str], str, str, list[str], list[str], dict[str, str]]:

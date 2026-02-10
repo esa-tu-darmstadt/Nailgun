@@ -1,6 +1,6 @@
 import os
 
-from scaiev import CoreSupport
+from scaiev import CoreSupport, CoreExtensions
 from cores.utils.helpers import read_file_lines
 
 class CVA6Support_bcb0f7d(CoreSupport):
@@ -25,10 +25,10 @@ class CVA6Support_bcb0f7d(CoreSupport):
         ]
     def run_extra_build_steps(self, target_dir, kconf_syms) -> None:
         pass
-    def get_compiler_extensions(self) -> tuple[str, str, int]:
+    def get_extensions(self) -> CoreExtensions:
         if self.is_64_bit:
-            return "imac_zicsr", "lp64", 64
-        return "imac_zicsr", "ilp32", 32
+            return CoreExtensions(['I','M','A','C','Zicsr','Zifencei'], "lp64", 64)
+        return CoreExtensions(['I','M','A','C','Zicsr','Zifencei'], "ilp32", 32)
 
     def has_isax_support(self) -> bool:
         return True

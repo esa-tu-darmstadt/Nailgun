@@ -56,66 +56,88 @@ class CoreFeature(Flag):
     # Read rd as third operand
     RdRD = auto()
 
+    # Simulator supports tracing for ISS lockstep
+    ISSLockstep = auto()
+
     # Only basic functionality required for arithmetic ISAXes (includes semi-coupled).
     # Includes RdInstr, RdPC, RdRS1/2, RdFlush, Rd/WrStall, WrRD, (custom registers via SCAL)
     NONE = 0
     # Advanced features present for all properly-supported cores
     STANDARD = Memory | Decoupled | Control
 
+class CommandFlags(Flag):
+    EnableISSLockstep = auto()
+    NONE = 0
+
 class CommandTemplate:
-    def __init__(self, env_str: str, parallel: bool, required_features: CoreFeature):
+    def __init__(self, env_str: str, parallel: bool, required_features: CoreFeature, command_flags: CommandFlags):
         self.env_str = env_str
         self.parallel = parallel
         self.required_features = required_features
+        self.command_flags = command_flags
         self.cycle_timeout = SIM_CYCLE_TIMEOUT_DEFAULT
     def set_cycle_timeout(self, cycle_timeout: int):
         self.cycle_timeout = cycle_timeout
         return self
 
 # Integration tests that are run for EVERY available core
-# (cmd:str, parallel:bool, required_features:CoreFeature)
+# (cmd:str, parallel:bool, required_features:CoreFeature, command_flags:CommandFlags)
 command_templates = [
-    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory),
-    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory),
-    CommandTemplate('ISAXES="BRIMM" SIM_ENABLE="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Control),
-    CommandTemplate('ISAXES="DOTPROD" SIM_ENABLE="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.NONE)
-      .set_cycle_timeout(80000),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_ENABLE="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory | CoreFeature.Control),
-    CommandTemplate('ISAXES="TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory | CoreFeature.Control),
-    CommandTemplate('ISAXES="SBOX" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.NONE),
-    CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True, CoreFeature.NONE),
-    CommandTemplate('ISAXES="SQRT" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Decoupled)
-      .set_cycle_timeout(80000),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.NONE)
-      .set_cycle_timeout(80000),
-    CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Control),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled)
-      .set_cycle_timeout(80000),
+    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Memory, CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Memory, CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="BRIMM" SIM_ENABLE="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Control, CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="DOTPROD" SIM_ENABLE="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.NONE, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_ENABLE="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Memory | CoreFeature.Control, CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Memory | CoreFeature.Control, CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="SBOX" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
+                    True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
+    #TODO: Add CommandFlags.EnableISSLockstep to sqrt (disabled due to possible decoding bug in the generated ISAX model)
+    CommandTemplate('ISAXES="SQRT" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Decoupled, CommandFlags.NONE).set_cycle_timeout(80000),
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.NONE, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
+    CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_TB_DISASSEMBLE_ELF="n" SIM_ISS_PREDEFINED_ISAXES="zol"',
+                    True, CoreFeature.Control, CommandFlags.EnableISSLockstep),
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     # MLIR entrypoint tests
     # complex ISAX
-    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"', False, CoreFeature.Decoupled),
+    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"',
+                    False, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
     # vector ISAX
-    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"', False, CoreFeature.Decoupled),
+    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"',
+                    False, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
     # Baseline tests gcc
-    CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', True, CoreFeature.NONE),
+    CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
+                    True, CoreFeature.NONE, CommandFlags.NONE),
     # Baseline tests clang
-    CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"', True, CoreFeature.NONE),
+    CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+                    True, CoreFeature.NONE, CommandFlags.NONE),
 ]
 
 SIM_CYCLE_TIMEOUT_DEFAULT=50000
 
 # (core:str, core_features:CoreFeature, is_scala: bool, timeout_scale:float)
 cores = [
-    ("CVA6",      CoreFeature.STANDARD,                    False, 1.0),
-    ("CVA6_DUAL", CoreFeature.STANDARD,                    False, 1.0),
-    ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD, False, 1.0),
-    ("PICORV32",  CoreFeature.STANDARD,                    False, 3.0),
-    ("PICCOLO",   CoreFeature.STANDARD,                    False, 1.5),
-    ("ORCA",      CoreFeature.STANDARD,                    False, 2.0),
-    ("VEX_4S",    CoreFeature.STANDARD,                    True,  2.5),
-    ("VEX_5S",    CoreFeature.STANDARD,                    True,  2.0),
-    ("CV32E40X",  CoreFeature.NONE,                        False, 2.0),
+    ("CVA6",      CoreFeature.STANDARD | CoreFeature.ISSLockstep,                    False, 1.0),
+    ("CVA6_DUAL", CoreFeature.STANDARD | CoreFeature.ISSLockstep,                    False, 1.0),
+    ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD | CoreFeature.ISSLockstep, False, 1.0),
+    ("PICORV32",  CoreFeature.STANDARD,                                              False, 3.0),
+    ("PICCOLO",   CoreFeature.STANDARD,                                              False, 1.5),
+    ("ORCA",      CoreFeature.STANDARD,                                              False, 2.0),
+    ("VEX_4S",    CoreFeature.STANDARD,                                              True,  2.5),
+    ("VEX_5S",    CoreFeature.STANDARD,                                              True,  2.0),
+    ("CV32E40X",  CoreFeature.NONE,                                                  False, 2.0),
 ]
 
 for core, core_features, is_scala, timeout_scale in cores:
@@ -127,6 +149,10 @@ for core, core_features, is_scala, timeout_scale in cores:
         # Set cycle timeout using per-core scaling factor
         timeout_val = int(template.cycle_timeout * timeout_scale)
         cmd = cmd + f' SIM_CYCLE_TIMEOUT="{timeout_val}"'
+
+        # Set ISS flag if requested and supported
+        if (template.command_flags & CommandFlags.EnableISSLockstep) and (core_features & CoreFeature.ISSLockstep):
+            cmd = cmd + ' SIM_ENABLE_ISS_LOCKSTEP="y"'
 
         if template.parallel:
             # Run test in the parallel section once the all-ISAX compilers are built

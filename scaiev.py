@@ -7,6 +7,16 @@ import importlib.util
 import error
 import run_cmd
 
+class CoreExtensions:
+    def __init__(self, archext_list: list[str], abi: str, xlen: int):
+        self.archext_list = archext_list.copy()
+        self.abi = abi
+        self.xlen = xlen
+        if xlen not in (32,64):
+            raise 
+    def get_compiler_extensions(self) -> str:
+        return '_'.join([ext.lower() for ext in self.archext_list])
+
 class CoreSupport(ABC):
     @abstractmethod
     def copy_blacklist(self) -> list[str]:
@@ -24,7 +34,7 @@ class CoreSupport(ABC):
     def get_maketop(self) -> str:
         pass
     @abstractmethod
-    def get_compiler_extensions(self) -> tuple[str, str, int]:
+    def get_extensions(self) -> CoreExtensions:
         pass
     # -> tb srcs, core srcs, tb top module, core top module, include dirs, defines, extra sim makefile args
     @abstractmethod

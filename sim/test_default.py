@@ -1,7 +1,8 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge
+from cocotb.queue import Queue
 from processortest import ProcessorTest
-from testutil import test_envarg_true, get_envarg_or
+from testutil import test_envarg_true, get_envarg_or, gls_init_defaults
 
 # Sensible values for 200MHz GLS: CLK_PERIOD=5000, SAMPLE_DELAY=2500, ASSIGN_DELAY=300
 CLK_PERIOD = int(get_envarg_or(cocotb.plusargs, "CLK_PERIOD", "1000")) # Length of a clock period in ps
@@ -19,27 +20,15 @@ async def run_test(dut):
     dut._discover_all()
 
     is_gls = test_envarg_true(cocotb.plusargs, "GLS")
-    reset_cycles = 20
-    reset_clkgate_cycles_pre = int(get_envarg_or(cocotb.plusargs, "RESET_CLKGATE_CYCLES_PRE", "0"))
-    reset_clkgate_cycles_post = int(get_envarg_or(cocotb.plusargs, "RESET_CLKGATE_CYCLES_POST", "0"))
 
-    if 'VSS' in dut._sub_handles:
-        assert(is_gls)
-        dut.VSS.setimmediatevalue(0)
-        dut.VDD.setimmediatevalue(1)
-    if 'shift_enable' in dut._sub_handles:
-        assert(is_gls)
-        dut.shift_enable.setimmediatevalue(0)
-        dut.test_mode.setimmediatevalue(0)
-    if 'DFT_sdi_1' in dut._sub_handles:
-        assert(is_gls)
-        dut.DFT_sdi_1.setimmediatevalue(0)
-    if 'SI1' in dut._sub_handles:
-        assert(is_gls)
-        dut.SI1.setimmediatevalue(0)
+    if is_gls:
+        gls_init_defaults(dut)
 
-    proctest = ProcessorTest(dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS, env=cocotb.plusargs)
+    core_trace_queue_toProcessorTest = Queue()
+    iss_trace_queue = Queue()
 
-    await proctest.run(PRINT_CLK, reset_cycles, reset_clkgate_cycles_pre, reset_clkgate_cycles_post)
+    proctest = ProcessorTest(dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS, core_trace_queue_toProcessorTest, iss_trace_queue, env=cocotb.plusargs)
+
+    await proctest.run(PRINT_CLK)
 
     await RisingEdge(proctest.clk)

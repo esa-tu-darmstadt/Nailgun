@@ -19,14 +19,6 @@ def byte_array_to_binary(byte_array):
     """Convert a byte array to a binary string."""
     return ''.join(format(byte, '08b') for byte in byte_array)
 
-def match_instruction(binary_str, pattern):
-    """Match a binary string with a given pattern."""
-    min_len = min(len(binary_str), len(pattern))
-    for i in range(min_len):
-        if pattern[i] != '-' and binary_str[i] != pattern[i]:
-            return False
-    return True
-
 def find_matching_isax(byte_array):
     """Match a byte array to a corresponding instruction."""
     binary_str = byte_array_to_binary(byte_array)
