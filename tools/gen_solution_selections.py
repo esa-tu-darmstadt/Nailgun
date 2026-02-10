@@ -43,7 +43,7 @@ def deduplicate_files(directory):
                 else:
                     # Otherwise, store the checksum and file path
                     seen_files[file_checksum] = file
-    return deduplicate_mapping
+    return deduplicate_mapping, seen_files
 
 
 def write_config_for_choice(kconf, choice, choice_value, out_dir):
@@ -66,7 +66,7 @@ def write_config_for_choice(kconf, choice, choice_value, out_dir):
         kconf.write_config(f.name)
     #print(f"Wrote {config_filename}")
 
-def gen_solution_selections(kconfig_filename, out_dir):
+def gen_solution_selections(kconfig_filename, out_dir, ignore_fallback = False):
     os.makedirs(out_dir, exist_ok = True)
     # Load the Kconfig file
     kconf = kconfiglib.Kconfig(kconfig_filename)
@@ -75,6 +75,9 @@ def gen_solution_selections(kconfig_filename, out_dir):
     for choice in kconf.unique_choices:
         # Iterate over each option in the choice block
         for sym in choice.syms:
+            if ignore_fallback and sym.name.endswith("_IDX_0"):
+                print(f"Ignoring heuristic fallback: {sym.name}")
+                continue
             # Generate and write out the .config for each choice
             write_config_for_choice(kconf, choice, sym, out_dir)
     
