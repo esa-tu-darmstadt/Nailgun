@@ -92,7 +92,7 @@ def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, da
             # Copy sg selection:
             shutil.copyfile(sg_sel, sharing_group_sel_yaml)
         else:
-            run_cmd.run(out_dir, f"{ln_path} -export-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 5, show_ln_output, 200)
+            run_cmd.run(out_dir, f"{ln_path} -export-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir} -o /dev/null", f"Longnail scheduling failed", error.LN_BASE + 5, show_ln_output, 200)
 
             # Load the original YAML
             with open(sharing_group_sel_yaml, "r") as f:
