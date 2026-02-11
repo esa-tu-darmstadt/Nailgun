@@ -147,7 +147,10 @@ def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, da
                     yaml.dump(remapped_instr_map, f)
 
         # Apply the chosen mapping
-        run_cmd.run(out_dir, f"{ln_path} -import-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, show_ln_output, 200)
+        mlir_copy = isax_mlir + ".copy"
+        shutil.copy(isax_mlir, mlir_copy)
+        run_cmd.run(out_dir, f"{ln_path} -import-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {mlir_copy} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, show_ln_output, 200)
+        os.remove(mlir_copy)
 
     longnail_prepare_schedule_flags = [
         "-coredsl-to-python",
