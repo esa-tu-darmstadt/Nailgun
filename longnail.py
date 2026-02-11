@@ -104,45 +104,47 @@ def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, da
             remapped_instr_map = {instr: group_remap[group] for instr, group in instr_map.items()}
             num_groups = len(unique_groups)
 
-            # Create kconfig file
-            sharing_group_sel_kconfig = os.path.join(out_dir, "sharing_groups.kconfig")
-            with open(sharing_group_sel_kconfig, "w") as f:
-                f.write("mainmenu \"Sharing Group Assignment\"\n")
-                for instr, group in remapped_instr_map.items():
-                    f.write("choice\n")
-                    f.write(f"    prompt \"SG for {instr}\"\n")
-                    f.write(f"    default SG_{group}_{instr}\n")
-                    for i in range(1, num_groups + 1):
-                        f.write(f"config SG_{i}_{instr}\n")
-                        f.write("    bool\n")
-                        f.write(f"    prompt \"SG {i}\"\n")
-                    f.write("endchoice\n")
-                #f.write("endmenu\n")
+            # If there is only one sharing group (one instruction), then there is no need to as the user to make this trivial assignment
+            if (num_groups > 1):
+                # Create kconfig file
+                sharing_group_sel_kconfig = os.path.join(out_dir, "sharing_groups.kconfig")
+                with open(sharing_group_sel_kconfig, "w") as f:
+                    f.write("mainmenu \"Sharing Group Assignment\"\n")
+                    for instr, group in remapped_instr_map.items():
+                        f.write("choice\n")
+                        f.write(f"    prompt \"SG for {instr}\"\n")
+                        f.write(f"    default SG_{group}_{instr}\n")
+                        for i in range(1, num_groups + 1):
+                            f.write(f"config SG_{i}_{instr}\n")
+                            f.write("    bool\n")
+                            f.write(f"    prompt \"SG {i}\"\n")
+                        f.write("endchoice\n")
+                    #f.write("endmenu\n")
 
-            kconf = run_menuconfig(sharing_group_sel_kconfig)
+                kconf = run_menuconfig(sharing_group_sel_kconfig)
 
-            # Update the isax map again
-            for choice in kconf.choices:
-                # Check the selected choice
-                selected_sym = choice.selection
-                assert (selected_sym)
+                # Update the isax map again
+                for choice in kconf.choices:
+                    # Check the selected choice
+                    selected_sym = choice.selection
+                    assert (selected_sym)
 
-                # Define the regex pattern with capture groups
-                pattern = r"^SG_(\d+)_(\w+)$"
+                    # Define the regex pattern with capture groups
+                    pattern = r"^SG_(\d+)_(\w+)$"
 
-                # Search for the pattern in the string
-                match = re.search(pattern, selected_sym.name)
+                    # Search for the pattern in the string
+                    match = re.search(pattern, selected_sym.name)
 
-                # Extract the numbers using the groups
-                assert (match)
-                sg_id = int(match.group(1))
-                instr_name = match.group(2)
-                assert (instr_name in remapped_instr_map)
-                remapped_instr_map[instr_name] = sg_id
+                    # Extract the numbers using the groups
+                    assert (match)
+                    sg_id = int(match.group(1))
+                    instr_name = match.group(2)
+                    assert (instr_name in remapped_instr_map)
+                    remapped_instr_map[instr_name] = sg_id
 
-            # Save chosen mapping
-            with open(sharing_group_sel_yaml, "w") as f:
-                yaml.dump(remapped_instr_map, f)
+                # Save chosen mapping
+                with open(sharing_group_sel_yaml, "w") as f:
+                    yaml.dump(remapped_instr_map, f)
 
         # Apply the chosen mapping
         run_cmd.run(out_dir, f"{ln_path} -import-sharing-groups=sharingGroupConfigPath={sharing_group_sel_yaml} {isax_mlir} -o {isax_mlir}", f"Longnail scheduling failed", error.LN_BASE + 6, show_ln_output, 200)
