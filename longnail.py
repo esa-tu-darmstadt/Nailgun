@@ -230,13 +230,17 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
 
     is_first_iter = iteration == 0
 
-    skip_scheduling = kconfig_syms["MLIR_ENTRY_POINT"].str_value == "y" and kconfig_syms["MLIR_ENTRY_POINT_IS_SCHEDULED"].str_value == "y"
+    skip_prepare_scheduling = kconfig_syms["PREPARED_MLIR_ENTRY_POINT"].str_value == "y"
+    skip_scheduling = kconfig_syms["SOLUTION_MLIR_ENTRY_POINT"].str_value == "y"
+    assert(is_first_iter or not skip_scheduling) # When performing the feedback loop, we may not skip scheduling!
     show_ln_output = kconfig_syms["LN_ALWAYS_SHOW_OUTPUT"].str_value == "y"
 
     ln_path = get_longnail_bin(kconfig_syms)
     datasheet = os.path.abspath(datasheet)
 
     prepared_sched_mlir_file = os.path.abspath(os.path.join(out_dir, "prepared_scheduling.mlir"))
+    if skip_prepare_scheduling:
+        prepared_sched_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
     sched_sol_mlir_file = os.path.abspath(os.path.join(out_dir, f"scheduling_solutions_{iteration}.mlir"))
     sched_sol_kconf_file = os.path.abspath(os.path.join(out_dir, f"Kconfig_{iteration}"))
     sched_sol_config_file = os.path.abspath(os.path.join(out_dir, f".config_{iteration}"))
@@ -255,7 +259,7 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
     print(" - Merge ISAXes")
     run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_ln_output, 200)
 
-    if is_first_iter:
+    if is_first_iter and not skip_prepare_scheduling:
         print(" - Prepare for scheduling")
         prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, datasheet, kconfig_syms, skip_scheduling, show_ln_output)
     if not skip_scheduling:

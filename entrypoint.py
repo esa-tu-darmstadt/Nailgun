@@ -52,7 +52,7 @@ def resolve_mlir_paths(scaiev_core_name, out_dir, kconf_syms):
         # TN CoreDSL to MLIR
         treenail.build_treenail()
         mlir_paths = treenail.run_treenail_batch(enabled_isaxes, isax_input_files, out_dir)
-    elif kconf_syms["MLIR_ENTRY_POINT"].str_value == "y":
+    elif kconf_syms["COREDSL_MLIR_ENTRY_POINT"].str_value == "y" or kconf_syms["PREPARED_MLIR_ENTRY_POINT"].str_value == "y" or kconf_syms["SOLUTION_MLIR_ENTRY_POINT"].str_value == "y":
         # use the MLIR entry point path
         path = kconf_syms["MLIR_ENTRY_POINT_PATH"].str_value
         if not os.path.exists(path):

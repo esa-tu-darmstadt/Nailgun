@@ -112,10 +112,10 @@ command_templates = [
                     True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     # MLIR entrypoint tests
     # complex ISAX
-    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"',
+    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"',
                     False, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
     # vector ISAX
-    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"',
+    CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"',
                     False, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
     # Baseline tests gcc
     CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',

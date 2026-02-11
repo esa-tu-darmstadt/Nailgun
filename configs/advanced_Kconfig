@@ -36,21 +36,20 @@ menu "Advanced Options"
 		config NO_ISAX_ENTRY_POINT
 			bool "No ISAX"
 
-		config MLIR_ENTRY_POINT
-			bool "Use a MLIR file as entrypoint"
+		config COREDSL_MLIR_ENTRY_POINT
+			bool "Use a CoreDSL MLIR file as entrypoint"
+		config PREPARED_MLIR_ENTRY_POINT
+			bool "Use a for scheduling prepared MLIR file as entrypoint"
+		config SOLUTION_MLIR_ENTRY_POINT
+			bool "Use a MLIR file containing the scheduling solutions as entrypoint"
 
 		config SV_ENTRY_POINT
 			bool "Use (System-)Verilog ISAX as entrypoint"
 	endchoice
 
-	menu "MLIR entrypoint settings"
-		depends on MLIR_ENTRY_POINT
-		config MLIR_ENTRY_POINT_IS_SCHEDULED
-			bool "Instructions are already scheduled?"
-			default n
-		config MLIR_ENTRY_POINT_PATH
-			string "Path to mlir file"
-	endmenu
+	config MLIR_ENTRY_POINT_PATH
+		depends on COREDSL_MLIR_ENTRY_POINT || PREPARED_MLIR_ENTRY_POINT || SOLUTION_MLIR_ENTRY_POINT
+		string "Path to mlir file"
 
 	menu "SV entrypoint settings"
 		depends on SV_ENTRY_POINT

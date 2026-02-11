@@ -40,25 +40,16 @@ if __name__ == "__main__":
     if os.getenv("LN_OPTY_CUSTOM_MODEL_PATH"):
         kconf.syms["LN_OPTY_CUSTOM_MODEL"].set_value("y")
 
-    mlir_path = os.getenv("MLIR_ENTRY_POINT_PATH")
-    if mlir_path:
-        kconf.syms["MLIR_ENTRY_POINT"].set_value("y")
-        kconf.syms["MLIR_ENTRY_POINT_PATH"].set_value(mlir_path)
-
-        mlir_scheduled = os.getenv("MLIR_ENTRY_POINT_IS_SCHEDULED")
-        if mlir_scheduled:
-            kconf.syms[f"MLIR_ENTRY_POINT_IS_SCHEDULED"].set_value("y")
+    sv_path = os.getenv("SV_ENTRY_POINT_PATH")
+    yaml_path = os.getenv("SV_ENTRY_POINT_ISAX_YAML_PATH")
+    if sv_path and yaml_path:
+        kconf.syms["SV_ENTRY_POINT"].set_value("y")
+        kconf.syms["SV_ENTRY_POINT_PATH"].set_value(sv_path)
+        kconf.syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].set_value(yaml_path)
     else:
-        sv_path = os.getenv("SV_ENTRY_POINT_PATH")
-        yaml_path = os.getenv("SV_ENTRY_POINT_ISAX_YAML_PATH")
-        if sv_path and yaml_path:
-            kconf.syms["SV_ENTRY_POINT"].set_value("y")
-            kconf.syms["SV_ENTRY_POINT_PATH"].set_value(sv_path)
-            kconf.syms["SV_ENTRY_POINT_ISAX_YAML_PATH"].set_value(yaml_path)
-        else:
-            no_isax = os.getenv("NO_ISAX")
-            if no_isax:
-                kconf.syms["NO_ISAX_ENTRY_POINT"].set_value("y")
+        no_isax = os.getenv("NO_ISAX")
+        if no_isax:
+            kconf.syms["NO_ISAX_ENTRY_POINT"].set_value("y")
 
     isax_name = os.getenv("CLANG_EXT_ISAX_NAME")
     if isax_name:
