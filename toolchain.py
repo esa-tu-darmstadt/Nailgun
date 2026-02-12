@@ -155,7 +155,8 @@ def get_gnu_util_path(pathformat, prefixes):
         cur_path = os.path.abspath(pathformat % cur_prefix)
         if os.path.exists(cur_path):
             return cur_path
-    return os.path.abspath(pathformat)
+    error.exit_error(f"Could not find gnu util with pattern: {pathformat}", error.USER_ERROR)
+    return None
 def get_gcc_objcopy_path():
     return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjcopy", GNU_PREFIXES)
 def get_gcc_objdump_path():
