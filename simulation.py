@@ -278,11 +278,11 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
     def patch_and_compile_with_gcc(filepaths, custom_linker_script=None, include_startup_files=False):
-        print(" - Adding ISAX assembly support to GCC")
         if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
+            print(" - Adding ISAX assembly support to GCC")
             toolchain.prepare_gcc(kconfig_syms, isax_yaml_path)
         if not only_add_cc_support:
-            print(" - Compiling assembly TB")
+            print(" - Compiling assembly TB with GCC")
             return toolchain.gcc_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, custom_linker_script, include_startup_files=include_startup_files)
     
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None):
