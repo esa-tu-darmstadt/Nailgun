@@ -230,8 +230,8 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
 
     is_first_iter = iteration == 0
 
-    skip_prepare_scheduling = kconfig_syms["PREPARED_MLIR_ENTRY_POINT"].str_value == "y"
     skip_scheduling = kconfig_syms["SOLUTION_MLIR_ENTRY_POINT"].str_value == "y"
+    skip_prepare_scheduling = skip_scheduling or kconfig_syms["PREPARED_MLIR_ENTRY_POINT"].str_value == "y"
     assert(is_first_iter or not skip_scheduling) # When performing the feedback loop, we may not skip scheduling!
     show_ln_output = kconfig_syms["LN_ALWAYS_SHOW_OUTPUT"].str_value == "y"
 
@@ -256,8 +256,11 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
                         isax_mlir_file.write(fo.read())
                 os.fsync(isax_mlir_file)
     isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
-    print(" - Merge ISAXes")
-    run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_ln_output, 200)
+    if not skip_prepare_scheduling:
+        print(" - Merge ISAXes")
+        run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_ln_output, 200)
+    else:
+        isax_mlir = concated_isax_mlir
 
     if is_first_iter and not skip_prepare_scheduling:
         print(" - Prepare for scheduling")
@@ -266,8 +269,8 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
         print(" - Run scheduling")
         sched_sol_mlir_file, sched_sol_kconf_file = run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, sched_sol_mlir_file, sched_sol_kconf_file, iteration, kconfig_syms, show_ln_output)
     else:
-        sched_sol_mlir_file = os.path.abspath(kconfig_syms["MLIR_ENTRY_POINT_PATH"].str_value)
-        sched_sol_kconf_file = os.path.join(os.path.dirname(sched_sol_mlir_file), "Kconfig")
+        sched_sol_mlir_file = prepared_sched_mlir_file
+        sched_sol_kconf_file = os.path.join(os.path.dirname(sched_sol_mlir_file), "Kconfig_0")
 
     print(" - Run HW generation")
     run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sched_sol_config_file, sol_selection_file, kconfig_syms, show_ln_output)
