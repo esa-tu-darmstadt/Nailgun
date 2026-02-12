@@ -165,6 +165,16 @@ def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, da
             lambda a, b: a+" "+b, longnail_prepare_schedule_flags)
         run_cmd.run(out_dir, f"{ln_path} {longnail_prep_flags_str} {isax_mlir}", f"Longnail scheduling preparation failed", error.LN_BASE + 7, show_ln_output, 200)
 
+def map_heuristic_to_ln_arg(kconfig_syms):
+    if kconfig_syms['LN_HEURISTICS_MAX_CLIQUE'].str_value == "y":
+        return 1
+    if kconfig_syms['LN_HEURISTICS_PATH_BASED'].str_value == "y":
+        return 2
+    if kconfig_syms['LN_HEURISTICS_MODULO_SDC'].str_value == "y":
+        return 3
+    assert kconfig_syms['LN_HEURISTICS_NONE'].str_value == "y"
+    return 0
+
 def run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, sched_sol_mlir_file, sched_sol_kconf_file, iteration, kconfig_syms, show_ln_output):
     verbose = "false"
     if kconfig_syms['LN_VERBOSE_SCHEDULING'].str_value == "y":
@@ -178,11 +188,13 @@ def run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, 
         export_chains_as_yaml(chains_yaml_path, critical_chains)
 
     longnail_schedule_flags = [
-        f"-schedule-lil=\"chainPaths={chains_yaml_path} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} solver={ilp_solver} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
+        f"-schedule-lil=\"chainPaths={chains_yaml_path} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} solver={ilp_solver} useHeuristicAlternative={map_heuristic_to_ln_arg(kconfig_syms)} onlyUseHeuristic={'true' if kconfig_syms['LN_USE_ONLY_HEURISTICS'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
         f"-o {sched_sol_mlir_file}",
     ]
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":
         longnail_schedule_flags.append("-debug-only=hw-sched")
+        longnail_schedule_flags.append("-debug-only=datapath-merging")
+        longnail_schedule_flags.append("-debug-only=modulo-sdc")
 
     # execute LN
     longnail_sched_flags_str = functools.reduce(

@@ -60,6 +60,22 @@ menu "Longnail HLS configuration"
 		depends on !LN_FORCE_MIN_II_SOLUTIONS
 		string "Longnail apply predefined solution selection"
 	menu "Scheduling Algorithm"
+		choice
+			prompt "Heuristics"
+			default LN_HEURISTICS_NONE
+		config LN_HEURISTICS_NONE
+			bool "None"
+		config LN_HEURISTICS_MAX_CLIQUE
+			bool "Max Clique"
+		config LN_HEURISTICS_PATH_BASED
+			bool "Max Area Common Subsequence"
+		config LN_HEURISTICS_MODULO_SDC
+			bool "Modulo SDC"
+		endchoice
+		config LN_USE_ONLY_HEURISTICS
+			depends on !LN_HEURISTICS_NONE
+			bool "Run only Heuristic"
+			default n
 		config LN_SCHED_ALGO_MS
 			bool "Modulo Scheduling"
 			default n
@@ -68,7 +84,7 @@ menu "Longnail HLS configuration"
 			bool "Predicate-aware"
 			default n
 		config LN_SCHED_ALGO_RA
-			depends on LN_SCHED_ALGO_MS
+			depends on LN_SCHED_ALGO_MS && LN_HEURISTICS_NONE
 			bool "Resource-aware"
 			default n
 		config LN_SCHED_ALGO_MI
