@@ -81,7 +81,7 @@ endian = 'little'
 [properties]
 has_link_defsym = true
 """)
-        print("   - Compiling picolibc")
+        print(f"   - Compiling picolibc for '{march}' '{mabi}'")
         run_cmd.run(build_dir, f"./{os.path.basename(build_script)}", f"Failed to compile picolibc", error.PICOLIBC_BASE + 3, False)
 
     return os.path.join(build_dir, "install")
