@@ -67,7 +67,7 @@ def extract_isax_name(mlir_path):
     with open(mlir_path, 'r') as file:
         mlir_text = file.read()
     # Define the regex pattern
-    pattern = r'coredsl.isax\s+"(\w+)"\s*\{'
+    pattern = r'(?:coredsl|lil).isax\s+"(\w+)"\s*\{'
     # Search for the pattern
     match = re.search(pattern, mlir_text)
     # Extract the module name if found
