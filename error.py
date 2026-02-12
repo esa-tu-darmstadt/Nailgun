@@ -34,9 +34,9 @@ def decode_exit_code(exit_code, id):
         return f"SCAIE-V error ({exit_code}) ID={id}"
     if SIM_BASE <= exit_code < AWESOME_BASE:
         return f"SIM error ({exit_code}) ID={id}"
-    if AWESOME_BASE <= exit_code < OPENLANE_BASE:
+    if AWESOME_BASE <= exit_code < LIBRELANE_BASE:
         return f"Awesome error ({exit_code}) ID={id}"
-    if OPENLANE_BASE <= exit_code < GCC_BASE:
+    if LIBRELANE_BASE <= exit_code < GCC_BASE:
         return f"Openlane error ({exit_code})"
     if GCC_BASE <= exit_code:
         return f"GCC error ({exit_code}) ID={id}"
