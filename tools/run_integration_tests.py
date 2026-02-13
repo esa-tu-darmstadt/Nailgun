@@ -55,6 +55,8 @@ class CoreFeature(Flag):
     Control = auto()
     # Read rd as third operand
     RdRD = auto()
+    # Support for custom register banking to perform ctx switches
+    MultiContext = auto()
 
     # Simulator supports tracing for ISS lockstep
     ISSLockstep = auto()
@@ -86,7 +88,7 @@ command_templates = [
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
                     True, CoreFeature.Memory, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
-                    True, CoreFeature.Memory, CommandFlags.EnableISSLockstep),
+                    True, CoreFeature.Memory | CoreFeature.MultiContext, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="BRIMM" SIM_ENABLE="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
                     True, CoreFeature.Control, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="DOTPROD" SIM_ENABLE="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
@@ -132,11 +134,11 @@ cores = [
     ("CVA6",      CoreFeature.STANDARD | CoreFeature.ISSLockstep,                    False, 1.0),
     ("CVA6_DUAL", CoreFeature.STANDARD | CoreFeature.ISSLockstep,                    False, 1.0),
     ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD | CoreFeature.ISSLockstep, False, 1.0),
-    ("PICORV32",  CoreFeature.STANDARD,                                              False, 3.0),
-    ("PICCOLO",   CoreFeature.STANDARD,                                              False, 1.5),
-    ("ORCA",      CoreFeature.STANDARD,                                              False, 2.0),
-    ("VEX_4S",    CoreFeature.STANDARD,                                              True,  2.5),
-    ("VEX_5S",    CoreFeature.STANDARD,                                              True,  2.0),
+    ("PICORV32",  CoreFeature.STANDARD | CoreFeature.MultiContext,                   False, 3.0),
+    ("PICCOLO",   CoreFeature.STANDARD | CoreFeature.MultiContext,                   False, 1.5),
+    ("ORCA",      CoreFeature.STANDARD | CoreFeature.MultiContext,                   False, 2.0),
+    ("VEX_4S",    CoreFeature.STANDARD | CoreFeature.MultiContext,                   True,  2.5),
+    ("VEX_5S",    CoreFeature.STANDARD | CoreFeature.MultiContext,                   True,  2.0),
     ("CV32E40X",  CoreFeature.NONE,                                                  False, 2.0),
 ]
 
