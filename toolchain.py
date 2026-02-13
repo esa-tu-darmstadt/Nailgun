@@ -146,25 +146,28 @@ def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flag
     return elf_out_path
 
 GNU_PREFIXES=["riscv64-unknown-elf-", "riscv32-unknown-elf-"]
+GNU_PATH_PREFIX = "deps/scaie-v-testbenches/dep/riscv-prefix/bin"
 def get_gnu_util_path(pathformat, prefixes):
     """Get the absolute path to a GNU utility using the first prefix that exists.
     :param pathformat: a string with '%s' in place of the tool prefix
     :param prefixes: a list of tool prefixes to try (e.g., "riscv32-unknown-elf-")
     """
+    prefix_dir = os.path.abspath(GNU_PATH_PREFIX)
+    assert(os.path.exists(prefix_dir))
     for cur_prefix in prefixes:
-        cur_path = os.path.abspath(pathformat % cur_prefix)
+        cur_path = os.path.join(prefix_dir, pathformat.format(prefix=cur_prefix))
         if os.path.exists(cur_path):
             return cur_path
-    error.exit_error(f"Could not find gnu util with pattern: {pathformat}", error.USER_ERROR)
+    error.exit_error(f"Could not find gnu util with pattern: {pathformat}\nAvailable files:\n  {'\n  '.join(os.listdir(prefix_dir))}", error.USER_ERROR)
     return None
 def get_gcc_objcopy_path():
-    return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjcopy", GNU_PREFIXES)
+    return get_gnu_util_path("{prefix}objcopy", GNU_PREFIXES)
 def get_gcc_objdump_path():
-    return get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sobjdump", GNU_PREFIXES)
+    return get_gnu_util_path("{prefix}objdump", GNU_PREFIXES)
 
 def gcc_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_disassembly, custom_linker_script=None, include_startup_files=False):
     ext = core_support.get_extensions()
-    gcc_path = get_gnu_util_path("deps/scaie-v-testbenches/dep/riscv-prefix/bin/%sgcc", GNU_PREFIXES)
+    gcc_path = get_gnu_util_path("{prefix}gcc", GNU_PREFIXES)
     objdump_path = get_gcc_objdump_path()
     arch_flags = f"-march=rv{ext.xlen}{ext.get_compiler_extensions()} -mabi={ext.abi}"
     c_flags = "-nostdlib -nostartfiles"
