@@ -1,4 +1,3 @@
-eval*
 __pycache__
 .config*
 build
@@ -11,3 +10,13 @@ test_results
 *.mlir
 *.csv
 *.gtkw
+*.yaml
+*.txt
+*.sv
+RTOSBENCH*
+*freertos*
+*EVAL*
+*eval*
+*results*
+*RESULTS*
+isaxes/*/
