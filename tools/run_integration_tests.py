@@ -85,32 +85,32 @@ class CommandTemplate:
 # Integration tests that are run for EVERY available core
 # (cmd:str, parallel:bool, required_features:CoreFeature, command_flags:CommandFlags)
 command_templates = [
-    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
                     True, CoreFeature.Memory, CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.MultiContext, CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="BRIMM" SIM_ENABLE="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="BRIMM" SIM_ENABLE="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt"',
                     True, CoreFeature.Control, CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="DOTPROD" SIM_ENABLE="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="DOTPROD" SIM_ENABLE="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_ENABLE="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_ENABLE="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.Control, CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.Control, CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="SBOX" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="SBOX" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
     #TODO: Add CommandFlags.EnableISSLockstep to sqrt (disabled due to possible decoding bug in the generated ISAX model)
-    CommandTemplate('ISAXES="SQRT" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('ISAXES="SQRT" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     True, CoreFeature.Decoupled, CommandFlags.NONE).set_cycle_timeout(80000),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
-    CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_TB_DISASSEMBLE_ELF="n" SIM_ISS_PREDEFINED_ISAXES="zol"',
+    CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_ISS_PREDEFINED_ISAXES="zol"',
                     True, CoreFeature.Control, CommandFlags.EnableISSLockstep),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     # MLIR entrypoint tests
     # complex ISAX
@@ -123,7 +123,7 @@ command_templates = [
     CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.NONE),
     # Baseline tests clang
-    CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt" SIM_TB_DISASSEMBLE_ELF="n"',
+    CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.NONE),
 ]
 
