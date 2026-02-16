@@ -148,7 +148,7 @@ async def run_test(dut):
 
     # Load predefined ISAX handlers
     pyhandlers = dict()
-    for pymodule_name in ("iss.isax.isax_zol"):
+    for pymodule_name in ["iss.isax.isax_zol"]:
         try:
             pymodule = importlib.import_module(pymodule_name)
             pyhandlers.update(pymodule.getHandlers(dut))
