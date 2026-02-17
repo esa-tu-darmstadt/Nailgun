@@ -118,9 +118,8 @@ command_templates = [
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
-    #TODO: Add CommandFlags.EnableISSLockstep to sqrt (disabled due to possible decoding bug in the generated ISAX model)
     CommandTemplate('ISAXES="SQRT" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
-                    True, CoreFeature.Decoupled, CommandFlags.NONE).set_cycle_timeout(80000),
+                    True, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_ISS_PREDEFINED_ISAXES="zol"',
