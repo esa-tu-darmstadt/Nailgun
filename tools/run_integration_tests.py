@@ -124,9 +124,9 @@ command_templates = [
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_ISS_PREDEFINED_ISAXES="zol"',
                     True, CoreFeature.Control, CommandFlags.EnableISSLockstep),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
+    CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
-    CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
+    CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     True, CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     # MLIR entrypoint tests
     # complex ISAX
@@ -316,7 +316,10 @@ for exit_code, cmd, id in results:
     if "MLIR_ENTRY_POINT_PATH" in matches:
         mlir_path =  matches["MLIR_ENTRY_POINT_PATH"]
         isax_name = os.path.splitext(os.path.basename(mlir_path))[0]
-        test_case_name = f"MLIR {isax_name}"
+        if tb_name.lower() != isax_name.lower():
+            test_case_name = f"MLIR {isax_name} / {tb_name}"
+        else:
+            test_case_name = f"MLIR {isax_name}"
     elif len(isaxes) == 0:
         if tb_path.endswith(".elf") or tb_path.endswith(".axf"):
             test_case_name = "NO ISAX / " + tb_name
