@@ -1,24 +1,34 @@
 #!/usr/bin/env python3
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import error
 import run_cmd
 
-def run_treenail(isax_tag, coredsl_file, out_dir):
+def run_treenail_batch(isax_tags, coredsl_files, out_dir):
     # create build and tool directory
     mlir_dir = os.path.join(out_dir, "mlir")
     os.makedirs(mlir_dir, exist_ok=True)
 
-    out_path = os.path.abspath(os.path.join(mlir_dir, f"{isax_tag}.mlir"))
-    print(f" - Mapping {coredsl_file} to {out_path}")
-    run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o {out_path}", f"Treenail failed on {coredsl_file}", error.TN_BASE + 4, False)
-    return out_path
-
-def run_treenail_batch(isax_tags, coredsl_files, out_dir):
     print("Running Treenail:")
     mlir_paths = []
-    for tag, file in zip(isax_tags, coredsl_files):
-        mlir_paths.append(run_treenail(tag, file, out_dir))
+    jobs = []
+    for isax_tag, coredsl_file in zip(isax_tags, coredsl_files):
+        out_path = os.path.abspath(os.path.join(mlir_dir, f"{isax_tag}.mlir"))
+        mlir_paths.append(out_path)
+        print(f" - Mapping {coredsl_file} to {out_path}")
+        jobs.append((coredsl_file, out_path))
+
+    def coredsl_to_mlir(job):
+        coredsl_file, out_path = job
+        run_cmd.run(".", f"./deps/treenail/app/build/install/app/bin/app {coredsl_file} -o {out_path}", f"Treenail failed on {coredsl_file}", error.TN_BASE + 4, False, 200)
+
+    # Parallel translate the coredsl files to mlir
+    num_threads = min(len(jobs), os.cpu_count())
+    # Create a ThreadPoolExecutor with the desired number of threads
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        executor.map(coredsl_to_mlir, jobs)
+
     return mlir_paths
 
 def build_treenail():
