@@ -11,13 +11,21 @@ import datetime
 import pandas as pd
 from tabulate import tabulate
 from enum import Flag, auto
+from pathlib import Path
 
 MAX_SCALA_JOBS=8 #limit of parallel jobs on Scala/Spinal cores (try to avoid IOException on ionotify / open files limit)
+
+integration_test_working_dir = os.path.abspath("test_results")
+if os.path.exists(integration_test_working_dir):
+    shutil.rmtree(integration_test_working_dir)
+logs_dir = os.path.join(integration_test_working_dir, "logs")
+os.makedirs(logs_dir)
 
 # Add the parent directory to the sys.path
 parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(parent_folder)
 import error
+import longnail
 # Remove the parent directory from the sys.path again
 sys.path.remove(parent_folder)
 
@@ -26,13 +34,22 @@ class CommandJob:
         self.env_str = env_str
         self.is_scala = is_scala
 
+isax_mlir_files = [
+    os.path.join(parent_folder, "deps/longnail/sim/complex/complex.mlir"),
+    os.path.join(parent_folder, "deps/longnail/sim/vector/vector.mlir"),
+]
+all_isaxes_merge_file = os.path.join(integration_test_working_dir, "ALL_ISAXES.mlir")
+
 init_commands = [
     CommandJob('make gen_config', False),
+    # Generate all MLIR files
 ]
 
 patch_compiler_commands = [
     # Prepare clang
+    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', False),
     # Prepare gcc
+    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', False),
 ]
 
 # Lists of integration tests to run, tuples of (command_env: str, apply_scala_tasklimit: bool)
@@ -115,10 +132,10 @@ command_templates = [
     # MLIR entrypoint tests
     # complex ISAX
     CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.S" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"',
-                    False, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
+                    True, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
     # vector ISAX
     CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.S" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"',
-                    False, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
+                    True, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
     # Baseline tests gcc
     CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.NONE),
@@ -163,17 +180,13 @@ for core, core_features, is_scala, timeout_scale in cores:
             # Run test sequentially, build compiler per run
             sequential_commands.append(CommandJob(f'CORE="{core}" {cmd}', False))
 
-integration_test_working_dir = os.path.abspath("test_results")
-if os.path.exists(integration_test_working_dir):
-    shutil.rmtree(integration_test_working_dir)
-logs_dir = os.path.join(integration_test_working_dir, "logs")
-os.makedirs(logs_dir)
+def get_job_output_folder(id: int):
+    return os.path.join(integration_test_working_dir, f"output_test_{id:03}")
 
 def run_test(command_env: str, id: int, run_make_ci: bool, print_lock):
     kconfig_out_file = os.path.join(
         integration_test_working_dir, f".config_test_{id:03}")
-    output_folder = os.path.join(
-        integration_test_working_dir, f"output_test_{id:03}")
+    output_folder = get_job_output_folder(id)
     # create the output folder
     os.makedirs(output_folder)
 
@@ -249,6 +262,22 @@ for exit_code, cmd, id in init_results:
 # First run all tests that must be executed sequentially
 print(f"Running {len(sequential_commands)} sequential tests", flush=True)
 results = run_tests(sequential_commands, False)
+
+# Collect all ISAX mlir files
+_, _, gen_mlir_job_id = init_results[-1]
+mlir_out_folder = os.path.join(get_job_output_folder(gen_mlir_job_id), "mlir")
+isax_mlir_files.extend(
+    str(p.resolve())
+    for p in Path(mlir_out_folder).glob("*.mlir")
+    if p.is_file()
+)
+# Merge all ISAXes into a single mlir file
+premerge_file = all_isaxes_merge_file + ".tmp"
+longnail.concat_mlir_files(isax_mlir_files, premerge_file)
+longnail.merge_isaxes(integration_test_working_dir, longnail.get_default_longnail_bin(), premerge_file, all_isaxes_merge_file)
+assert(os.path.exists(all_isaxes_merge_file))
+os.remove(premerge_file)
+
 # Then prepare the compilers, this can happen in parallel!
 print(f"Prepare compilers for the parallel tests", flush=True)
 prepare_compiler = run_tests(patch_compiler_commands, True, len(results) + len(parallelizable_commands))

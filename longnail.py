@@ -64,6 +64,9 @@ def resolve_opty_lib(kconfig_syms):
     return os.path.abspath(kconfig_syms['LN_OPTY_CUSTOM_MODEL_PATH'].str_value)
 
 
+def get_default_longnail_bin(fallback_folder = "longnail"):
+    return os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")
+
 def get_longnail_bin(kconf_syms, opt_prefix = "LN", fallback_folder = "longnail"):
     if kconf_syms[f"USE_PREBUILT_{opt_prefix}"].str_value == "y":
         ln_path = os.path.abspath(kconf_syms[f"{opt_prefix}_BINARY"].str_value)
@@ -73,7 +76,7 @@ def get_longnail_bin(kconf_syms, opt_prefix = "LN", fallback_folder = "longnail"
 
         return ln_path
     else:
-        return os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")
+        return get_default_longnail_bin(fallback_folder)
 
 def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, datasheet, kconfig_syms, skip_scheduling, show_ln_output):
     sched_algo = resolve_sched_algo(kconfig_syms)
@@ -231,6 +234,16 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
         lambda a, b: a+" "+b, longnail_hw_gen_flags)
     run_cmd.run(out_dir, f"{ln_path} {longnail_flags_str} {sched_sol_mlir_file}", f"Longnail HW-Gen failed", error.LN_BASE + 9, show_ln_output, 200)
 
+def concat_mlir_files(mlir_paths, out_file):
+    with open(out_file, "w") as isax_mlir_file:
+        for f in mlir_paths:
+            with open(f, "r") as fo:
+                isax_mlir_file.write(fo.read())
+        os.fsync(isax_mlir_file)
+
+def merge_isaxes(out_dir, ln_path, in_mlir, out_mlir, show_output = False):
+    run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {in_mlir} -o {out_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_output, 200)
+
 def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critical_chains):
     print("Running Longnail:")
 
@@ -262,15 +275,11 @@ def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critic
     if len(mlir_paths) > 1:
         concated_isax_mlir = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
         if is_first_iter:
-            with open(concated_isax_mlir, "w") as isax_mlir_file:
-                for f in mlir_paths:
-                    with open(f, "r") as fo:
-                        isax_mlir_file.write(fo.read())
-                os.fsync(isax_mlir_file)
+            concat_mlir_files(mlir_paths, concated_isax_mlir)
     isax_mlir = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
     if not skip_prepare_scheduling:
         print(" - Merge ISAXes")
-        run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {concated_isax_mlir} -o {isax_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_ln_output, 200)
+        merge_isaxes(out_dir, ln_path, concated_isax_mlir, isax_mlir, show_ln_output)
     else:
         isax_mlir = concated_isax_mlir
 
