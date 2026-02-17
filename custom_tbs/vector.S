@@ -86,21 +86,21 @@ _start:
 
     jal ra, load_vecs
     la t1, tranlation_z
-    set_addr t1
+    vec_set_addr t1
     li t2, 1
     li a0, 3
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
     # a2=resdata+0xd4
-    set_addr t1
+    vec_set_addr t1
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
     # a2=resdata+0xe0
-    set_addr t1
+    vec_set_addr t1
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
     # a2=resdata+0xec
-    set_addr t1
+    vec_set_addr t1
     mat_mul_trans x3, t2, t2
     jal ra, save_vec
 
@@ -114,8 +114,8 @@ _start:
 	j finloop
 
 # Available custom instructions:
-# set_addr rs1
-# set_inc rs1
+# vec_set_addr rs1
+# vec_set_inc rs1
 # export_vec_entry rd, rs1 (vec sel), rs2 (memEntrySel, regEntrySel)
 # import_vec
 
@@ -131,8 +131,8 @@ _start:
 #            a0 = vec idx
 save_vec:
     li t0, 4
-    set_inc t0
-    set_addr a2
+    vec_set_inc t0
+    vec_set_addr a2
     # 0b00000 = x0 get MEM[addr] = vec[x]
     export_vec_entry t0, a0, x0
     # 0b00100 = x4 get MEM[addr + 4] = vec[y]
@@ -145,8 +145,8 @@ save_vec:
 # Arguments: a2 = result addr
 save_vecs:
     li t0, 4
-    set_inc t0
-    set_addr a2
+    vec_set_inc t0
+    vec_set_addr a2
     li a0, 0
     # export_vec_entry rd, rs1 (vec sel), rs2 (enableMemExport, memEntrySel, regEntrySel)
     # 0b00000 = x0 get MEM[addr] = vec0[x]
@@ -173,9 +173,9 @@ save_vecs:
 # Arguments: a1 = vec addr
 load_vecs:
     li t0, 12
-    set_inc t0
+    vec_set_inc t0
     addi a1, a1, 8
-    set_addr a1
+    vec_set_addr a1
 
     lw t0, -8(a1)
     lw t1, -4(a1)
