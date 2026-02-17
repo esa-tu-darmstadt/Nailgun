@@ -297,10 +297,10 @@ def build_longnail(kconf_syms):
     # build longnail
     if not os.path.isfile("deps/longnail/build/bin/longnail-opt"):
         print("Building Longnail...")
-        run_cmd.run("deps/longnail", "OR_TOOLS_VER=9.8 ./build_deps.sh",
-                    "Gathering deps for CIRCT failed", error.LN_BASE + 1)
-        run_cmd.run("deps/longnail", "./build_circt.sh",
-                    "Building CIRCT failed", error.LN_BASE + 2)
+        run_cmd.run("deps/longnail", "git submodule update --init --recursive --depth 1",
+                    "Getting Submodules failed", error.LN_BASE + 1)
+        run_cmd.run("deps/longnail", "./build_shortnail.sh",
+                    "Building Shortnail/CIRCT failed", error.LN_BASE + 2)
         run_cmd.run("deps/longnail", "./build_longnail.sh",
                     "Longnail build failed", error.LN_BASE + 3)
 
