@@ -109,7 +109,7 @@ if __name__ == "__main__":
             isax_yaml = longnail.provide_isax_yaml(out_dir)
 
         isax_name = None
-        if os.path.exists(mlir_path):
+        if mlir_path is not None and os.path.exists(mlir_path):
             isax_name = extract_isax_name(mlir_path)
         if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
             cpp_ext_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
