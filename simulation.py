@@ -298,8 +298,8 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, ml
         llvm_build_dir = toolchain.prepare_llvm(kconfig_syms, mlir_path, llvm_version, not skip_clang_build, unpatched_clang)
         if not only_add_cc_support:
             print(" - Compiling C++ TB")
-            if not unpatched_clang and not isax_name:
-                error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
+            if not unpatched_clang and not cpp_ext_name:
+                error.exit_error("Compiling the TB with clang requires the ISAX extension name! The ISAX extension name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
             return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), llvm_build_dir, cpp_ext_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
         else:
             # Ensure that picolibc exists for all cores
