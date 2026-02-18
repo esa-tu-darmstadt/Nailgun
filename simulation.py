@@ -258,7 +258,7 @@ def get_target_elf_file_path(out_dir):
     # elf file path
     return os.path.join(bin_dir, "tb.elf")
 
-def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_add_cc_support):
+def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, mlir_path, only_add_cc_support):
     core_support = scaiev.get_core_support(core_name)
     if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
@@ -300,7 +300,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, mlir_path, only_
             print(" - Compiling C++ TB")
             if not unpatched_clang and not isax_name:
                 error.exit_error("Compiling the TB with clang requires an ISAX name to select the correct extension! The ISAX name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
-            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), llvm_build_dir, isax_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
+            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), llvm_build_dir, cpp_ext_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
         else:
             # Ensure that picolibc exists for all cores
             toolchain.precompile_picolibc_for_all_cores(llvm_version)

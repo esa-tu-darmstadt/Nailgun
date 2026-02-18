@@ -108,10 +108,13 @@ if __name__ == "__main__":
             mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
             isax_yaml = longnail.provide_isax_yaml(out_dir)
 
-        if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
-            isax_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
-        else:
+        isax_name = None
+        if os.path.exists(mlir_path):
             isax_name = extract_isax_name(mlir_path)
+        if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
+            cpp_ext_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
+        else:
+            cpp_ext_name = isax_name
 
         only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
 
@@ -121,7 +124,7 @@ if __name__ == "__main__":
             scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
         # Optionally run the simulation
-        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, mlir_path, only_add_cc_support)
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, cpp_ext_name, mlir_path, only_add_cc_support)
 
         new_critical_chains = []
         if not only_add_cc_support:
