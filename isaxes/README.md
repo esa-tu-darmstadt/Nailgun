@@ -1,3 +1,5 @@
+# ISAX Encodings Overview
+
 | Custom Space | Instruction Set   | Instruction          | Encoding Mask                      |
 | ------------ | ----------------- | -------------------- | ---------------------------------- |
 |              |                   |                      | `funct7/\rs2/\rs1/fn3\rd /\opcode` |
@@ -27,7 +29,7 @@
 | custom-3     | sparkle           | sparkle_whole_enci_y | `1001-------------110-----1111011` |
 
 
-Exhausted encoding spaces:
+## Exhausted encoding spaces:
 | Custom Space / Opcode | funct3 | Instruction      |
 | --------------------- | ------ | ---------------- |
 | custom-0 / `0001011`  | `100`  | brimm/cv_beqimm  |
