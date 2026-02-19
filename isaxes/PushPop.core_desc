@@ -1,0 +1,198 @@
+InstructionSet Zcmp {
+    architectural_state {
+        unsigned int XLEN;
+        XLEN = 32;
+        register unsigned<32> X[32] [[is_main_reg]];
+        register unsigned<32> PC [[is_pc]];
+        extern unsigned<8> MEM[0x100000000] [[is_main_mem]];
+    }
+
+    functions {
+        unsigned int stack_adjust32(unsigned<4> rlist) {
+                return (rlist==15) ? 64 : rlist/4*16;
+        }
+        void load_regs32(unsigned<4> rlist, unsigned<XLEN> addr) {
+            unsigned<XLEN> incr = 4;
+            if(rlist>14) {
+                 addr -= incr;
+                 X[27] = MEM[addr+3:addr];
+                 addr -= incr;
+                 X[26] = MEM[addr+3:addr];
+            }
+            if(rlist>13) {
+                 addr -= incr;
+                 X[25] = MEM[addr+3:addr];
+            }
+            if(rlist>12) {
+                 addr -= incr;
+                 X[24] = MEM[addr+3:addr];
+            }
+            if(rlist>11) {
+                 addr -= incr;
+                 X[23] = MEM[addr+3:addr];
+            }
+            if(rlist>10) {
+                 addr -= incr;
+                 X[22] = MEM[addr+3:addr];
+            }
+            if(rlist>9) {
+                 addr -= incr;
+                 X[21] = MEM[addr+3:addr];
+            }
+            if(rlist>8) {
+                 addr -= incr;
+                 X[20] = MEM[addr+3:addr];
+            }
+            if(rlist>7) {
+                 addr -= incr;
+                 X[19] = MEM[addr+3:addr];
+            }
+            if(rlist>6) {
+                 addr -= incr;
+                 X[18] = MEM[addr+3:addr];
+            }
+            if(rlist>5) {
+                 addr -= incr;
+                 X[9] = MEM[addr+3:addr];
+            }
+            if(rlist>4) {
+                 addr -= incr;
+                 X[8] = MEM[addr+3:addr];
+            }
+            if(rlist>3) {
+                 addr -= incr;
+                 X[1] = MEM[addr+3:addr];
+            }
+        }
+
+        unsigned int stack_adjust64(unsigned<4> rlist) {
+                return (rlist==15) ? 112 : (unsigned)(rlist/2-1)*16;
+        }
+        void load_regs64(unsigned<4> rlist, unsigned<XLEN> addr) {
+                if(rlist>14) {
+                     addr-=8;
+                     X[27] = (unsigned<XLEN>)MEM[addr+7:addr];
+                     addr-=8;
+                     X[26] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>13) {
+                     addr-=8;
+                     X[25] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>12) {
+                     addr-=8;
+                     X[24] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>11) {
+                     addr-=8;
+                     X[23] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>10) {
+                     addr-=8;
+                     X[22] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>9) {
+                     addr-=8;
+                     X[21] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>8) {
+                     addr-=8;
+                     X[20] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>7) {
+                     addr-=8;
+                     X[19] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>6) {
+                     addr-=8;
+                     X[18] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>5) {
+                     addr-=8;
+                     X[9] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>4) {
+                     addr-=8;
+                     X[8] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+                if(rlist>3) {
+                     addr-=8;
+                     X[1] = (unsigned<XLEN>)MEM[addr+7:addr];
+                }
+        }
+    }
+    instructions {
+        CM__PUSH [[enable=XLEN==32]]{
+            encoding: 6'b110000 :: rlist[3:0] :: spimm[5:4] :: 5'd0 :: 3'b000 :: 5'd0 :: 7'b0001011;
+            assembly: "{rlist}, {spimm}";
+            behavior: {
+	                unsigned int bytes = 4;
+	                unsigned int stack_adj_base = stack_adjust32(rlist);
+	                unsigned<XLEN> addr = X[2];
+	                if(rlist>14) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[27];
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[26];
+	                }
+	                if(rlist>13) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[25];
+	                }
+	                if(rlist>12) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[24];
+	                }
+	                if(rlist>11) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[23];
+	                }
+	                if(rlist>10) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[22];
+	                }
+	                if(rlist>9) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[21];
+	                }
+	                if(rlist>8) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[20];
+	                }
+	                if(rlist>7) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[19];
+	                }
+	                if(rlist>6) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[18];
+	                }
+	                if(rlist>5) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[9];
+	                }
+	                if(rlist>4) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[8];
+	                }
+	                if(rlist>3) {
+	                     addr-=bytes;
+	                     MEM[addr+3:addr] = (unsigned<32>)X[1];
+	                }
+	                X[2] -= (unsigned<XLEN>)(stack_adj_base + spimm);
+	            }
+        }
+        CM__POP [[enable=XLEN==32]]{
+            encoding: 6'b111000 :: rlist[3:0] :: spimm[5:4] :: 5'd0 :: 3'b000 :: 5'd0 :: 7'b0001011;
+            assembly: "{rlist}, {spimm}";
+            behavior: {
+	                unsigned int bytes = 4;
+	                unsigned int stack_adj_base = stack_adjust32(rlist);
+	                unsigned<XLEN> new_sp = (unsigned<XLEN>)(X[2] + (unsigned<XLEN>)(stack_adj_base + spimm));
+	                load_regs32(rlist, new_sp);
+	                X[2] = new_sp;
+	            }
+        }
+    }
+}
+

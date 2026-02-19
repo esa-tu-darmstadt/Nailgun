@@ -7,7 +7,7 @@ InstructionSet MultiMemReadWrite {
 
     instructions {
         MEMSET {
-            encoding: 7'd6 :: rs2[4:0] :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0101011;
+            encoding: 7'b0000110 :: rs2[4:0] :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0101011;
             behavior: {
                 unsigned<XLEN> addr = X[rs1];
                 unsigned<XLEN> val = X[rs2];
@@ -18,7 +18,7 @@ InstructionSet MultiMemReadWrite {
             }
         }
         MEMADD {
-            encoding: 7'd6 :: 5'd0 :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b0111011;
+            encoding: 7'b0000110 :: 5'd0 :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b1011011;
             behavior: {
                 unsigned<XLEN> addr = X[rs1];
                 unsigned<XLEN> acc = 0;
@@ -30,7 +30,7 @@ InstructionSet MultiMemReadWrite {
             }
         }
         MEMCPY {
-            encoding: 7'd6 :: rs2[4:0] :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b1111011;
+            encoding: 7'b0000110 :: rs2[4:0] :: rs1[4:0] :: 3'b000 :: rd[4:0] :: 7'b1111011;
             behavior: {
                 unsigned<XLEN> from = X[rs1];
                 unsigned<XLEN> to = X[rs2];
