@@ -1,0 +1,52 @@
+# Previous decimal value: 1
+00000001
+# Previous decimal value: 8
+00000008
+# Previous decimal value: 9
+00000009
+# Previous decimal value: 18
+00000012
+# Previous decimal value: 19
+00000013
+# Previous decimal value: 20
+00000014
+# Previous decimal value: 21
+00000015
+# Previous decimal value: 22
+00000016
+# Previous decimal value: 23
+00000017
+# Previous decimal value: 24
+00000018
+# Previous decimal value: 25
+00000019
+# Previous decimal value: 26
+0000001A
+# Previous decimal value: 27
+0000001B
+# Previous decimal value: 27
+0000001B
+# Previous decimal value: 26
+0000001A
+# Previous decimal value: 25
+00000019
+# Previous decimal value: 24
+00000018
+# Previous decimal value: 23
+00000017
+# Previous decimal value: 22
+00000016
+# Previous decimal value: 21
+00000015
+# Previous decimal value: 20
+00000014
+# Previous decimal value: 19
+00000013
+# Previous decimal value: 18
+00000012
+# Previous decimal value: 9
+00000009
+# Previous decimal value: 8
+00000008
+# Previous decimal value: 1
+00000001
