@@ -223,13 +223,13 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
         # We ALWAYS want colors, lol
         run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
-def setup_renode(py_isax_file, tb_paths, core_support, out_dir, yaml_file):
+def setup_renode(py_isax_file, tb_paths, tb_expected_paths, core_support, out_dir, yaml_file):
     env_vars = core_support.get_tb_env_vars()
     ext = core_support.get_extensions()
     march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
     py_isax_file_name = os.path.basename(py_isax_file) if py_isax_file else ""
 
-    renode_dir = renode.gen_renode_confs(py_isax_file_name, out_dir, yaml_file, tb_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
+    renode_dir = renode.gen_renode_confs(py_isax_file_name, out_dir, yaml_file, tb_paths, tb_expected_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
 
     shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
     isax_py_path = None
@@ -390,6 +390,6 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, ml
         renode_py_file = kconfig_syms["SIM_ISS_RENODE_OVERRIDE"].str_value
         if isax_name and not renode_py_file:
             renode_py_file = os.path.join(out_dir, f"{isax_name}.py")
-        renode_isax_py_path = setup_renode(renode_py_file, elf_files, core_support, out_dir, isax_yaml_path)
+        renode_isax_py_path = setup_renode(renode_py_file, elf_files, tb_expected_paths, core_support, out_dir, isax_yaml_path)
         print(" - Start simulation")
         run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls, renode_isax_py_path)
