@@ -97,16 +97,35 @@ if __name__ == "__main__":
 
     mlir_paths, isax_yaml = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
 
+    only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
+
     critical_chains = []
     iteration = 0
     while True:
         mlir_path = None
         if mlir_paths:
-            # LN mlir to .sv
             longnail.build_longnail(kconf.syms)
-            datasheet = longnail.select_core_datasheet(core_support)
-            mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
-            isax_yaml = longnail.provide_isax_yaml(out_dir)
+            if only_add_cc_support:
+                # Only merge ISAXes — skip HLS scheduling and HW generation.
+                # The compiler-patcher invokes its own LIL lowering internally.
+                ln_path = longnail.get_longnail_bin(kconf.syms)
+                if len(mlir_paths) > 1:
+                    concat_file = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
+                    longnail.concat_mlir_files(mlir_paths, concat_file)
+                else:
+                    concat_file = mlir_paths[0]
+                mlir_path = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
+                longnail.merge_isaxes(out_dir, ln_path, concat_file, mlir_path)
+                # Emit a minimal ISAX YAML with encoding masks so GCC patching works.
+                isax_yaml = longnail.emit_isax_encodings_yaml(
+                    out_dir, ln_path, mlir_path,
+                    os.path.abspath(os.path.join(out_dir, "isax_encodings.yaml"))
+                )
+            else:
+                # Full LN pipeline: merge → schedule → HW-gen (.sv)
+                datasheet = longnail.select_core_datasheet(core_support)
+                mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
+                isax_yaml = longnail.provide_isax_yaml(out_dir)
 
         isax_name = None
         if mlir_path is not None and os.path.exists(mlir_path):
@@ -115,8 +134,6 @@ if __name__ == "__main__":
             cpp_ext_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
         else:
             cpp_ext_name = isax_name
-
-        only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
 
         # SCAIE-V integrate into core
         if not only_add_cc_support:
