@@ -21,7 +21,8 @@ int main() {
   auto addr = &funAddr;
   // Increment 'res' using RISC-V inline assembly
   asm volatile(
-      ASM_PREFIX ".ijmp %0, 0\n" // Jump into the abortMission42 function
+      ASM_PREFIX ".ijmp 0, %0\n" // Jump into the abortMission42 function
+                                    // Asm format: $offset, $rs1 (encoding order)
       : "+r"(addr)        // Output operand: 'res' will be modified
   );
 

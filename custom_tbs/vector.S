@@ -10,13 +10,13 @@ _start:
 
 # L1 norm
     jal ra, load_vecs
-    l1_norm_vec t0, x0
+    l1normvec t0, x0
     sw t0, 0(a2)
-    l1_norm_vec t0, x1
+    l1normvec t0, x1
     sw t0, 4(a2)
-    l1_norm_vec t0, x2
+    l1normvec t0, x2
     sw t0, 8(a2)
-    l1_norm_vec t0, x3
+    l1normvec t0, x3
     sw t0, 12(a2)
     addi a2, a2, 16
 
@@ -24,25 +24,25 @@ _start:
     # a1=resdata+0x30
     # a2=resdata+0x10
     jal ra, load_vecs
-    vec_dot t0, x0, x0
+    vecdot t0, x0, x0
     sw t0, 0(a2)
-    vec_dot t0, x0, x1
+    vecdot t0, x0, x1
     sw t0, 4(a2)
-    vec_dot t0, x0, x2
+    vecdot t0, x0, x2
     sw t0, 8(a2)
-    vec_dot t0, x0, x3
+    vecdot t0, x0, x3
     sw t0, 12(a2)
-    vec_dot t0, x1, x1
+    vecdot t0, x1, x1
     sw t0, 16(a2)
-    vec_dot t0, x1, x2
+    vecdot t0, x1, x2
     sw t0, 20(a2)
-    vec_dot t0, x1, x3
+    vecdot t0, x1, x3
     sw t0, 24(a2)
-    vec_dot t0, x2, x2
+    vecdot t0, x2, x2
     sw t0, 28(a2)
-    vec_dot t0, x2, x3
+    vecdot t0, x2, x3
     sw t0, 32(a2)
-    vec_dot t0, x3, x3
+    vecdot t0, x3, x3
     sw t0, 36(a2)
     addi a2, a2, 40
 
@@ -51,10 +51,10 @@ _start:
     # a2=resdata+0x38
 
     jal ra, load_vecs
-    vec_add x3, x0, x3
-    vec_add x2, x0, x2
-    vec_add x1, x0, x1
-    vec_add x0, x0, x0
+    vecadd x3, x0, x3
+    vecadd x2, x0, x2
+    vecadd x1, x0, x1
+    vecadd x0, x0, x0
     jal ra, save_vecs
 
 # Vector scaling
@@ -63,10 +63,10 @@ _start:
 
     jal ra, load_vecs
     li t0, 42
-    vec_scale x0, x0, t0
-    vec_scale x1, x1, t0
-    vec_scale x2, x2, t0
-    vec_scale x3, x3, t0
+    vecscale x0, x0, t0
+    vecscale x1, x1, t0
+    vecscale x2, x2, t0
+    vecscale x3, x3, t0
     jal ra, save_vecs
 
 # Vector element-wise multiply
@@ -74,10 +74,10 @@ _start:
     # a2=resdata+0x98
 
     jal ra, load_vecs
-    vec_mul x0, x0, x0
-    vec_mul x1, x1, x1
-    vec_mul x2, x2, x2
-    vec_mul x3, x3, x3
+    vecmul x0, x0, x0
+    vecmul x1, x1, x1
+    vecmul x2, x2, x2
+    vecmul x3, x3, x3
     jal ra, save_vecs
 
 # Matrix Vector multiply + translation
@@ -86,22 +86,22 @@ _start:
 
     jal ra, load_vecs
     la t1, tranlation_z
-    vec_set_addr t1
+    vecsetaddr t1
     li t2, 1
     li a0, 3
-    mat_mul_trans x3, t2, t2
+    matmultrans x3, t2, t2
     jal ra, save_vec
     # a2=resdata+0xd4
-    vec_set_addr t1
-    mat_mul_trans x3, t2, t2
+    vecsetaddr t1
+    matmultrans x3, t2, t2
     jal ra, save_vec
     # a2=resdata+0xe0
-    vec_set_addr t1
-    mat_mul_trans x3, t2, t2
+    vecsetaddr t1
+    matmultrans x3, t2, t2
     jal ra, save_vec
     # a2=resdata+0xec
-    vec_set_addr t1
-    mat_mul_trans x3, t2, t2
+    vecsetaddr t1
+    matmultrans x3, t2, t2
     jal ra, save_vec
 
 # Completion interrupt.
@@ -114,81 +114,81 @@ _start:
 	j finloop
 
 # Available custom instructions:
-# vec_set_addr rs1
-# vec_set_inc rs1
-# export_vec_entry rd, rs1 (vec sel), rs2 (memEntrySel, regEntrySel)
-# import_vec
+# vecsetaddr rs1
+# vecsetinc rs1
+# exportvecentry rd, rs1 (vec sel), rs2 (memEntrySel, regEntrySel)
+# importvec
 
-# l1_norm_reg
-# l1_norm_vec
-# vec_dot
-# vec_add
-# vec_scale
-# vec_mul
-# mat_mul_trans
+# l1normreg
+# l1normvec
+# vecdot
+# vecadd
+# vecscale
+# vecmul
+# matmultrans
 
 # Arguments: a2 = result addr
 #            a0 = vec idx
 save_vec:
     li t0, 4
-    vec_set_inc t0
-    vec_set_addr a2
+    vecsetinc t0
+    vecsetaddr a2
     # 0b00000 = x0 get MEM[addr] = vec[x]
-    export_vec_entry t0, a0, x0
+    exportvecentry t0, a0, x0
     # 0b00100 = x4 get MEM[addr + 4] = vec[y]
-    export_vec_entry t0, a0, x4
+    exportvecentry t0, a0, x4
     # 0b01000 = x8 get MEM[addr + 8] = vec[z]
-    export_vec_entry t0, a0, x8
+    exportvecentry t0, a0, x8
     addi a2, a2, 12
     ret
 
 # Arguments: a2 = result addr
 save_vecs:
     li t0, 4
-    vec_set_inc t0
-    vec_set_addr a2
+    vecsetinc t0
+    vecsetaddr a2
     li a0, 0
-    # export_vec_entry rd, rs1 (vec sel), rs2 (enableMemExport, memEntrySel, regEntrySel)
+    # exportvecentry rd, rs1 (vec sel), rs2 (enableMemExport, memEntrySel, regEntrySel)
     # 0b00000 = x0 get MEM[addr] = vec0[x]
-    export_vec_entry t0, a0, x0
+    exportvecentry t0, a0, x0
     # 0b00100 = x4 get MEM[addr + 4] = vec0[y]
-    export_vec_entry t0, a0, x4
+    exportvecentry t0, a0, x4
     # 0b01000 = x8 get MEM[addr + 8] = vec0[z]
-    export_vec_entry t0, a0, x8
+    exportvecentry t0, a0, x8
     li a0, 1
-    export_vec_entry t0, a0, x0
-    export_vec_entry t0, a0, x4
-    export_vec_entry t0, a0, x8
+    exportvecentry t0, a0, x0
+    exportvecentry t0, a0, x4
+    exportvecentry t0, a0, x8
     li a0, 2
-    export_vec_entry t0, a0, x0
-    export_vec_entry t0, a0, x4
-    export_vec_entry t0, a0, x8
+    exportvecentry t0, a0, x0
+    exportvecentry t0, a0, x4
+    exportvecentry t0, a0, x8
     li a0, 3
-    export_vec_entry t0, a0, x0
-    export_vec_entry t0, a0, x4
-    export_vec_entry t0, a0, x8
+    exportvecentry t0, a0, x0
+    exportvecentry t0, a0, x4
+    exportvecentry t0, a0, x8
     addi a2, a2, 48
     ret
 
 # Arguments: a1 = vec addr
 load_vecs:
     li t0, 12
-    vec_set_inc t0
+    vecsetinc t0
     addi a1, a1, 8
-    vec_set_addr a1
+    vecsetaddr a1
 
     lw t0, -8(a1)
     lw t1, -4(a1)
-    import_vec x0, t0, t1
+    importvec x0, t0, t1
     lw t0, 4(a1)
     lw t1, 8(a1)
-    import_vec x1, t0, t1
+    importvec x1, t0, t1
     lw t0, 16(a1)
     lw t1, 20(a1)
-    import_vec x2, t0, t1
+    importvec x2, t0, t1
     lw t0, 28(a1)
     lw t1, 32(a1)
-    import_vec x3, t0, t1
+    importvec x3, t0, t1
     addi a1, a1, 40
     ret
 

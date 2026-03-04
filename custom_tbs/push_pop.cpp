@@ -1,12 +1,12 @@
 #include "utils/sim.h"
 
 #include <stdint.h>
-#if __has_builtin(__builtin_riscv_merged_cm__push)
+#if __has_builtin(__builtin_riscv_merged_cmpush)
 #define __builtin_riscv_cm_push __builtin_riscv_merged_cmpush
 #else
 #define __builtin_riscv_cm_push __builtin_riscv_zcmp_cmpush
 #endif
-#if __has_builtin(__builtin_riscv_merged_cm__pop)
+#if __has_builtin(__builtin_riscv_merged_cmpop)
 #define __builtin_riscv_cm_pop __builtin_riscv_merged_cmpop
 #else
 #define __builtin_riscv_cm_pop __builtin_riscv_zcmp_cmpop
@@ -40,7 +40,7 @@ int main() {
       : "r"(resData)
       : "x1", "x2", "x8", "x9", "x18", "x19", "x20", "x21", "x22", "x23", "x24",
         "x25", "x26", "x27", "x30", "x31");
-  __builtin_riscv_cm_push(0, 15);
+  __builtin_riscv_cm_push(15, 0); // rlist=15, spimm=0
 
   asm volatile(
       R"(
@@ -63,7 +63,7 @@ int main() {
       : "x1", "x8", "x9", "x18", "x19", "x20", "x21", "x22", "x23", "x24", "x25",
         "x26", "x27");
 
-  __builtin_riscv_cm_pop(0, 15);
+  __builtin_riscv_cm_pop(15, 0); // rlist=15, spimm=0
 
   asm volatile(
       R"(

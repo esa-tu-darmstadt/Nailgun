@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
     isax_name = os.getenv("CLANG_EXT_ISAX_NAME")
     if isax_name:
-        kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].set_value("y")
-        kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].set_value(isax_name)
+        kconf.syms["SIM_LLVM_OVERWRITE_ISAX_NAME"].set_value("y")
+        kconf.syms["SIM_LLVM_ISAX_NAME"].set_value(isax_name)
 
     ln_scheduling_config = os.getenv("LN_PREDEFINED_SOLUTION_SELECTION")
     if ln_scheduling_config:

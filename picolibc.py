@@ -52,6 +52,7 @@ meson setup .. \\
     -Dtinystdio=true \\
     -Dpicocrt=false \\
     -Dtests=false \\
+    -Dthread-local-storage=false \\
     --cross-file MY_CROSS_CONF.txt \\
     "$@"
 
@@ -80,6 +81,10 @@ endian = 'little'
 
 [properties]
 has_link_defsym = true
+
+[built-in options]
+c_link_args = ['-fuse-ld=lld']
+cpp_link_args = ['-fuse-ld=lld']
 """)
         print(f"   - Compiling picolibc for '{march}' '{mabi}'")
         run_cmd.run(build_dir, f"./{os.path.basename(build_script)}", f"Failed to compile picolibc", error.PICOLIBC_BASE + 3, False)

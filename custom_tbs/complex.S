@@ -9,23 +9,23 @@ _start:
     la a2, _test_resdata
 
     jal ra, load_operands
-    complex_add t0, t0, t1
+    complexadd t0, t0, t1
     jal ra, store_result
 
     jal ra, load_4_operands
-    complex_add t0, t0, t1
-    complex_add t1, t2, t3
+    complexadd t0, t0, t1
+    complexadd t1, t2, t3
     jal ra, store_2_result
 
     jal ra, load_4_operands
-    complex_add t0, t2, t3
-    complex_add t1, t0, t1
+    complexadd t0, t2, t3
+    complexadd t1, t0, t1
     jal ra, store_2_result
 
 	# This fails currently without an ISAX controller
     jal ra, load_4_operands
-    complex_mul t0, t0, t1
-    complex_add t1, t2, t3
+    complexmul t0, t0, t1
+    complexadd t1, t2, t3
     jal ra, store_2_result
 
 # Completion interrupt.
@@ -84,14 +84,14 @@ store_2_result:
 
 .data
 test_data:
-# complex_add
+# complexadd
 # operand 1:
 .word -3
 .word 2
 # operand 2:
 .word 45
 .word 40
-# complex_add & complex_add
+# complexadd & complexadd
 # operand 1:
 .word -42
 .word -42
@@ -104,7 +104,7 @@ test_data:
 # operand 4:
 .word 32767
 .word -256
-# complex_add & complex_add register conflict
+# complexadd & complexadd register conflict
 # operand 3: dont care
 .word -1
 .word -1
@@ -117,7 +117,7 @@ test_data:
 # operand 2:
 .word 11
 .word 128
-# complex_mul & complex_add
+# complexmul & complexadd
 # operand 1:
 .word -42
 .word -42

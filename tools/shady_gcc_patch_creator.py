@@ -3,15 +3,40 @@
 import sys
 import pathlib
 import os
-
-from isax_yaml_tools import *
+import yaml
 
 if len(sys.argv) != 3:
     print("Usage: ./shady_gcc_patch_creator.py <ISAX.yaml> <patched_files_output_dir>")
     sys.exit(1)
 
 file_name = sys.argv[1]
-isax = extract_encodings(file_name)
+
+def extract_encodings_from_yaml(yaml_path):
+    """Load ISAX YAML and return dict of {name: mask}.
+
+    Auto-detects format:
+    - AnalyzeISAX: dict with 'extension' and 'instructions' keys
+    - Legacy (EmitISAXEncodings / HW-gen): list of {instruction, mask} dicts
+    """
+    with open(yaml_path, 'r') as f:
+        data = yaml.safe_load(f)
+
+    encodings = {}
+
+    if isinstance(data, dict) and 'instructions' in data:
+        # AnalyzeISAX format
+        for instr in data['instructions']:
+            encodings[instr['name']] = instr['mask']
+    else:
+        # Legacy format: list of {instruction, mask} dicts
+        if data:
+            for item in data:
+                if 'instruction' in item:
+                    encodings[item['instruction']] = item['mask']
+
+    return encodings
+
+isax = extract_encodings_from_yaml(file_name)
 
 # Handle placeholders for immediate values by enumerating all possible assignments
 expanded_isax = dict()
@@ -45,18 +70,22 @@ for k, v in expanded_isax.items():
 
 # gather all required assembler definitions
 def computeAsmFormat(enc):
+    """Compute the GCC assembler format string by scanning for variable bits
+    at standard register positions in the encoding mask.
+
+    GCC needs a format character for every variable bit range at a standard
+    register position, regardless of whether the field is semantically a
+    register or an immediate. The encoding mask string is sufficient.
+    """
     format = []
     # Check for the usage of the rd field
     if '-' in enc[32-7-5:32-7]:
-        print(f"rd={enc[32-7-5:32-7]}")
         format.append('d')
     # Check for the usage of the rs1 field
     if '-' in enc[32-7-8-5:32-7-8]:
-        print(f"rs1={enc[32-7-8-5:32-7-8]}")
         format.append('s')
     # Check for the usage of the rs2 field
     if '-' in enc[32-7-8-5-5:32-7-8-5]:
-        print(f"rs2={enc[32-7-8-5:32-7-8]}")
         format.append('t')
     return ",".join(format)
 

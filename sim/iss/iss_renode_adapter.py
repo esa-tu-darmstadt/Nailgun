@@ -30,6 +30,12 @@ class _SystemBusStub:
 class _MachineStub:
     def __init__(self, adapter: ISSTbAdapter):
         self.SystemBus = _SystemBusStub(adapter)
+    def InfoLog(self, msg):
+        pass
+    def ErrorLog(self, msg):
+        pass
+    def WarningLog(self, msg):
+        pass
 
 class _CPUStub:
     def __init__(self, adapter: ISSTbAdapter):

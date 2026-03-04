@@ -244,18 +244,6 @@ def concat_mlir_files(mlir_paths, out_file):
 def merge_isaxes(out_dir, ln_path, in_mlir, out_mlir, show_output = False):
     run_cmd.run(out_dir, f"{ln_path} -merge-multiple-isaxes {in_mlir} -o {out_mlir}", f"Longnail ISAX merging failed", error.LN_BASE + 4, show_output, 200)
 
-def emit_isax_encodings_yaml(out_dir, ln_path, mlir_path, out_yaml_path, show_output = False):
-    """Invoke the -emit-isax-encodings pass to produce a minimal ISAX YAML.
-
-    The YAML contains only 'instruction' + 'mask' fields, which is sufficient
-    for GCC patch generation (via shady_gcc_patch_creator.py) without a full
-    HW-gen pass.
-    """
-    run_cmd.run(out_dir,
-        f"{ln_path} -emit-isax-encodings=outputPath={out_yaml_path} {mlir_path} -o /dev/null",
-        "Emitting ISAX encoding YAML failed", error.LN_BASE + 10, show_output, 200)
-    return out_yaml_path
-
 def run_longnail(mlir_paths, datasheet, kconfig_syms, out_dir, iteration, critical_chains):
     print("Running Longnail:")
 

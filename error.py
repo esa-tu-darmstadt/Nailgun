@@ -7,7 +7,7 @@ LN_BASE = 100
 SCAIEV_BASE = 150
 PICOLIBC_BASE = 190
 SIM_BASE = 200
-AWESOME_BASE = 220
+LLVM_PATCHER_BASE = 220
 LIBRELANE_BASE = 230
 GCC_BASE = 240
 
@@ -32,10 +32,10 @@ def decode_exit_code(exit_code, id):
         return f"LN error ({exit_code}) ID={id}"
     if SCAIEV_BASE <= exit_code < SIM_BASE:
         return f"SCAIE-V error ({exit_code}) ID={id}"
-    if SIM_BASE <= exit_code < AWESOME_BASE:
+    if SIM_BASE <= exit_code < LLVM_PATCHER_BASE:
         return f"SIM error ({exit_code}) ID={id}"
-    if AWESOME_BASE <= exit_code < LIBRELANE_BASE:
-        return f"Awesome error ({exit_code}) ID={id}"
+    if LLVM_PATCHER_BASE <= exit_code < LIBRELANE_BASE:
+        return f"LLVM patcher error ({exit_code}) ID={id}"
     if LIBRELANE_BASE <= exit_code < GCC_BASE:
         return f"Openlane error ({exit_code})"
     if GCC_BASE <= exit_code:

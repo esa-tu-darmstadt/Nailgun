@@ -13,18 +13,18 @@ int main() {
 
   unsigned res = 1;
 
-  /* TODO well this is super ugly... the imm value must be split manually ...
-    "BRIMM.cv_beqimm", "$TREENAIL_WAS_HERE_imm12_10_10, $TREENAIL_WAS_HERE_imm12_3_0, $TREENAIL_WAS_HERE_rs1_4_0, $TREENAIL_WAS_HERE_imm5_4_0, $TREENAIL_WAS_HERE_imm12
-_9_4, $TREENAIL_WAS_HERE_imm12_11_11",
-*/
+  // Asm format: MERGED.cvbeqimm $imm12, $imm5, $rs1
+  // imm12: branch offset / 2 (signed 12-bit, actual offset = imm12 * 2)
+  // imm5:  immediate comparison value (signed 5-bit), branch if X[rs1] == imm5
+  // imm12=8 → offset=16 bytes → skip 3 instructions → land on last addi
   asm volatile(
       ".option push\n"
       ".option norvc\n"   // Compressed instructions break the hardcoded offset
-      ASM_PREFIX ".cvbeqimm 0, 8, %0, 1, 0, 0\n" // Jump to the last addi command
-      "addi %0, %0, 1\n"  // RISC-V instruction to add immediate value 1 to res
-      "addi %0, %0, 2\n"  // RISC-V instruction to add immediate value 1 to res
-      "addi %0, %0, 3\n"  // RISC-V instruction to add immediate value 1 to res
-      "addi %0, %0, 41\n" // RISC-V instruction to add immediate value 1 to res
+      ASM_PREFIX ".cvbeqimm 8, 1, %0\n" // Branch to last addi if res == 1
+      "addi %0, %0, 1\n"  // Skipped by branch
+      "addi %0, %0, 2\n"  // Skipped by branch
+      "addi %0, %0, 3\n"  // Skipped by branch
+      "addi %0, %0, 41\n" // Branch target: res += 41
       ".option pop\n"
       : "+r"(res)         // Output operand: 'res' will be modified
   );

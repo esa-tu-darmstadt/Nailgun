@@ -2,16 +2,16 @@ import os
 import functools
 
 import error
+import longnail
 import run_cmd
 import scaiev
-import longnail
 import picolibc
 
-def get_awesome_path():
-    return "deps/awesome_llvm"
+def get_llvm_patcher_path():
+    return "deps/llvm_patcher"
 
 def llvm_repo_exists(version):
-    llvm_repo = os.path.abspath(f"{get_awesome_path()}/compiler-patcher/build-tests/llvm-project/worktree/{version}")
+    llvm_repo = os.path.abspath(f"{get_llvm_patcher_path()}/llvm-project/{version}")
 
     # Ensure the llvm repo is setup
     return os.path.exists(llvm_repo), llvm_repo
@@ -29,14 +29,27 @@ def check_clang_exists(version):
     clang_path = os.path.join(llvm_build_path, "bin", "clang++")
     return os.path.exists(clang_path), clang_path
 
-def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
-    ccache_size = "25G"
-    if os.getenv("AWESOME_CCACHE_SIZE"):
-        ccache_size = os.getenv("AWESOME_CCACHE_SIZE")
+def run_analyze_isax(mlir_path, out_dir):
+    """Run the AnalyzeISAX pass on merged MLIR to produce a structured YAML.
 
-    mlir_path = os.path.abspath(mlir_path) if (mlir_path is not None) else None
-    awesome_path = get_awesome_path()
-    awesome_ln_bin = longnail.get_longnail_bin(kconf_syms, "AWESOME", os.path.basename(get_awesome_path()))
+    Returns the absolute path to the generated YAML file.
+    """
+    longnail_opt = longnail.get_default_longnail_bin()
+    yaml_path = os.path.abspath(os.path.join(out_dir, "isax_analysis.yaml"))
+    mlir_path = os.path.abspath(mlir_path)
+    analysis_cmd = (
+        f"{longnail_opt} "
+        f"'--pass-pipeline=builtin.module(inline,analyze-isax{{output={yaml_path}}})' {mlir_path}"
+    )
+    run_cmd.run(".", analysis_cmd, "Failed to analyze ISAX MLIR", error.LLVM_PATCHER_BASE + 4, False, 200)
+    return yaml_path
+
+def prepare_llvm(version, rebuild, do_not_patch, analysis_yaml_path=None):
+    ccache_size = "25G"
+    if os.getenv("LLVM_PATCHER_CCACHE_SIZE"):
+        ccache_size = os.getenv("LLVM_PATCHER_CCACHE_SIZE")
+
+    patcher_path = get_llvm_patcher_path()
 
     # Hard reset the llvm target repository
     llvm_exists, llvm_repo = llvm_repo_exists(version)
@@ -45,9 +58,9 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
     commit = f"release/{version}.x"
     if not llvm_exists:
         # Clone llvm
-        run_cmd.run(".", f"git clone --depth=1 -b {commit} https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.AWESOME_BASE + 1, False)
+        run_cmd.run(".", f"git clone --depth=1 -b {commit} https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.LLVM_PATCHER_BASE + 1, False)
         # Configure cmake
-        ccache_path = os.path.abspath(f"{awesome_path}/compiler-patcher/build-tests/llvm-project/ccache")
+        ccache_path = os.path.abspath(f"{patcher_path}/llvm-project/ccache")
         targets = [
             ("riscv32-unknown-elf", "-march=rv32i -mabi=ilp32"),
             ("riscv64-unknown-elf", "-march=rv64i -mabi=lp64"),
@@ -63,11 +76,12 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
             "COMPILER_RT_BUILD_PROFILE=OFF",
             "COMPILER_RT_BUILD_SANITIZERS=OFF",
             "COMPILER_RT_BUILD_XRAY=OFF",
+            "COMPILER_RT_BUILD_CTX_PROFILE=OFF",
             # "LIBCXX_USE_COMPILER_RT=YES",
             # "LIBCXXABI_USE_COMPILER_RT=YES",
             # "CLANG_DEFAULT_RTLIB=compiler-rt",
         ]
-        compiler_rt_args = []
+        compiler_rt_args = [ f"-D{a}" for a in compiler_rt_arg_templates ]
         if len(targets) > 1:
             compiler_rt_args = [ f"-DRUNTIMES_{t}_{a}" for a in compiler_rt_arg_templates for t, _ in targets]
         else:
@@ -92,21 +106,20 @@ def prepare_llvm(kconf_syms, mlir_path, version, rebuild, do_not_patch):
             f"-DLLVM_CCACHE_MAXSIZE={ccache_size}",
             f"-DCMAKE_BUILD_TYPE={build_type}",
         ] + compiler_rt_args
-        run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", error.AWESOME_BASE + 2, False)
+        run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM {version}", error.LLVM_PATCHER_BASE + 2, False)
         rebuild = True # The desired version did not exists -> force rebuild
 
     build_dir = llvm_build_dir(llvm_repo)
 
     if rebuild:
-        run_cmd.run(".", f"git -C {llvm_repo} reset --hard origin/{commit}", "Failed to reset the llvm work directory", error.AWESOME_BASE + 3, False)
+        run_cmd.run(".", f"git -C {llvm_repo} reset --hard origin/{commit}", "Failed to reset the llvm work directory", error.LLVM_PATCHER_BASE + 3, False)
         # Patch LLVM
         if not do_not_patch:
-            llvm_patcher = os.path.abspath(f"{awesome_path}/compiler-patcher/compiler-patcher.sh")
-            datasheet_path = os.path.abspath(f"{awesome_path}/datasheets/CVA5.yaml") # Awesome runs prepare-schedule-lil internally and therefore needs a valid datasheet as argument, so lets choose the one with most capabilities
-            pass_opts = f"disableISelGen=true datasheet={datasheet_path}" # No ISel patterns for now
-            run_cmd.run(".", f"{llvm_patcher} --coredsl-input {mlir_path} --longail-bin {awesome_ln_bin} --llvm-project-dir {llvm_repo} --llvm-version {version} -pass-opts '{pass_opts}'", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.AWESOME_BASE + 4, False, 200)
+            # Patch LLVM with YAML
+            patcher_script = os.path.abspath(f"{patcher_path}/patch_llvm.py")
+            run_cmd.run(".", f"python3 {patcher_script} --yaml-input {analysis_yaml_path} --llvm-project-dir {llvm_repo} --llvm-version {version}", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.LLVM_PATCHER_BASE + 5, False, 200)
         # Build LLVM
-        run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the {'unpatched' if do_not_patch else 'patched'} LLVM {version}", error.AWESOME_BASE + 5, False, 200)
+        run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the {'unpatched' if do_not_patch else 'patched'} LLVM {version}", error.LLVM_PATCHER_BASE + 6, False, 200)
 
     return build_dir
 
@@ -205,10 +218,10 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_
     compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(llvm_build_path, 'lib', 'clang', llvm_version, 'lib', f'riscv{ext.xlen}-unknown-elf')}"
     isax_ext_name = f"_x{isax_name}0p1" if isax_name else ""
     picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -Wl,--whole-archive -lsemihost -Wl,--no-whole-archive"
-    flags = f'--target="riscv{ext.xlen}-unknown-elf" -menable-experimental-extensions -mabi="{ext.abi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
+    flags = f'--target="riscv{ext.xlen}-unknown-elf" -menable-experimental-extensions -fuse-ld=lld -mabi="{ext.abi}" -march="{march}{isax_ext_name}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
     objdump_path = os.path.join(llvm_build_path, "bin", "llvm-objdump")
 
-    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.AWESOME_BASE + 5, run_disassembly, custom_linker_script)
+    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.LLVM_PATCHER_BASE + 5, run_disassembly, custom_linker_script)
 
 def precompile_picolibc_for_all_cores(llvm_version):
     clang_exists, clang_path = check_clang_exists(llvm_version)

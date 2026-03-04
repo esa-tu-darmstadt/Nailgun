@@ -245,8 +245,8 @@ def find_yaml_file(out_dir):
     # Use glob to find files matching the pattern
     yaml_files = glob.glob(search_pattern)
     if yaml_files:
-        yaml_files = [f for f in yaml_files if "selected_solutions.yaml" not in f]
-        return os.path.abspath(yaml_files[0])
+        yaml_files = [f for f in yaml_files if "selected_solutions.yaml" not in f and "isax_analysis.yaml" not in f]
+        return os.path.abspath(yaml_files[0]) if yaml_files else None
     else:
         return None
 
@@ -258,7 +258,7 @@ def get_target_elf_file_path(out_dir):
     # elf file path
     return os.path.join(bin_dir, "tb.elf")
 
-def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, mlir_path, only_add_cc_support):
+def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, only_add_cc_support, isax_analysis_yaml):
     core_support = scaiev.get_core_support(core_name)
     if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
@@ -277,29 +277,34 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, ml
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
-    def patch_and_compile_with_gcc(filepaths, custom_linker_script=None, include_startup_files=False):
-        if kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
+    def prepare_gcc():
+        nonlocal isax_analysis_yaml
+        if kconfig_syms['SIM_SKIP_CC'].str_value != "y":
+            if not isax_analysis_yaml:
+                isax_analysis_yaml = isax_yaml_path
             print(" - Adding ISAX assembly support to GCC")
-            toolchain.prepare_gcc(kconfig_syms, isax_yaml_path)
+            toolchain.prepare_gcc(kconfig_syms, isax_analysis_yaml)
+    def patch_and_compile_with_gcc(filepaths, custom_linker_script=None, include_startup_files=False):
+        prepare_gcc()
         if not only_add_cc_support:
             print(" - Compiling assembly TB with GCC")
             return toolchain.gcc_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, custom_linker_script, include_startup_files=include_startup_files)
     
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None):
-        llvm_version = kconfig_syms['SIM_AWESOME_LLVM_VERSION'].str_value
+        llvm_version = kconfig_syms['SIM_LLVM_VERSION'].str_value
         clang_exists, _ = toolchain.check_clang_exists(llvm_version)
-        skip_clang_build = kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value == "y" and clang_exists
-        unpatched_clang = (not skip_clang_build) and (not mlir_path)
+        skip_clang_build = kconfig_syms['SIM_SKIP_CC'].str_value == "y" and clang_exists
+        unpatched_clang = (not skip_clang_build) and (not isax_analysis_yaml)
         if unpatched_clang:
-            print("WARNING: Patching clang requires a ISAX MLIR input file!")
+            print("WARNING: Patching clang requires a ISAX YAML input file!")
             print("INFO: Using unpatched clang!")
         else:
             print(" - Adding ISAX support to clang")
-        llvm_build_dir = toolchain.prepare_llvm(kconfig_syms, mlir_path, llvm_version, not skip_clang_build, unpatched_clang)
+        llvm_build_dir = toolchain.prepare_llvm(llvm_version, not skip_clang_build, unpatched_clang, analysis_yaml_path=isax_analysis_yaml)
         if not only_add_cc_support:
             print(" - Compiling C++ TB")
             if not unpatched_clang and not cpp_ext_name:
-                error.exit_error("Compiling the TB with clang requires the ISAX extension name! The ISAX extension name can manually be overwritten via the 'SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
+                error.exit_error("Compiling the TB with clang requires the ISAX extension name! The ISAX extension name can manually be overwritten via the 'SIM_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
             return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), llvm_build_dir, cpp_ext_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script)
         else:
             # Ensure that picolibc exists for all cores
@@ -308,8 +313,8 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, ml
     def process_bin_file(bin_file, elf_file, first_run):
         # Convert axf to elf_file
         if bin_file.endswith(".axf"):
-            if first_run and kconfig_syms['SIM_SKIP_AWESOME_LLVM'].str_value != "y":
-                toolchain.prepare_gcc(kconfig_syms, isax_yaml_path)
+            if first_run:
+                prepare_gcc()
             objcopy_path = toolchain.get_gcc_objcopy_path()
             run_cmd.run(".", f"{objcopy_path} {bin_file} {elf_file}", "Failed to convert axf file to an elf file!", error.GCC_BASE + 5, False)
         else:

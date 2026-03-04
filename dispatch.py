@@ -10,6 +10,7 @@ import kconfig
 import longnail
 import scaiev
 import simulation
+import toolchain
 
 from tools.critical_chains import merge_chains
 
@@ -116,22 +117,21 @@ if __name__ == "__main__":
                     concat_file = mlir_paths[0]
                 mlir_path = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
                 longnail.merge_isaxes(out_dir, ln_path, concat_file, mlir_path)
-                # Emit a minimal ISAX YAML with encoding masks so GCC patching works.
-                isax_yaml = longnail.emit_isax_encodings_yaml(
-                    out_dir, ln_path, mlir_path,
-                    os.path.abspath(os.path.join(out_dir, "isax_encodings.yaml"))
-                )
             else:
                 # Full LN pipeline: merge → schedule → HW-gen (.sv)
                 datasheet = longnail.select_core_datasheet(core_support)
                 mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
                 isax_yaml = longnail.provide_isax_yaml(out_dir)
+        # Run AnalyzeISAX to produce structured YAML (used by both GCC and LLVM patching).
+        isax_analysis_yaml = None
+        if mlir_path is not None:
+            isax_analysis_yaml = toolchain.run_analyze_isax(mlir_path, out_dir)
 
         isax_name = None
         if mlir_path is not None and os.path.exists(mlir_path):
             isax_name = extract_isax_name(mlir_path)
-        if kconf.syms["SIM_AWESOME_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
-            cpp_ext_name = kconf.syms["SIM_AWESOME_LLVM_ISAX_NAME"].str_value
+        if kconf.syms["SIM_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
+            cpp_ext_name = kconf.syms["SIM_LLVM_ISAX_NAME"].str_value
         else:
             cpp_ext_name = isax_name
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
             scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
         # Optionally run the simulation
-        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, cpp_ext_name, mlir_path, only_add_cc_support)
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, cpp_ext_name, only_add_cc_support, isax_analysis_yaml)
 
         new_critical_chains = []
         if not only_add_cc_support:

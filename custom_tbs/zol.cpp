@@ -12,31 +12,26 @@ int main() {
 
   constexpr unsigned ITERATIONS = 42;
   unsigned res = 0;
-  // TODO FIXME: Yeah the builtin does not really work as expected and wrong
-  // assembly is generated... so we will rely on inline assembly instead!
-  //__builtin_riscv_setupzol(/*Since we wrote our "loop" in inline assembly, we
-  //                           know that it consists of a single instruction,
-  //                           hence ZOLENDPC = ZOLSTARTPC + 4 = PC + 8 = PC + (4
-  //                           << 1)*/
-  //                          4,
-  //                          ITERATIONS - 1);
-  // Increment 'res' using RISC-V inline assembly
+  // Asm format: MERGED.setupzol $uimmL, $uimmS
+  //   uimmL (12-bit): iteration count - 1
+  //   uimmS (5-bit): PC offset to one-past-end instruction divided by 2
   // Note: ZOL (specifically for CVA6) currently has some limitations with compressed instructions
   // - loop end PC (END_PC) must appear in the fetch stage
   // -> loop end must be 4-byte aligned, otherwise the core will request END_PC-2 and END_PC+2 and then realign
   // - loop body must not contain compressed instructions
   // -> hardware assumes only one instruction leaves the realigner at a time
   asm volatile(
+      ".option push\n"
+      ".option norvc\n"   // Compressed instructions break the hardcoded offset
       ".p2align 3\n" // Enforce 64bit alignment
                      // -> Set so the instr >after the loop end< is 64bit aligned
-      ASM_PREFIX ".setupzol 4, 41\n" // Initialize the loop
-                                     // - first arg: PC offset to one-past-end instruction divided by 2
-                                     // - second arg: iteration count -1
-                                     // note: args may be flipped in different assembler integrations
-      ".word 0x00158593\n"   // RISC-V uncompressed instruction to add immediate value 1 to a1
-      //"addi a1, a1, 1\n"
+      ASM_PREFIX ".setupzol 41, 4\n" // Initialize the loop
+                                     // - first arg (uimmL): iteration count - 1
+                                     // - second arg (uimmS): PC offset / 2
+      "addi a1, a1, 1\n"
       "addi %0, a1, 100\n" // RISC-V instruction to add immediate value 100 to res
                            // (outside the loop, executed once)
+      ".option pop\n"
       : "+r"(res)          // Output operand: 'res' will be modified
       : //No input operands
       : "a1"
