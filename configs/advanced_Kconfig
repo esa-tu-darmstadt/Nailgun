@@ -7,11 +7,7 @@ menu "Advanced Options"
 		default n
 	config SIM_SKIP_CC
 		depends on SIM_ENABLE
-		bool "Skip patching and rebuilding compilers (clang/gcc)"
-		default n
-	config SIM_SKIP_GDB
-		depends on !SIM_SKIP_CC
-		bool "Skip patching and rebuilding gdb"
+		bool "Skip patching and rebuilding clang"
 		default n
 	config SIM_LLVM_VERSION
 		depends on SIM_ENABLE || ONLY_PATCH_CC
@@ -25,6 +21,10 @@ menu "Advanced Options"
 		depends on SIM_LLVM_OVERWRITE_ISAX_NAME
 		string "ISAX name"
 		default "merged"
+	config USE_DYNAMIC_ISAX
+		depends on SIM_ENABLE || ONLY_PATCH_CC
+		bool "Use dynamic ISAX LLVM (no patching/rebuilding required)"
+		default n
 
 	choice
 		prompt "Alternate Entrypoint"
@@ -57,16 +57,6 @@ menu "Advanced Options"
 			string "Path to SV file"
 		config SV_ENTRY_POINT_ISAX_YAML_PATH
 			string "Path to ISAX YAML file"
-	endmenu
-
-	menu "GCC/Binutils opcode settings (assembly tests)"
-		depends on !SIM_SKIP_CC
-		config SIM_GCC_USE_PATCHGEN
-			bool "Use automatic patch generator"
-			default y
-		config SIM_GCC_OPCODES_DIR
-			depends on !SIM_GCC_USE_PATCHGEN
-			string "Directory with custom opcode patches"
 	endmenu
 
 	config USE_PREBUILT_LN

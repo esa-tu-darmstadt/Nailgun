@@ -63,9 +63,6 @@ if __name__ == "__main__":
         # The CI can not perform user interactions -> we must skip the solution selection process if no solution selection is given
         kconf.syms["LN_FORCE_MIN_II_SOLUTIONS"].set_value("y")
 
-    # The CI does not use GDB
-    kconf.syms["SIM_SKIP_GDB"].set_value("y")
-
     # Write the generated .config file
     config_out_path = os.getenv("CONFIG_PATH")
     if config_out_path:

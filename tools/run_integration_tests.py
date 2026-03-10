@@ -12,10 +12,22 @@ import pandas as pd
 from tabulate import tabulate
 from enum import Flag, auto
 from pathlib import Path
+import argparse
+
+parser = argparse.ArgumentParser(description="Run NailGun integration tests")
+parser.add_argument("--use-dynamic-isax", action="store_true",
+                    help="Use llvm_dynamic_isax instead of llvm_patcher")
+parser.add_argument("--output-dir", default="test_results",
+                    help="Directory for test output (default: test_results)")
+args = parser.parse_args()
+
+global_env_prefix = ""
+if args.use_dynamic_isax:
+    global_env_prefix = 'USE_DYNAMIC_ISAX="y" '
 
 MAX_SCALA_JOBS=8 #limit of parallel jobs on Scala/Spinal cores (try to avoid IOException on ionotify / open files limit)
 
-integration_test_working_dir = os.path.abspath("test_results")
+integration_test_working_dir = os.path.abspath(args.output_dir)
 if os.path.exists(integration_test_working_dir):
     shutil.rmtree(integration_test_working_dir)
 logs_dir = os.path.join(integration_test_working_dir, "logs")
@@ -47,9 +59,7 @@ init_commands = [
 
 patch_compiler_commands = [
     # Prepare clang
-    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', False),
-    # Prepare gcc
-    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"', False),
+    CommandJob(f'{global_env_prefix}ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', False),
 ]
 
 # Lists of integration tests to run, tuples of (command_env: str, apply_scala_tasklimit: bool)
@@ -143,7 +153,7 @@ command_templates = [
     # vector ISAX
     CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.cpp" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"',
                     [CoreFeature.Decoupled], CommandFlags.EnableISSLockstep),
-    # Baseline tests gcc
+    # Baseline tests asm
     CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
                     [CoreFeature.NONE], CommandFlags.NONE),
     # Baseline tests clang
@@ -186,7 +196,7 @@ for core, core_features, is_scala, timeout_scale in cores:
             cmd = cmd + ' SIM_ENABLE_ISS_LOCKSTEP="y"'
 
         # Run test in the parallel section once the all-ISAX compilers are built
-        parallelizable_commands.append(CommandJob(f'CLANG_EXT_ISAX_NAME="merged" SIM_SKIP_CC="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
+        parallelizable_commands.append(CommandJob(f'{global_env_prefix}CLANG_EXT_ISAX_NAME="merged" SIM_SKIP_CC="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
 
 def get_job_output_folder(id: int):
     return os.path.join(integration_test_working_dir, f"output_test_{id:03}")
@@ -333,7 +343,7 @@ for exit_code, cmd, id in results:
         if tb_path.endswith(".elf") or tb_path.endswith(".axf"):
             test_case_name = "NO ISAX / " + tb_name
         else:
-            test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "gcc")
+            test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "asm")
     elif len(isaxes) == 1:
         isax = isaxes[0]
         test_case_name = isax if tb_name.lower() == isax.lower() else f"{isax} / {tb_name}"

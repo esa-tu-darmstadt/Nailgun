@@ -99,6 +99,8 @@ if __name__ == "__main__":
     mlir_paths, isax_yaml = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
 
     only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
+    use_dynamic_isax_sym = kconf.syms.get("USE_DYNAMIC_ISAX", None)
+    use_dynamic_isax = use_dynamic_isax_sym.str_value == "y" if use_dynamic_isax_sym else False
 
     critical_chains = []
     iteration = 0
@@ -122,7 +124,7 @@ if __name__ == "__main__":
                 datasheet = longnail.select_core_datasheet(core_support)
                 mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
                 isax_yaml = longnail.provide_isax_yaml(out_dir)
-        # Run AnalyzeISAX to produce structured YAML (used by both GCC and LLVM patching).
+        # Run AnalyzeISAX to produce structured YAML (used by LLVM patching).
         isax_analysis_yaml = None
         if mlir_path is not None:
             isax_analysis_yaml = toolchain.run_analyze_isax(mlir_path, out_dir)
@@ -141,7 +143,7 @@ if __name__ == "__main__":
             scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
         # Optionally run the simulation
-        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, cpp_ext_name, only_add_cc_support, isax_analysis_yaml)
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, cpp_ext_name, only_add_cc_support, isax_analysis_yaml, use_dynamic_isax=use_dynamic_isax)
 
         new_critical_chains = []
         if not only_add_cc_support:
