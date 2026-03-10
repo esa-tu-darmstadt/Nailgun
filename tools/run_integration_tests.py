@@ -116,7 +116,7 @@ command_templates = [
                     True, CoreFeature.Memory | CoreFeature.Control, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SBOX" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
+    CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/sparkle.cpp" TB_EXPECTED_PATH="custom_tbs/sparkle_expected.txt"',
                     True, CoreFeature.NONE, CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SQRT" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     True, CoreFeature.Decoupled, CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
