@@ -94,8 +94,8 @@ class CommandFlags(Flag):
 
 class CommandTemplate:
     def __init__(self, env_str: str, required_features: list[CoreFeature], command_flags: CommandFlags):
+        assert(isinstance(required_features, list))
         self.env_str = env_str
-        self.parallel = True
         self.required_features = required_features
         self.command_flags = command_flags
         self.cycle_timeout = SIM_CYCLE_TIMEOUT_DEFAULT
@@ -104,7 +104,7 @@ class CommandTemplate:
         return self
 
 # Integration tests that are run for EVERY available core
-# (cmd:str, parallel:bool, required_features:CoreFeature, command_flags:CommandFlags)
+# (cmd:str, required_features:CoreFeature, command_flags:CommandFlags)
 command_templates = [
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
                     [CoreFeature.Memory], CommandFlags.EnableISSLockstep),
@@ -139,16 +139,16 @@ command_templates = [
     # MLIR entrypoint tests
     # complex ISAX
     CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.cpp" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"',
-                    CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Decoupled], CommandFlags.EnableISSLockstep),
     # vector ISAX
     CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/vector/vector.mlir" LN_CELL_LIBRARY="deps/longnail/sim/vector/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/vector.cpp" TB_EXPECTED_PATH="custom_tbs/vector_expected.txt" LN_OPTY_OL2_MODEL="y"',
-                    CoreFeature.Decoupled, CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Decoupled], CommandFlags.EnableISSLockstep),
     # Baseline tests gcc
     CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.S" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
-                    CoreFeature.NONE, CommandFlags.NONE),
+                    [CoreFeature.NONE], CommandFlags.NONE),
     # Baseline tests clang
     CommandTemplate('NO_ISAX="y" SIM_ENABLE="y" TB_PATH="custom_tbs/dummy.cpp" TB_EXPECTED_PATH="custom_tbs/dummy_expected.txt"',
-                    CoreFeature.NONE, CommandFlags.NONE),
+                    [CoreFeature.NONE], CommandFlags.NONE),
 ]
 
 SIM_CYCLE_TIMEOUT_DEFAULT=50000
@@ -185,12 +185,8 @@ for core, core_features, is_scala, timeout_scale in cores:
         if (template.command_flags & CommandFlags.EnableISSLockstep) and (core_features & CoreFeature.ISSLockstep):
             cmd = cmd + ' SIM_ENABLE_ISS_LOCKSTEP="y"'
 
-        if template.parallel:
-            # Run test in the parallel section once the all-ISAX compilers are built
-            parallelizable_commands.append(CommandJob(f'CLANG_EXT_ISAX_NAME="merged" SIM_SKIP_CC="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
-        else:
-            # Run test sequentially, build compiler per run
-            sequential_commands.append(CommandJob(f'CORE="{core}" {cmd}', False))
+        # Run test in the parallel section once the all-ISAX compilers are built
+        parallelizable_commands.append(CommandJob(f'CLANG_EXT_ISAX_NAME="merged" SIM_SKIP_CC="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
 
 def get_job_output_folder(id: int):
     return os.path.join(integration_test_working_dir, f"output_test_{id:03}")
