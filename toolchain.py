@@ -175,12 +175,14 @@ def get_objcopy_path():
 def get_objdump_path():
     return _find_tool("llvm-objdump", "objdump")
 
-def disas_tb(objdump_path, elf_file, error_code):
+def disas_tb(objdump_path, elf_file, error_code, analysis_yaml_path=None):
     disas_path = elf_file + "_disasm.txt"
     disasm_flags = "-D"
+    if analysis_yaml_path:
+        disasm_flags += f" -mllvm=-isax-desc={os.path.abspath(analysis_yaml_path)}"
     run_cmd.run(".", f"{objdump_path} {disasm_flags} {elf_file} > {disas_path}", f"Failed to disassemble TB elf file '{elf_file}'!", error_code, False)
 
-def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None):
+def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flags, additional_flags, error_code_base, run_disassembly, custom_linker_script=None, analysis_yaml_path=None):
     # Build elf file
     linker_file = core_support.get_linker_file() if custom_linker_script is None else custom_linker_script
     if tb_paths:
@@ -189,7 +191,7 @@ def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flag
 
     # Build disassembly file
     if run_disassembly:
-        disas_tb(objdump_path, elf_out_path, error_code_base + 2)
+        disas_tb(objdump_path, elf_out_path, error_code_base + 2, analysis_yaml_path)
 
     return elf_out_path
 
@@ -242,7 +244,8 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_
         picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -Wl,--whole-archive -lsemihost -Wl,--no-whole-archive"
         flags = f'--target="riscv{ext.xlen}-unknown-elf" {isax_flags} -fuse-ld=lld -mabi="{ext.abi}" -march="{march}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
 
-    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.LLVM_PATCHER_BASE + 5, run_disassembly, custom_linker_script)
+    yaml_for_disasm = analysis_yaml_path if use_dynamic_isax else None
+    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.LLVM_PATCHER_BASE + 5, run_disassembly, custom_linker_script, yaml_for_disasm)
 
 def precompile_picolibc_for_all_cores(llvm_version, use_dynamic_isax=False):
     if use_dynamic_isax:
