@@ -1,0 +1,20 @@
+InstructionSet swap {
+  architectural_state {
+    unsigned<32> XLEN = 32;
+    register unsigned<XLEN> X[32] [[is_main_reg]];
+  }
+
+  instructions {
+    SWAP_N_MAC {
+      encoding: 7'b0000000 :: rs2[4:0] :: rs1[4:0] :: 3'b001 :: rd[4:0] :: 7'b0001011;
+      behavior: {
+        unsigned<XLEN> val_a = X[rs1];
+        unsigned<XLEN> val_b = X[rs2];
+        unsigned<XLEN> val_c = X[rd];
+        X[rs2] = val_a;
+        X[rs1] = val_b;
+        X[rd] = (unsigned<XLEN>)(val_c + val_a * val_b);
+      }
+    }
+  }
+}

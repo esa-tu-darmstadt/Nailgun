@@ -1,0 +1,16 @@
+InstructionSet init {
+  architectural_state {
+    unsigned<32> XLEN = 32;
+    register unsigned<XLEN> X[32] [[is_main_reg]];
+  }
+
+  instructions {
+    INIT_RF_42 {
+      encoding: 7'b0000001 :: 5'd0 :: 5'd0 :: 3'b001 :: 5'd0 :: 7'b0001011;
+      behavior: {
+        for (int i = 1; i < XLEN; ++i)
+          X[i] = 42;
+      }
+    }
+  }
+}

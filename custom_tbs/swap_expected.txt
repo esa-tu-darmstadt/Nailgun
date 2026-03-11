@@ -1,0 +1,14 @@
+# swap_n_mac(0, 3, 7)
+00000015
+# swap_n_mac(21, 4, 5)
+00000029
+# swap_n_mac(41, 10, 10)
+0000008D
+# swap_n_mac(141, 0, 12345)
+0000008D
+# swap_n_mac(5, 0xFFFF, 0xFFFF)
+FFFE0006
+# accumulation loop
+00000000
+# sentinel
+FFFFFFFF
