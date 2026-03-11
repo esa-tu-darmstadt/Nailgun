@@ -161,8 +161,6 @@ command_templates = [
                     [CoreFeature.NONE], CommandFlags.NONE),
 ]
 
-SIM_CYCLE_TIMEOUT_DEFAULT=50000
-
 # (core:str, core_features:CoreFeature, is_scala: bool, timeout_scale:float)
 cores = [
     ("CVA6",      CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            False, 1.0),
