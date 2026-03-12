@@ -10,9 +10,9 @@ int main() {
   // save/restore state and capture results in a single asm block.
   asm volatile(
       // Save sp and ra to fixed memory (before _test_resdata)
-      "la t0, _test_resdata\n"
-      "sw sp, -4(t0)\n"
-      "sw ra, -8(t0)\n"
+      "la t0, _ctx_state_start\n"
+      "sw sp, 4(t0)\n"
+      "sw ra, 8(t0)\n"
       // Execute init.initrf42
       ASM_PREFIX ".initrf42\n"
       // All regs X[1..31] are now 42.
@@ -52,8 +52,9 @@ int main() {
       // Store accumulated value as proof that all registers have been 42
       "sw x31, 0(x30)\n"
       // Restore sp and ra
-      "lw sp, -4(x30)\n"
-      "lw ra, -8(x30)\n"
+      "la x30, _ctx_state_start\n"
+      "lw sp, 4(x30)\n"
+      "lw ra, 8(x30)\n"
       ::: "memory", "ra", "gp", "tp",
           "t0", "t1", "t2", "t3", "t4", "t5", "t6",
           "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
