@@ -140,7 +140,7 @@ command_templates = [
                     [CoreFeature.Control], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="PUSHPOP" SIM_ENABLE="y" TB_PATH="custom_tbs/push_pop.cpp" TB_EXPECTED_PATH="custom_tbs/push_pop_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore], CommandFlags.EnableISSLockstep),
-    CommandTemplate('ISAXES="INIT" SIM_ENABLE="y" TB_PATH="custom_tbs/init.cpp" TB_EXPECTED_PATH="custom_tbs/init_expected.txt"',
+    CommandTemplate('LN_MAX_LOOP_UNROLL_FACTOR=32 ISAXES="INIT" SIM_ENABLE="y" TB_PATH="custom_tbs/init.cpp" TB_EXPECTED_PATH="custom_tbs/init_expected.txt"',
                     [CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SWAP" SIM_ENABLE="y" TB_PATH="custom_tbs/swap.cpp" TB_EXPECTED_PATH="custom_tbs/swap_expected.txt"',
                     [CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
