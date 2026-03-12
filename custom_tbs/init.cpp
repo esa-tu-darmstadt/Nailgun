@@ -16,20 +16,44 @@ int main() {
       // Execute init.initrf42
       ASM_PREFIX ".initrf42\n"
       // All regs X[1..31] are now 42.
-      // Reload result pointer (t0 was clobbered to 42).
-      "la t0, _test_resdata\n"
-      // Store register values as proof they are 42
-      "sw a0, 0(t0)\n"
-      "sw a1, 4(t0)\n"
-      "sw s0, 8(t0)\n"
-      "sw sp, 12(t0)\n"
-      "sw ra, 16(t0)\n"
-      // Sentinel
-      "li t1, -1\n"
-      "sw t1, 20(t0)\n"
+      // Accumulate all of them into x31
+      "add x31, x31, x1\n"
+      "add x31, x31, x2\n"
+      "add x31, x31, x3\n"
+      "add x31, x31, x4\n"
+      "add x31, x31, x5\n"
+      "add x31, x31, x6\n"
+      "add x31, x31, x7\n"
+      "add x31, x31, x8\n"
+      "add x31, x31, x9\n"
+      "add x31, x31, x10\n"
+      "add x31, x31, x11\n"
+      "add x31, x31, x12\n"
+      "add x31, x31, x13\n"
+      "add x31, x31, x14\n"
+      "add x31, x31, x15\n"
+      "add x31, x31, x16\n"
+      "add x31, x31, x17\n"
+      "add x31, x31, x18\n"
+      "add x31, x31, x19\n"
+      "add x31, x31, x20\n"
+      "add x31, x31, x21\n"
+      "add x31, x31, x22\n"
+      "add x31, x31, x23\n"
+      "add x31, x31, x24\n"
+      "add x31, x31, x25\n"
+      "add x31, x31, x26\n"
+      "add x31, x31, x27\n"
+      "add x31, x31, x28\n"
+      "add x31, x31, x29\n"
+      "add x31, x31, x30\n"
+      // Reload result pointer
+      "la x30, _test_resdata\n"
+      // Store accumulated value as proof that all registers have been 42
+      "sw x31, 0(x30)\n"
       // Restore sp and ra
-      "lw sp, -4(t0)\n"
-      "lw ra, -8(t0)\n"
+      "lw sp, -4(x30)\n"
+      "lw ra, -8(x30)\n"
       ::: "memory", "ra", "gp", "tp",
           "t0", "t1", "t2", "t3", "t4", "t5", "t6",
           "a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7",
