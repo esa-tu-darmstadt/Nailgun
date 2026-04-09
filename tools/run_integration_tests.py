@@ -13,12 +13,16 @@ from tabulate import tabulate
 from enum import Flag, auto
 from pathlib import Path
 import argparse
+import json
+import glob
 
 parser = argparse.ArgumentParser(description="Run NailGun integration tests")
 parser.add_argument("--use-dynamic-isax", action="store_true",
                     help="Use llvm_dynamic_isax instead of llvm_patcher")
 parser.add_argument("--output-dir", default="test_results",
                     help="Directory for test output (default: test_results)")
+parser.add_argument("--show-results", metavar="FOLDER",
+                    help="Display results table from a previous test run folder without re-running tests")
 args = parser.parse_args()
 
 global_env_prefix = ""
@@ -27,16 +31,181 @@ if args.use_dynamic_isax:
 
 MAX_SCALA_JOBS=8 #limit of parallel jobs on Scala/Spinal cores (try to avoid IOException on ionotify / open files limit)
 
+# Add the parent directory to the sys.path (needed for error module)
+parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(parent_folder)
+import error
+
+def save_results_to_json(folder, results):
+    """Save test results to a JSON file for later retrieval."""
+    data = {
+        "version": 1,
+        "results": [{"id": id, "exit_code": exit_code, "command_env": cmd} for exit_code, cmd, id in results]
+    }
+    json_path = os.path.join(folder, "results.json")
+    with open(json_path, "w") as f:
+        json.dump(data, f, indent=2)
+
+def load_results_from_json(folder):
+    """Load results from results.json."""
+    json_path = os.path.join(folder, "results.json")
+    with open(json_path, "r") as f:
+        data = json.load(f)
+    return [(r["exit_code"], r["command_env"], r["id"]) for r in data["results"]]
+
+def infer_exit_code_from_log(log_content: str) -> int:
+    """Heuristic to determine the exit code from log content."""
+    lines = log_content.splitlines()
+    tail = "\n".join(lines[-10:]) if len(lines) >= 10 else log_content
+
+    if "Done!" in tail:
+        return 0
+    if "ERROR: The simulation of" in log_content:
+        return error.SIM_BASE + 1
+    if "ERROR: SCAIE-V failed" in log_content:
+        return error.SCAIEV_BASE
+    if "Could not build SCAIE-V" in log_content:
+        return error.SCAIEV_BASE + 1
+    if "Could not generate top module" in log_content:
+        return error.SCAIEV_BASE + 3
+    if "Could not compile" in log_content:
+        return error.SCAIEV_BASE + 4
+    if "Could not generate" in log_content:
+        return error.SCAIEV_BASE + 5
+    if "Could not build treenail" in log_content:
+        return error.TN_BASE + 1
+    if "ERROR:" in log_content:
+        return error.INTERNAL_ERROR
+    return -1
+
+def reconstruct_results_from_logs(folder):
+    """Reconstruct results from gzipped log files (backward compat)."""
+    logs_dir = os.path.join(folder, "logs")
+    if not os.path.isdir(logs_dir):
+        print(f"Error: No logs/ directory found in {folder}")
+        exit(1)
+
+    log_files = sorted(glob.glob(os.path.join(logs_dir, "integration_test_*.log.gz")))
+    results = []
+    pattern = r'(\w+)="([^"]+)"'
+
+    for log_file in log_files:
+        # Extract test ID from filename
+        basename = os.path.basename(log_file)
+        id_str = basename.replace("integration_test_", "").replace(".log.gz", "")
+        try:
+            test_id = int(id_str)
+        except ValueError:
+            continue
+
+        try:
+            with gzip.open(log_file, "rt", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            print(f"Warning: Could not read {log_file}: {e}")
+            continue
+
+        lines = content.splitlines()
+        if not lines:
+            continue
+
+        # Parse the command from the first line
+        first_line = lines[0]
+        # Format: "Starting test {id}, command: {full_command} make ci"
+        cmd_marker = ", command: "
+        if cmd_marker not in first_line:
+            continue
+        cmd = first_line[first_line.index(cmd_marker) + len(cmd_marker):]
+        # Strip trailing " make ci" — the log includes it but the normal path doesn't
+        if cmd.endswith(" make ci"):
+            cmd = cmd[:-len(" make ci")]
+
+        # Filter out non-test logs (init commands, compiler prep)
+        matches = dict(re.findall(pattern, cmd))
+        if "CORE" not in matches:
+            continue
+        if "TB_PATH" not in matches:
+            continue
+        if matches.get("ONLY_PATCH_CC") == "y":
+            continue
+
+        exit_code = infer_exit_code_from_log(content)
+        results.append((exit_code, cmd, test_id))
+
+    results.sort(key=lambda x: x[2])
+    return results
+
+def build_and_print_results_table(results):
+    """Build and print the results summary table."""
+    failed = 0
+    for exit_code, cmd, id in results:
+        if exit_code != 0:
+            failed += 1
+            print(f"Test {id} failed with exit code {exit_code}, cmd: '{cmd} make ci'")
+    print(f"Summary: {len(results) - failed}/{len(results)} integration tests succeeded.")
+
+    pattern = r'(\w+)="([^"]+)"'
+    results_map = {}
+    for exit_code, cmd, id in results:
+        matches = dict(re.findall(pattern, cmd))
+        core = matches["CORE"]
+        isaxes = matches["ISAXES"].split(",") if "ISAXES" in matches else []
+        tb_path = matches["TB_PATH"]
+        tb_name = os.path.splitext(os.path.basename(tb_path))[0]
+        # Generate test case name
+        test_case_name = ""
+        if "MLIR_ENTRY_POINT_PATH" in matches:
+            mlir_path =  matches["MLIR_ENTRY_POINT_PATH"]
+            isax_name = os.path.splitext(os.path.basename(mlir_path))[0]
+            if tb_name.lower() != isax_name.lower():
+                test_case_name = f"MLIR {isax_name} / {tb_name}"
+            else:
+                test_case_name = f"MLIR {isax_name}"
+        elif len(isaxes) == 0:
+            if tb_path.endswith(".elf") or tb_path.endswith(".axf"):
+                test_case_name = "NO ISAX / " + tb_name
+            else:
+                test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "asm")
+        elif len(isaxes) == 1:
+            isax = isaxes[0]
+            test_case_name = isax if tb_name.lower() == isax.lower() else f"{isax} / {tb_name}"
+        else:
+            test_case_name = f"MERGED / {tb_name}"
+
+        if core not in results_map:
+            results_map[core] = {}
+
+        assert test_case_name not in results_map[core], f"Result for test case: '{test_case_name}' has already been registered for core = {core}, full cmd = {cmd}"
+        results_map[core][test_case_name] = error.decode_exit_code(exit_code, id)
+
+    df = pd.DataFrame(results_map)
+    df = df.fillna("N/A")
+    table = tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=True)
+    print(table)
+
+    return failed
+
+# Handle --show-results mode (no test execution)
+if args.show_results is not None:
+    folder = os.path.abspath(args.show_results)
+    if not os.path.isdir(folder):
+        print(f"Error: {folder} does not exist or is not a directory")
+        exit(1)
+    json_path = os.path.join(folder, "results.json")
+    if os.path.exists(json_path):
+        results = load_results_from_json(folder)
+    else:
+        print(f"No results.json found in {folder}, reconstructing from logs...")
+        results = reconstruct_results_from_logs(folder)
+    failed = build_and_print_results_table(results)
+    exit(1 if failed > 0 else 0)
+
 integration_test_working_dir = os.path.abspath(args.output_dir)
 if os.path.exists(integration_test_working_dir):
     shutil.rmtree(integration_test_working_dir)
 logs_dir = os.path.join(integration_test_working_dir, "logs")
 os.makedirs(logs_dir)
 
-# Add the parent directory to the sys.path
-parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(parent_folder)
-import error
 import longnail
 # Remove the parent directory from the sys.path again
 sys.path.remove(parent_folder)
@@ -313,59 +482,11 @@ results += run_tests(parallelizable_commands, True, len(results))
 # Sort results by test id
 results.sort(key=lambda x: x[2])
 
+# Save results to JSON for later retrieval via --show-results
+save_results_to_json(integration_test_working_dir, results)
+
 print("Done.")
-failed = 0
-for exit_code, cmd, id in results:
-    if exit_code != 0:
-        failed += 1
-        print(f"Test {id} failed with exit code {exit_code}, cmd: '{cmd} make ci'")
-print(f"Summary: {len(results) - failed}/{len(results)} integration tests succeeded.")
-
-# Regular expression to match the key-value pairs
-pattern = r'(\w+)="([^"]+)"'
-
-results_map = {}
-for exit_code, cmd, id in results:
-    # Use re.findall to find all make ci parameters
-    matches = dict(re.findall(pattern, cmd))
-    core = matches["CORE"]
-    isaxes = matches["ISAXES"].split(",") if "ISAXES" in matches else []
-    tb_path = matches["TB_PATH"]
-    tb_name = os.path.splitext(os.path.basename(tb_path))[0]
-    # Generate test case name
-    test_case_name = ""
-    if "MLIR_ENTRY_POINT_PATH" in matches:
-        mlir_path =  matches["MLIR_ENTRY_POINT_PATH"]
-        isax_name = os.path.splitext(os.path.basename(mlir_path))[0]
-        if tb_name.lower() != isax_name.lower():
-            test_case_name = f"MLIR {isax_name} / {tb_name}"
-        else:
-            test_case_name = f"MLIR {isax_name}"
-    elif len(isaxes) == 0:
-        if tb_path.endswith(".elf") or tb_path.endswith(".axf"):
-            test_case_name = "NO ISAX / " + tb_name
-        else:
-            test_case_name = "NO ISAX / " + ("llvm" if tb_path.endswith(".cpp") else "asm")
-    elif len(isaxes) == 1:
-        isax = isaxes[0]
-        test_case_name = isax if tb_name.lower() == isax.lower() else f"{isax} / {tb_name}"
-    else:
-        test_case_name = f"MERGED / {tb_name}"
-
-    if core not in results_map:
-        results_map[core] = {}
-
-    assert test_case_name not in results_map[core], f"Result for test case: '{test_case_name}' has already been registered for core = {core}, full cmd = {cmd}"
-    results_map[core][test_case_name] = error.decode_exit_code(exit_code, id)
-
-# Create DataFrame
-df = pd.DataFrame(results_map)
-# Replace None with a custom string like "N/A"
-df = df.fillna("N/A")
-
-# Convert the DataFrame to a formatted table with borders
-table = tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=True)
-print(table)
+failed = build_and_print_results_table(results)
 
 # Exit with a non-zero code if any command failed
 if failed != 0:
