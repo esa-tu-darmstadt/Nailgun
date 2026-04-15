@@ -236,6 +236,8 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
             "CTRL_BUSIDX=0",
             # The base address of the MMIO control block on the bus (for completion IRQ).
             "CTRL_BASE=60000000",
+            # The core's RAS may point to 0, causing reads from invalid addresses
+            "ALLOW_SPECULATIVE_READS=1",
         ]
 
     def get_linker_file(self) -> str:
