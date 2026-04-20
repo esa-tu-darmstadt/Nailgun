@@ -23,6 +23,9 @@ parser.add_argument("--output-dir", default="test_results",
                     help="Directory for test output (default: test_results)")
 parser.add_argument("--show-results", metavar="FOLDER",
                     help="Display results table from a previous test run folder without re-running tests")
+parser.add_argument("--core", "--cores", dest="cores", default=None,
+                    help="Only run tests for the given core(s). Comma-separated list, "
+                         "case-insensitive (e.g. 'CVA6' or 'CVA6,CVA5'). Default: all cores.")
 args = parser.parse_args()
 
 global_env_prefix = ""
@@ -346,6 +349,16 @@ cores = [
     ("VEX_5S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, True,  2.0),
     ("CV32E40X",  CoreFeature.NONE,                                                                                          False, 2.0),
 ]
+
+if args.cores is not None:
+    requested = {c.strip().upper() for c in args.cores.split(",") if c.strip()}
+    available = {entry[0].upper() for entry in cores}
+    unknown = requested - available
+    if unknown:
+        print(f"Unknown core(s): {sorted(unknown)}. Available: {sorted(available)}", file=sys.stderr)
+        exit(2)
+    cores = [entry for entry in cores if entry[0].upper() in requested]
+    print(f"Filtering to core(s): {[entry[0] for entry in cores]}", flush=True)
 
 for core, core_features, is_scala, timeout_scale in cores:
     for template in command_templates:
