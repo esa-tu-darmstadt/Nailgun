@@ -226,7 +226,8 @@ all_isaxes_merge_file = os.path.join(integration_test_working_dir, "ALL_ISAXES.m
 
 init_commands = [
     CommandJob('make gen_config', False),
-    # Generate all MLIR files
+    # Generate all core MLIR files
+    CommandJob('CORE="CVA5" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,SQRT_STALL,TABLEJUMP,ZOL" make ci', False),
 ]
 
 patch_compiler_commands = [

@@ -79,6 +79,8 @@ def _configure_llvm_cmake(llvm_repo, ccache_path, ccache_size, error_code):
         f"-DLLVM_CCACHE_DIR='{ccache_path}'",
         f"-DLLVM_CCACHE_MAXSIZE={ccache_size}",
         f"-DCMAKE_BUILD_TYPE={build_type}",
+        # Override the repo URL to add to header files: CI has credentials in the actual URL, so LLVM build errors out.
+        f"-DLLVM_FORCE_VC_REPOSITORY=llvm_isax",
     ] + compiler_rt_args
     run_cmd.run(llvm_repo, f"cmake -S llvm -B build -G Ninja {functools.reduce(lambda a, b: a + ' ' + b, cmake_config)}", f"Failed to configure cmake for LLVM", error_code, False)
 
