@@ -24,7 +24,13 @@ parser.add_argument("--show-results", metavar="FOLDER",
 parser.add_argument("--core", "--cores", dest="cores", default=None,
                     help="Only run tests for the given core(s). Comma-separated list, "
                          "case-insensitive (e.g. 'CVA6' or 'CVA6,CVA5'). Default: all cores.")
+parser.add_argument("-j", "--jobs", dest="jobs", type=int, default=os.cpu_count(),
+                    help=f"Maximum number of parallel test jobs. Default: all available CPUs ({os.cpu_count()}).")
 args = parser.parse_args()
+
+if args.jobs < 1:
+    print(f"--jobs must be >= 1 (got {args.jobs})", file=sys.stderr)
+    exit(2)
 
 MAX_SCALA_JOBS=8 #limit of parallel jobs on Scala/Spinal cores (try to avoid IOException on ionotify / open files limit)
 
@@ -419,9 +425,8 @@ def run_tests(jobs: list[CommandJob], parallel: bool, id_offset: int = 0, run_ma
     if len(jobs) == 0:
         return []
 
-    # Use the maximum number of threads available on the system
     if parallel:
-        num_threads = min(len(jobs), os.cpu_count())
+        num_threads = min(len(jobs), args.jobs)
     else:
         num_threads = 1
 
