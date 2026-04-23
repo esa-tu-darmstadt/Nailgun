@@ -8,10 +8,10 @@ import run_cmd
 import scaiev
 import picolibc
 
-def get_llvm_patcher_path():
-    return "deps/llvm_patcher"
-
 DYNAMIC_ISAX_PATH = "deps/llvm_dynamic_isax"
+# llvm_dynamic_isax is a fork pinned to LLVM 21 — the compiler-rt install path
+# (lib/clang/<major>/...) is derived from the fork's source tree.
+DYNAMIC_ISAX_LLVM_MAJOR = "21"
 
 def get_dynamic_isax_build_dir():
     return os.path.abspath(os.path.join(DYNAMIC_ISAX_PATH, "build"))
@@ -19,21 +19,6 @@ def get_dynamic_isax_build_dir():
 def check_dynamic_isax_clang_exists():
     build_dir = get_dynamic_isax_build_dir()
     clang_path = os.path.join(build_dir, "bin", "clang++")
-    return os.path.exists(clang_path), clang_path
-
-def llvm_repo_exists(version):
-    llvm_repo = os.path.abspath(f"{get_llvm_patcher_path()}/llvm-project/{version}")
-    return os.path.exists(llvm_repo), llvm_repo
-
-def llvm_build_dir(llvm_repo):
-    return os.path.join(llvm_repo, "build")
-
-def check_clang_exists(version):
-    llvm_exists, llvm_repo = llvm_repo_exists(version)
-    if not llvm_exists:
-        return llvm_exists, None
-    llvm_build_path = llvm_build_dir(llvm_repo)
-    clang_path = os.path.join(llvm_build_path, "bin", "clang++")
     return os.path.exists(clang_path), clang_path
 
 # ---------------------------------------------------------------------------
@@ -91,9 +76,6 @@ def _configure_llvm_cmake(llvm_repo, ccache_path, ccache_size, error_code):
 def prepare_dynamic_isax_llvm():
     """Configure and build the dynamic ISAX LLVM if not already built.
 
-    Uses the same cmake configuration as prepare_llvm() (compiler-rt, lld, etc.)
-    but no cloning or patching — the repo already exists at DYNAMIC_ISAX_PATH.
-
     Returns the build directory path.
     """
     build_dir = get_dynamic_isax_build_dir()
@@ -102,41 +84,12 @@ def prepare_dynamic_isax_llvm():
     if clang_exists:
         return build_dir
 
-    ccache_size = os.getenv("LLVM_PATCHER_CCACHE_SIZE", "25G")
+    ccache_size = os.getenv("LLVM_CCACHE_SIZE", "15G")
     llvm_repo = os.path.abspath(DYNAMIC_ISAX_PATH)
     ccache_path = os.path.abspath(os.path.join(DYNAMIC_ISAX_PATH, "ccache"))
 
-    _configure_llvm_cmake(llvm_repo, ccache_path, ccache_size, error.LLVM_PATCHER_BASE + 9)
-    run_cmd.run(".", f"cmake --build {build_dir} -- all", "Failed to build dynamic ISAX LLVM", error.LLVM_PATCHER_BASE + 10, False, 200)
-
-    return build_dir
-
-def prepare_llvm(version, rebuild, do_not_patch, analysis_yaml_path=None):
-    ccache_size = os.getenv("LLVM_PATCHER_CCACHE_SIZE", "25G")
-    patcher_path = get_llvm_patcher_path()
-
-    llvm_exists, llvm_repo = llvm_repo_exists(version)
-
-    commit = f"release/{version}.x"
-    if not llvm_exists:
-        # Clone llvm
-        run_cmd.run(".", f"git clone --depth=1 -b {commit} https://github.com/llvm/llvm-project.git {llvm_repo}", f"Failed to clone LLVM {version}", error.LLVM_PATCHER_BASE + 1, False)
-        # Configure cmake
-        ccache_path = os.path.abspath(f"{patcher_path}/llvm-project/ccache")
-        _configure_llvm_cmake(llvm_repo, ccache_path, ccache_size, error.LLVM_PATCHER_BASE + 2)
-        rebuild = True # The desired version did not exist -> force rebuild
-
-    build_dir = llvm_build_dir(llvm_repo)
-
-    if rebuild:
-        run_cmd.run(".", f"git -C {llvm_repo} reset --hard origin/{commit}", "Failed to reset the llvm work directory", error.LLVM_PATCHER_BASE + 3, False)
-        # Patch LLVM
-        if not do_not_patch:
-            # Patch LLVM with YAML
-            patcher_script = os.path.abspath(f"{patcher_path}/patch_llvm.py")
-            run_cmd.run(".", f"python3 {patcher_script} --yaml-input {analysis_yaml_path} --llvm-project-dir {llvm_repo} --llvm-version {version}", f"Failed to patch LLVM {version} to add support for the selected ISAXes", error.LLVM_PATCHER_BASE + 5, False, 200)
-        # Build LLVM
-        run_cmd.run(".", f"cmake --build {build_dir} -- all", f"Failed to build the {'unpatched' if do_not_patch else 'patched'} LLVM {version}", error.LLVM_PATCHER_BASE + 6, False, 200)
+    _configure_llvm_cmake(llvm_repo, ccache_path, ccache_size, error.LLVM_BASE + 9)
+    run_cmd.run(".", f"cmake --build {build_dir} -- all", "Failed to build dynamic ISAX LLVM", error.LLVM_BASE + 10, False, 200)
 
     return build_dir
 
@@ -156,7 +109,7 @@ def run_analyze_isax(mlir_path, out_dir):
         f"{longnail_opt} "
         f"'--pass-pipeline=builtin.module(inline,analyze-isax{{output={yaml_path}}})' {mlir_path}"
     )
-    run_cmd.run(".", analysis_cmd, "Failed to analyze ISAX MLIR", error.LLVM_PATCHER_BASE + 4, False, 200)
+    run_cmd.run(".", analysis_cmd, "Failed to analyze ISAX MLIR", error.LLVM_BASE + 4, False, 200)
     return yaml_path
 
 # ---------------------------------------------------------------------------
@@ -197,28 +150,13 @@ def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flag
 
     return elf_out_path
 
-def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_name, additional_flags, llvm_version, run_disassembly, custom_linker_script=None, use_dynamic_isax=False, analysis_yaml_path=None, asm_only=False, include_startup_files=True):
+def llvm_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_disassembly, custom_linker_script=None, analysis_yaml_path=None, asm_only=False, include_startup_files=True):
     ext = core_support.get_extensions()
-    base_march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
+    march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
 
-    # Resolve clang path, build dir, and ISAX-specific flags
-    if use_dynamic_isax:
-        build_dir = prepare_dynamic_isax_llvm()
-        _, clang_path = check_dynamic_isax_clang_exists()
-        if analysis_yaml_path:
-            isax_flags = f"-misax-desc={os.path.abspath(analysis_yaml_path)}"
-        else:
-            isax_flags = ""
-        march = base_march
-    else:
-        if isax_name:
-            isax_name = isax_name.lower().replace("_", "").replace(".", "")
-        clang_exists, clang_path = check_clang_exists(llvm_version)
-        assert clang_exists
-        build_dir = llvm_build_path
-        isax_ext_name = f"_x{isax_name}0p1" if isax_name else ""
-        march = f"{base_march}{isax_ext_name}"
-        isax_flags = "-menable-experimental-extensions"
+    build_dir = prepare_dynamic_isax_llvm()
+    _, clang_path = check_dynamic_isax_clang_exists()
+    isax_flags = f"-misax-desc={os.path.abspath(analysis_yaml_path)}" if analysis_yaml_path else ""
 
     bin_dir = os.path.join(build_dir, "bin")
     objdump_path = os.path.join(bin_dir, "llvm-objdump")
@@ -238,24 +176,18 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, llvm_build_path, isax_
 
         pico_dir = picolibc.prepare_picolibc()
         env_vars = core_support.get_tb_env_vars()
-        # Use base_march for picolibc — it doesn't need ISAX extensions
-        pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, base_march, ext.abi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
+        pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, ext.abi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
 
         startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
-        compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(build_dir, 'lib', 'clang', llvm_version, 'lib', f'riscv{ext.xlen}-unknown-elf')}"
+        compiler_rt_flags = f"-lclang_rt.builtins -L {os.path.join(build_dir, 'lib', 'clang', DYNAMIC_ISAX_LLVM_MAJOR, 'lib', f'riscv{ext.xlen}-unknown-elf')}"
         picolibc_flags = f"-mcmodel=medany -L{pico_inst_dir}/lib -isystem {pico_inst_dir}/include -lc -Wl,--whole-archive -lsemihost -Wl,--no-whole-archive"
         flags = f'--target="riscv{ext.xlen}-unknown-elf" {isax_flags} -fuse-ld=lld -mabi="{ext.abi}" -march="{march}" -nostdlib -O3 {startup_asm} {core_support.get_specific_startup_file()} {compiler_rt_flags} {picolibc_flags}'
 
-    yaml_for_disasm = analysis_yaml_path if use_dynamic_isax else None
-    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.LLVM_PATCHER_BASE + 5, run_disassembly, custom_linker_script, yaml_for_disasm)
+    return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.LLVM_BASE + 5, run_disassembly, custom_linker_script, analysis_yaml_path)
 
-def precompile_picolibc_for_all_cores(llvm_version, use_dynamic_isax=False):
-    if use_dynamic_isax:
-        dyn_build_dir = prepare_dynamic_isax_llvm()
-        clang_path = os.path.join(dyn_build_dir, "bin", "clang++")
-    else:
-        clang_exists, clang_path = check_clang_exists(llvm_version)
-        assert clang_exists
+def precompile_picolibc_for_all_cores():
+    dyn_build_dir = prepare_dynamic_isax_llvm()
+    clang_path = os.path.join(dyn_build_dir, "bin", "clang++")
 
     # Compile / prepare picolibc
     pico_dir = picolibc.prepare_picolibc()

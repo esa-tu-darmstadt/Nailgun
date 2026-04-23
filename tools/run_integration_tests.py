@@ -17,8 +17,6 @@ import json
 import glob
 
 parser = argparse.ArgumentParser(description="Run NailGun integration tests")
-parser.add_argument("--use-dynamic-isax", action="store_true",
-                    help="Use llvm_dynamic_isax instead of llvm_patcher")
 parser.add_argument("--output-dir", default="test_results",
                     help="Directory for test output (default: test_results)")
 parser.add_argument("--show-results", metavar="FOLDER",
@@ -27,10 +25,6 @@ parser.add_argument("--core", "--cores", dest="cores", default=None,
                     help="Only run tests for the given core(s). Comma-separated list, "
                          "case-insensitive (e.g. 'CVA6' or 'CVA6,CVA5'). Default: all cores.")
 args = parser.parse_args()
-
-global_env_prefix = ""
-if args.use_dynamic_isax:
-    global_env_prefix = 'USE_DYNAMIC_ISAX="y" '
 
 MAX_SCALA_JOBS=8 #limit of parallel jobs on Scala/Spinal cores (try to avoid IOException on ionotify / open files limit)
 
@@ -222,7 +216,7 @@ isax_mlir_files = [
     os.path.join(parent_folder, "deps/longnail/sim/complex/complex.mlir"),
     os.path.join(parent_folder, "deps/longnail/sim/vector/vector.mlir"),
 ]
-all_isaxes_merge_file = os.path.join(integration_test_working_dir, "ALL_ISAXES.mlir")
+core_isaxes_merge_file = os.path.join(integration_test_working_dir, "ALL_ISAXES.mlir")
 
 init_commands = [
     CommandJob('make gen_config', False),
@@ -232,7 +226,7 @@ init_commands = [
 
 patch_compiler_commands = [
     # Prepare clang
-    CommandJob(f'{global_env_prefix}ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', False),
+    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', False),
 ]
 
 # Lists of integration tests to run, tuples of (command_env: str, apply_scala_tasklimit: bool)
@@ -319,9 +313,9 @@ command_templates = [
                     [CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="MULTIMEMREADWRITE" SIM_ENABLE="y" TB_PATH="custom_tbs/multi_mem_read_write.cpp" TB_EXPECTED_PATH="custom_tbs/multi_mem_read_write_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.MultiLoadStore], CommandFlags.EnableISSLockstep),
-    CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
+    CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled], CommandFlags.EnableISSLockstep),
-    CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{all_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
+    CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled], CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     # MLIR entrypoint tests
     # complex ISAX
@@ -381,7 +375,7 @@ for core, core_features, is_scala, timeout_scale in cores:
             cmd = cmd + ' SIM_ENABLE_ISS_LOCKSTEP="y"'
 
         # Run test in the parallel section once the all-ISAX compilers are built
-        parallelizable_commands.append(CommandJob(f'{global_env_prefix}CLANG_EXT_ISAX_NAME="merged" SIM_SKIP_CC="y" SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
+        parallelizable_commands.append(CommandJob(f'SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
 
 def get_job_output_folder(id: int):
     return os.path.join(integration_test_working_dir, f"output_test_{id:03}")
@@ -475,10 +469,10 @@ isax_mlir_files.extend(
     if p.is_file()
 )
 # Merge all ISAXes into a single mlir file
-premerge_file = all_isaxes_merge_file + ".tmp"
+premerge_file = core_isaxes_merge_file + ".tmp"
 longnail.concat_mlir_files(isax_mlir_files, premerge_file)
-longnail.merge_isaxes(integration_test_working_dir, longnail.get_default_longnail_bin(), premerge_file, all_isaxes_merge_file)
-assert(os.path.exists(all_isaxes_merge_file))
+longnail.merge_isaxes(integration_test_working_dir, longnail.get_default_longnail_bin(), premerge_file, core_isaxes_merge_file)
+assert(os.path.exists(core_isaxes_merge_file))
 os.remove(premerge_file)
 
 # Then prepare the compilers, this can happen in parallel!

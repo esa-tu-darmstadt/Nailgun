@@ -99,8 +99,6 @@ if __name__ == "__main__":
     mlir_paths, isax_yaml = entrypoint.resolve_mlir_paths(scaiev_core_name, out_dir, kconf.syms)
 
     only_add_cc_support = kconf.syms["ONLY_PATCH_CC"].str_value == "y"
-    use_dynamic_isax_sym = kconf.syms.get("USE_DYNAMIC_ISAX", None)
-    use_dynamic_isax = use_dynamic_isax_sym.str_value == "y" if use_dynamic_isax_sym else False
 
     critical_chains = []
     iteration = 0
@@ -132,10 +130,6 @@ if __name__ == "__main__":
         isax_name = None
         if mlir_path is not None and os.path.exists(mlir_path):
             isax_name = extract_isax_name(mlir_path)
-        if kconf.syms["SIM_LLVM_OVERWRITE_ISAX_NAME"].str_value == "y":
-            cpp_ext_name = kconf.syms["SIM_LLVM_ISAX_NAME"].str_value
-        else:
-            cpp_ext_name = isax_name
 
         # SCAIE-V integrate into core
         if not only_add_cc_support:
@@ -143,7 +137,7 @@ if __name__ == "__main__":
             scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
         # Optionally run the simulation
-        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, cpp_ext_name, only_add_cc_support, isax_analysis_yaml, use_dynamic_isax=use_dynamic_isax)
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, only_add_cc_support, isax_analysis_yaml)
 
         new_critical_chains = []
         if not only_add_cc_support:

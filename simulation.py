@@ -231,7 +231,7 @@ def setup_renode(py_isax_file, tb_paths, tb_expected_paths, core_support, out_di
 
     renode_dir = renode.gen_renode_confs(py_isax_file_name, out_dir, yaml_file, tb_paths, tb_expected_paths, march, scaiev.get_env_value(env_vars, "IMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_BASE"), scaiev.get_env_value(env_vars, "DMEM_SIZE"), scaiev.get_env_value(env_vars, "CTRL_BASE"))
 
-    shutil.copy("deps/longnail/sim/ArbInt.py", renode_dir)
+    shutil.copy("deps/longnail/shortnail/ArbInt.py", renode_dir)
     isax_py_path = None
     # copy python ISAX model to renode directory
     if py_isax_file and os.path.exists(py_isax_file):
@@ -258,7 +258,7 @@ def get_target_elf_file_path(out_dir):
     # elf file path
     return os.path.join(bin_dir, "tb.elf")
 
-def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, only_add_cc_support, isax_analysis_yaml, use_dynamic_isax=False):
+def run_simulation(out_dir, core_name, kconfig_syms, isax_name, only_add_cc_support, isax_analysis_yaml):
     core_support = scaiev.get_core_support(core_name)
     if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
         return
@@ -278,33 +278,11 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, cpp_ext_name, on
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None, asm_only=False, include_startup_files=True):
-        llvm_version = kconfig_syms['SIM_LLVM_VERSION'].str_value
-        if use_dynamic_isax:
-            print(" - Building/checking dynamic ISAX clang")
-            dyn_build_dir = toolchain.prepare_dynamic_isax_llvm()
-            if not only_add_cc_support:
-                print(f" - Compiling {'assembly' if asm_only else 'C++'} TB with dynamic ISAX clang")
-                return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), dyn_build_dir, None, additional_flags, llvm_version, disassemble_tb, custom_linker_script, use_dynamic_isax=True, analysis_yaml_path=isax_analysis_yaml, asm_only=asm_only, include_startup_files=include_startup_files)
-            else:
-                toolchain.precompile_picolibc_for_all_cores(llvm_version, use_dynamic_isax=True)
+        if not only_add_cc_support:
+            print(f" - Compiling {'assembly' if asm_only else 'C++'} TB with dynamic ISAX clang")
+            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, custom_linker_script, analysis_yaml_path=isax_analysis_yaml, asm_only=asm_only, include_startup_files=include_startup_files)
         else:
-            clang_exists, _ = toolchain.check_clang_exists(llvm_version)
-            skip_clang_build = kconfig_syms['SIM_SKIP_CC'].str_value == "y" and clang_exists
-            unpatched_clang = (not skip_clang_build) and (not isax_analysis_yaml)
-            if unpatched_clang:
-                print("WARNING: Patching clang requires a ISAX YAML input file!")
-                print("INFO: Using unpatched clang!")
-            else:
-                print(" - Adding ISAX support to clang")
-            llvm_build_dir = toolchain.prepare_llvm(llvm_version, not skip_clang_build, unpatched_clang, analysis_yaml_path=isax_analysis_yaml)
-            if not only_add_cc_support:
-                print(f" - Compiling {'assembly' if asm_only else 'C++'} TB")
-                if not asm_only and not unpatched_clang and not cpp_ext_name:
-                    error.exit_error("Compiling the TB with clang requires the ISAX extension name! The ISAX extension name can manually be overwritten via the 'SIM_LLVM_OVERWRITE_ISAX_NAME' option", error.USER_ERROR)
-                return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), llvm_build_dir, cpp_ext_name, additional_flags, llvm_version, disassemble_tb, custom_linker_script, asm_only=asm_only, include_startup_files=include_startup_files)
-            else:
-                # Ensure that picolibc exists for all cores
-                toolchain.precompile_picolibc_for_all_cores(llvm_version)
+            toolchain.precompile_picolibc_for_all_cores()
 
     def process_bin_file(bin_file, elf_file, first_run):
         # Convert axf to elf_file

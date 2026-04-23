@@ -5,26 +5,6 @@ menu "Advanced Options"
 	config ONLY_PATCH_CC
 		bool "ONLY run HLS and add compiler support for the ISAXes"
 		default n
-	config SIM_SKIP_CC
-		depends on SIM_ENABLE
-		bool "Skip patching and rebuilding clang"
-		default n
-	config SIM_LLVM_VERSION
-		depends on SIM_ENABLE || ONLY_PATCH_CC
-		string "LLVM / clang version to use"
-		default "21"
-	config SIM_LLVM_OVERWRITE_ISAX_NAME
-		depends on SIM_ENABLE
-		bool "Overwrite the clang ISAX extension name"
-		default n
-	config SIM_LLVM_ISAX_NAME
-		depends on SIM_LLVM_OVERWRITE_ISAX_NAME
-		string "ISAX name"
-		default "merged"
-	config USE_DYNAMIC_ISAX
-		depends on SIM_ENABLE || ONLY_PATCH_CC
-		bool "Use dynamic ISAX LLVM (no patching/rebuilding required)"
-		default n
 
 	choice
 		prompt "Alternate Entrypoint"
@@ -67,16 +47,6 @@ menu "Advanced Options"
 		config LN_BINARY
 			string "Path to Longnail binary"
 			default "deps/longnail/build/bin/longnail-opt"
-	endmenu
-
-	config USE_PREBUILT_LLVM_PATCHER
-		bool "Use prebuilt LLVM patcher binaries"
-		default n
-	menu "LLVM patcher prebuilt settings"
-		depends on USE_PREBUILT_LLVM_PATCHER
-		config LLVM_PATCHER_BINARY
-			string "Path to LLVM patcher binary"
-			default "deps/llvm_patcher/build/bin/llvm-patcher-opt"
 	endmenu
 
 endmenu
