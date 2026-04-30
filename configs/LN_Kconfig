@@ -25,6 +25,9 @@ menu "Longnail HLS configuration"
 	config LN_MAX_LOOP_UNROLL_FACTOR
 		int "Longnail max loop unroll factor"
 		default 16
+	config LN_LATENCY_1_OPS_LATCH_INPUTS
+		bool "Assume latency=1 operations latch their inputs"
+		default y
 	config LN_SCHEDULE_TIMEOUT
 		int "Longnail scheduling timeout in seconds"
 		default 10
@@ -95,6 +98,24 @@ menu "Longnail HLS configuration"
 	config LN_PREDEFINED_SG_SELECTION
 		depends on LN_SCHED_ALGO_MI
 		string "Longnail apply predefined sharing group selection"
+	menu "Split datapath sharing"
+		config LN_OPTIMIZE_SLOT_BINDINGS
+			depends on LN_SCHED_ALGO_MI
+			bool "Run ILP slot-binding optimization"
+			default y
+		config LN_OPTIMIZE_SLOT_BINDINGS_TIMEOUT
+			depends on LN_OPTIMIZE_SLOT_BINDINGS
+			int "Slot-binding optimization timeout (seconds)"
+			default 10
+		config LN_VISUALIZE_MRT
+			depends on LN_SCHED_ALGO_MI
+			bool "Print ASCII MRT visualization before/after slot-binding optimization"
+			default n
+		config LN_SPLITOP_GEN_TESTBENCH
+			depends on LN_SCHED_ALGO_MI
+			bool "Also generate cocotb testbenches for split-op modules"
+			default n
+	endmenu
 	menu "Debugging"
 		config LN_ALWAYS_SHOW_OUTPUT
 			bool "Always show the full output of Longnail invocations"

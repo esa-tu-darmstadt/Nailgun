@@ -182,6 +182,9 @@ def run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, 
     verbose = "false"
     if kconfig_syms['LN_VERBOSE_SCHEDULING'].str_value == "y":
         verbose = "true"
+    lat_1_ops_latch_inputs = "false"
+    if kconfig_syms['LN_LATENCY_1_OPS_LATCH_INPUTS'].str_value == "y":
+        lat_1_ops_latch_inputs = "true"
     ilp_solver = resolve_solver(kconfig_syms)
 
     chains_yaml_path = ""
@@ -192,6 +195,7 @@ def run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, 
 
     longnail_schedule_flags = [
         f"-schedule-lil=\"chainPaths={chains_yaml_path} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} solver={ilp_solver} useHeuristicAlternative={map_heuristic_to_ln_arg(kconfig_syms)} onlyUseHeuristic={'true' if kconfig_syms['LN_USE_ONLY_HEURISTICS'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
+        f"-lat-1-ops-latch-inputs={lat_1_ops_latch_inputs}",
         f"-o {sched_sol_mlir_file}",
     ]
     if kconfig_syms['LN_DEBUG_SCHEDULING'].str_value == "y":
@@ -219,8 +223,35 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
     else:
         force_min_II_solutions = True
 
-    longnail_hw_gen_flags = [
-        "-lower-lil-to-hw=forceUseMinIISolution=true" if force_min_II_solutions else f"-lower-lil-to-hw=solutionSelection={sol_selection_file}",
+    mi_enabled = kconfig_syms['LN_SCHED_ALGO_MI'].str_value == "y"
+    visualize_mrt = mi_enabled and kconfig_syms['LN_VISUALIZE_MRT'].str_value == "y"
+    optimize_slot_bindings = mi_enabled and kconfig_syms['LN_OPTIMIZE_SLOT_BINDINGS'].str_value == "y"
+
+    longnail_hw_gen_flags = []
+
+    if visualize_mrt:
+        longnail_hw_gen_flags.append("-visualize-mrt")
+    if optimize_slot_bindings:
+        ilp_solver = resolve_solver(kconfig_syms)
+        osb_timeout = kconfig_syms['LN_OPTIMIZE_SLOT_BINDINGS_TIMEOUT'].str_value
+        longnail_hw_gen_flags.append(f"-optimize-slot-bindings=\"timeout={osb_timeout} solver={ilp_solver}\"")
+    if visualize_mrt and optimize_slot_bindings:
+        longnail_hw_gen_flags.append("-visualize-mrt")
+
+    sol_selection_args = "forceUseMinIISolution=true" if force_min_II_solutions else f"solutionSelection={sol_selection_file}"
+
+    if mi_enabled:
+        splitops_dir = os.path.abspath(os.path.join(out_dir, "splitops"))
+        os.makedirs(splitops_dir, exist_ok=True)
+        longnail_hw_gen_flags.append(f"-export-splitop-yaml=\"outputDir={splitops_dir} {sol_selection_args}\"")
+
+    lat_1_ops_latch_inputs = "false"
+    if kconfig_syms['LN_LATENCY_1_OPS_LATCH_INPUTS'].str_value == "y":
+        lat_1_ops_latch_inputs = "true"
+
+    longnail_hw_gen_flags += [
+        f"-lower-lil-to-hw={sol_selection_args}",
+        f"-lat-1-ops-latch-inputs={lat_1_ops_latch_inputs}",
         "-simplify-structure", "-cse", "-print-stats",
         "-lower-seq-to-sv", "-hw-cleanup", "-cse", "-hw-legalize-modules", "-prettify-verilog",
         f"-export-split-verilog=dir-name={os.path.abspath(out_dir)}", "-o /dev/null"

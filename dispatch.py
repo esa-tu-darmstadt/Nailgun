@@ -11,6 +11,7 @@ import longnail
 import run_cmd
 import scaiev
 import simulation
+import splitop
 import toolchain
 
 from tools.critical_chains import merge_chains
@@ -123,6 +124,9 @@ if __name__ == "__main__":
                 # Full LN pipeline: merge → schedule → HW-gen (.sv)
                 datasheet = longnail.select_core_datasheet(core_support)
                 mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
+                # Generate SystemVerilog for any split-datapath operators exported by LN
+                if kconf.syms["LN_SCHED_ALGO_MI"].str_value == "y":
+                    splitop.run_splitop_gen(os.path.join(out_dir, "splitops"), out_dir, kconf.syms)
                 isax_yaml = longnail.provide_isax_yaml(out_dir)
         # Run AnalyzeISAX to produce structured YAML (used by LLVM patching).
         isax_analysis_yaml = None

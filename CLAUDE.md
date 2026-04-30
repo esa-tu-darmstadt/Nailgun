@@ -46,7 +46,6 @@ For CI, configuration is driven by environment variables mapped to Kconfig symbo
 | `LN_SCHED_ALGO_MS` / `LN_SCHED_ALGO_PA` | Enable scheduling algorithms |
 | `LN_OPTY_OL2_MODEL` / `LN_OPTY_CUSTOM_MODEL_PATH` | Longnail optimization models |
 | `LN_PREDEFINED_SOLUTION_SELECTION` | Skip interactive solution selection |
-| `LN_ENABLE_DATAPATH_SPLIT` | Enable split-datapath sharing (requires `LN_SCHED_ALGO_MI`; legacy 1-op-per-slot behavior when off) |
 | `LN_OPTIMIZE_SLOT_BINDINGS` / `LN_OPTIMIZE_SLOT_BINDINGS_TIMEOUT` | Run ILP slot-binding optimization (and its timeout) |
 | `LN_VISUALIZE_MRT` | Print ASCII MRT before/after slot-binding optimization |
 | `LN_SPLITOP_GEN_TESTBENCH` | Also generate cocotb testbenches for split-op modules |
@@ -225,7 +224,7 @@ Each element: `[ssa_name, start_bit, end_bit, reversed, clean_name]`
 | LowerCoreDSLToLIL | `-lower-coredsl-to-lil` | CoreDSL → LIL (control-dataflow graph): inlines functions, lowers to `comb`/`lil` ops |
 | EmitISAXEncodings | `-emit-isax-encodings` | Emit minimal ISAX YAML (instruction + mask) from CoreDSL MLIR |
 | PrepareScheduleLIL | `-prepare-schedule-lil` | Prepare LIL for scheduling (operator library, datasheet) |
-| ScheduleLIL | `-schedule-lil` | ILP-based static scheduling of LIL graphs (option `disableDatapathSplit` forces legacy single-slot behavior) |
+| ScheduleLIL | `-schedule-lil` | ILP-based static scheduling of LIL graphs |
 | OptimizeSlotBindings | `-optimize-slot-bindings` | ILP refinement of slot assignments per congruence class (minimizes physical datapath splits) |
 | VisualizeMRT | `-visualize-mrt` | ASCII dump of the Multi-Resource Table (splits `\|` vs instance boundaries `=`) |
 | ExportSplitOpYAML | `-export-splitop-yaml` | Emit per-segment YAML configs consumed by splitop-gen (option `outputDir`) |
@@ -238,7 +237,7 @@ Each element: `[ssa_name, start_bit, end_bit, reversed, clean_name]`
 
 Python tool at `deps/splitop-gen/` that consumes the YAMLs emitted by `-export-splitop-yaml` and produces SystemVerilog modules matching the `hw.module.extern` declarations produced by LILToHW. Invoked automatically by `splitop.py` after `run_longnail`; outputs (plus the hand-written `rtl/*.sv` primitives) are appended to `filelist.f` so SCAIE-V picks them up.
 
-Runs only when `LN_ENABLE_DATAPATH_SPLIT=y` (which itself requires `LN_SCHED_ALGO_MI=y`).
+Runs whenever `LN_SCHED_ALGO_MI=y`. Per-operator opt-in/out for split datapath sharing is configured in Longnail's operator-type library, not via a Kconfig switch.
 
 ## Architecture
 
