@@ -34,7 +34,7 @@ class OrcaSupport(CoreSupport):
     def get_core_srcs(self, scal_sources, core_dir) -> tuple[list[str], list[str], str, str, list[str], list[str], dict[str, str]]:
         return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", "top", [], [], {}
 
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=2",

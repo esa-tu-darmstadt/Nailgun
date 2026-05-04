@@ -213,7 +213,7 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
 
         return ["CVA6_tb_wrapper.v"], core_srcs + scal_sources, "testbench", "cva6_ariane_wrapper", include_dirs, defines, extra_makefile_args
 
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=1",

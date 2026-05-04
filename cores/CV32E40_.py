@@ -17,7 +17,7 @@ class CV32E40_Support(CoreSupport):
     def get_extensions(self) -> CoreExtensions:
         return CoreExtensions(['I','M','Zicsr'], "ilp32", 32)
 
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=2",

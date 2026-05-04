@@ -43,7 +43,7 @@ EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
         }
         return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", "top", [], [], extra_makefile_args
 
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=2",

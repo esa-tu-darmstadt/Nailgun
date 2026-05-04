@@ -2,30 +2,29 @@ import re
 import cocotb
 from cocotb.triggers import FallingEdge
 
+from .base import SimPeripheral, PeripheralCtx
 
-def get_cycle_count(CLK_PERIOD):
+
+def _get_cycle_count(CLK_PERIOD):
     return cocotb.utils.get_sim_time(units="ps") / CLK_PERIOD
 
-def read_defines(file_path):
-    defines = {}
 
+def _read_defines(file_path):
+    defines = {}
     with open(file_path, 'r') as f:
         for line in f:
-            # Match lines that start with #define, and capture the define name and its value
             match = re.match(r'#define\s+(\w+)\s+(.+)', line.strip())
             if match:
-                define_name = match.group(1)
-                define_value = match.group(2)
-                defines[define_name] = define_value
-
+                defines[match.group(1)] = match.group(2)
     return defines
 
+
 # Translated C++ code from: https://github.com/SpinalHDL/NaxRiscv/blob/1c50e84d9a6f7ea93d7153f12906c25552267b9d/src/test/cpp/naxriscv/src/main.cpp#L998
-class NaxWhiteBox:
+class _NaxWhiteBox:
     def __init__(self, dut, CLK_PERIOD, disasm, defines_path, gem5_output_path):
         self.dut = dut.top_INST.NaxRiscv_inst
 
-        defines = read_defines(defines_path)
+        defines = _read_defines(defines_path)
         self.COMMIT_COUNT = int(defines["COMMIT_COUNT"])
         ROB_SIZE = int(defines["ROB_SIZE"])
         DISPATCH_COUNT = int(defines["DISPATCH_COUNT"])
@@ -39,14 +38,12 @@ class NaxWhiteBox:
         self.INTEGER_PHYSICAL_DEPTH = INTEGER_PHYSICAL_DEPTH
         self.ISR_INTEGER_PHYSICAL_DEPTH = ISR_INTEGER_PHYSICAL_DEPTH
 
-        # Initialize the class with the nax object (could be a simulator entity)
         self.robCtx = [{} for _ in range(ROB_SIZE)]
         self.fetchCtx = [{} for _ in range(4096)]
         self.opCtx = [{} for _ in range(4096)]
         self.opIdInFlight = []
         self.sqToOp = [None] * 256
 
-        # Initialize integer_write_valid using dynamic mapping based on nax attributes
         self.robToPc = [self.dut._id(f"robToPc_pc_{i}", extended=False) for i in range(DISPATCH_COUNT)]
         self.integer_write_valid = [self.dut._id(f"integer_write_{i}_valid", extended=False) for i in range(INTEGER_WRITE_COUNT)]
         self.integer_write_robId = [self.dut._id(f"integer_write_{i}_robId", extended=False) for i in range(INTEGER_WRITE_COUNT)]
@@ -76,7 +73,6 @@ class NaxWhiteBox:
                 self.rf1 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage", extended=False) for i in range(ISR_INTEGER_PHYSICAL_DEPTH - 1)]
             except:
                 self.rf1 = None
-
         except:
             try:
                 self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
@@ -117,7 +113,6 @@ class NaxWhiteBox:
                 self.pcHist = {}
         self.stats = Stats()
 
-        # Variables for opCounter and period
         self.opCounter = 0
         self.period = CLK_PERIOD
 
@@ -202,11 +197,11 @@ class NaxWhiteBox:
 
         if self.dut.FetchPlugin_stages_1_isFirstCycle.value:
             fetchId = self.dut.FetchPlugin_stages_1_FETCH_ID.value
-            self.fetchCtx[fetchId]['fetchAt'] = get_cycle_count(self.period) - self.period * 2
+            self.fetchCtx[fetchId]['fetchAt'] = _get_cycle_count(self.period) - self.period * 2
 
         if self.dut.fetchLastFire.value:
             fetchId = self.dut.fetchLastId.value
-            self.fetchCtx[fetchId]['decodeAt'] = get_cycle_count(self.period)
+            self.fetchCtx[fetchId]['decodeAt'] = _get_cycle_count(self.period)
 
         try:
             decoded_fire = self.dut.FrontendPlugin_decoded_isFireing
@@ -221,7 +216,7 @@ class NaxWhiteBox:
                     self.opIdInFlight.append(opId)
                 self.opCtx[opId] = {
                     'fetchId': fetchId,
-                    'renameAt': get_cycle_count(self.period),
+                    'renameAt': _get_cycle_count(self.period),
                     'instruction': self.decoded_instruction[i].value,
                     'pc': self.decoded_pc[i].value
                 }
@@ -248,8 +243,21 @@ class NaxWhiteBox:
                     opId = self.robCtx[robId]['opId']
                     self.robCtx[robId]['PHYS_RS0'] = self.rob_phy_rs0[i][int(robId / self.COMMIT_COUNT)].value.integer
                     self.robCtx[robId]['PHYS_RS1'] = self.rob_phy_rs1[i][int(robId / self.COMMIT_COUNT)].value.integer
+
+                    phys_rs0 = self.robCtx[robId]['PHYS_RS0']
+                    phys_rs1 = self.robCtx[robId]['PHYS_RS1']
+                    self.opCtx[opId]['RS0_VAL_0'] = self.read_reg(self.rf0, phys_rs0, self.INTEGER_PHYSICAL_DEPTH)
+                    self.opCtx[opId]['RS1_VAL_0'] = self.read_reg(self.rf0, phys_rs1, self.INTEGER_PHYSICAL_DEPTH)
+                    if self.rf1:
+                        tmp = self.read_reg(self.rf1, phys_rs0, self.ISR_INTEGER_PHYSICAL_DEPTH)
+                        if tmp is not None:
+                            self.opCtx[opId]['RS0_VAL_1'] = tmp
+                        tmp = self.read_reg(self.rf1, phys_rs1, self.ISR_INTEGER_PHYSICAL_DEPTH)
+                        if tmp is not None:
+                            self.opCtx[opId]['RS1_VAL_1'] = tmp
+
                     sqId = self.sq_alloc_id[i].value
-                    self.opCtx[opId]['dispatchAt'] = get_cycle_count(self.period)
+                    self.opCtx[opId]['dispatchAt'] = _get_cycle_count(self.period)
                     self.opCtx[opId]['sqAllocated'] = self.sq_alloc_valid[i].value
                     self.opCtx[opId]['sqId'] = sqId
                     if self.sq_alloc_valid[i]:
@@ -259,7 +267,8 @@ class NaxWhiteBox:
             if valid.value:
                 robId = self.issue_robId[i].value
                 opId = self.robCtx[robId]['opId']
-                self.opCtx[opId]['issueAt'] = get_cycle_count(self.period)
+                self.opCtx[opId]['issueAt'] = _get_cycle_count(self.period)
+
                 phys_rs0 = self.robCtx[robId]['PHYS_RS0']
                 phys_rs1 = self.robCtx[robId]['PHYS_RS1']
                 self.opCtx[opId]['RS0_VAL_0'] = self.read_reg(self.rf0, phys_rs0, self.INTEGER_PHYSICAL_DEPTH)
@@ -275,13 +284,13 @@ class NaxWhiteBox:
         for i, valid in enumerate(self.rob_completions_valid):
             if valid.value:
                 opId = self.robCtx[self.rob_completions_payload[i].value]['opId']
-                self.opCtx[opId]['completeAt'] = get_cycle_count(self.period)
+                self.opCtx[opId]['completeAt'] = _get_cycle_count(self.period)
 
         for i in range(self.COMMIT_COUNT):
             if (self.dut.commit_mask.value >> i) & 1:
                 robId = self.dut.commit_robId.value + i
                 opId = self.robCtx[robId]['opId']
-                self.opCtx[opId]['commitAt'] = get_cycle_count(self.period)
+                self.opCtx[opId]['commitAt'] = _get_cycle_count(self.period)
                 while True:
                     front = self.opIdInFlight.pop(0)
                     self.opCtx[front]['counter'] = self.opCounter
@@ -314,3 +323,36 @@ class NaxWhiteBox:
         while True:
             yield FallingEdge(clk)
             self.preCycle()
+
+
+class NaxWhiteBoxPeripheral(SimPeripheral):
+    """NaxRiscv whitebox tracer — gem5-style O3 pipeline view.
+
+    Pure observer: no memview, no bus connection. Probes via NaxRiscv's
+    deeply nested instance path (`top_INST.NaxRiscv_inst`).
+    """
+    name = "nax_whitebox"
+
+    def __init__(self, clk_period, defines_path, gem5_output_path):
+        self.clk_period = clk_period
+        self.defines_path = defines_path
+        self.gem5_output_path = gem5_output_path
+
+    def probe(self, dut) -> bool:
+        if not hasattr(dut, "top_INST"):
+            return False
+        try:
+            _ = dut.top_INST.NaxRiscv_inst
+        except Exception:
+            return False
+        return True
+
+    def attach(self, ctx: PeripheralCtx) -> None:
+        # Deferred: `disas` imports `isax_yaml_tools` which only resolves
+        # inside a cocotb test process.
+        import disas
+        wb = _NaxWhiteBox(ctx.dut, self.clk_period,
+                          disasm=disas.disassemble,
+                          defines_path=self.defines_path,
+                          gem5_output_path=self.gem5_output_path)
+        ctx.start(wb.run(ctx.clk))

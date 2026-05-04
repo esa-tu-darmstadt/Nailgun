@@ -12,6 +12,10 @@ class NaxSupport(CoreSupport):
         self.DMEM_SIZE =  "100000"
         self.CTRL_BASE =  "80200000"
         self.CTRL_SIZE =  "100000"
+        # CLINT and (in the RTOSUnit variant) PLIC share the CTRL bus
+        # (LsuPeripheralAxiLite4); centralize the index so peripherals() and
+        # get_tb_env_vars() stay in sync.
+        self.CTRL_BUSIDX = 2
         self.CLINT_BASE = "40000000"
         self.CLINT_SIZE = "010000"
 
@@ -32,10 +36,6 @@ class NaxSupport(CoreSupport):
         # Custom available option:  --with-hw-ctx-switch --with-hw-scheduling --baseline-with-switch-tracing --with-dirty-bits
         run_cmd.run(target_dir, f'sbt "runMain naxriscv.platform.asic.NaxAsicGen {spinal_gen_args} --memory-region=0x{self.CLINT_BASE},0x{self.CLINT_SIZE},io,p --memory-region=0x{self.CTRL_BASE},0x{self.CTRL_SIZE},io,p --memory-region=0x{self.IMEM_BASE},0x{self.IMEM_SIZE},xc,m --memory-region=0x{self.DMEM_BASE},0x{self.DMEM_SIZE},rwc,m --reset-vector=0x{self.IMEM_BASE}"', "Could not generate nax.v", error.SCAIEV_BASE + 5, True, 100)
 
-        # command_injection = kconf_syms['COMMAND_INJECTION'].str_value if 'COMMAND_INJECTION' in kconf_syms else ""
-        # if len(command_injection) > 0:
-        #     run_cmd.run(target_dir, command_injection, "Could not execute injected command", error.SCAIEV_BASE + 6, True, 100)
-
     def get_srcs_folder_name(self) -> str:
         return "NaxRiscv"
     def get_maketop(self) -> str:
@@ -48,10 +48,10 @@ class NaxSupport(CoreSupport):
             "FORMAL"
         ]
 
-        return ["Nax_tb_wrapper.sv"], ["nax.v", "Nax_top.sv"] + scal_sources, "nax_wrapper", "top", [], defines, {}
-        # return ["Nax_tb_wrapper.sv"], ["nax.v", "src/main/verilog/xilinx/RamXilinx.v", "Nax_top.sv"] + scal_sources, "nax_wrapper", "top", [], defines, {}
-        # return ["Nax_tb_wrapper.sv"], ["nax.v", "src/main/verilog/xilinx/RamXilinx.v", "Nax_top.sv", "mkRTOSUnitSynth.v", "SizedFIFO.v", "FIFO2.v"] + scal_sources, "nax_wrapper", "top", [], defines, {}
-    def get_tb_env_vars(self) -> list[str]:
+        return ["Nax_tb_wrapper.sv"], [
+                "nax.v", "src/main/verilog/xilinx/RamXilinx.v", "Nax_top.sv",
+                ] + scal_sources, "nax_wrapper", "top", [], defines, {}
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=3",
@@ -75,11 +75,9 @@ class NaxSupport(CoreSupport):
             # The physical size of the data memory.
             f"DMEM_SIZE={self.DMEM_SIZE}",
             # Bus SI index for CTRL.
-            "CTRL_BUSIDX=2",
+            f"CTRL_BUSIDX={self.CTRL_BUSIDX}",
             # The base address of the MMIO control block on the bus (for completion IRQ).
             f"CTRL_BASE={self.CTRL_BASE}",
-            # Bus SI index for CLINT.
-            "CLINT_BUSIDX=2",
             "ALLOW_SPECULATIVE_READS=1", # NaxRiscv sometimes wants to read at 0x0 which is not mapped.... NOTE that this might hide segmentation faults...
         ]
 
@@ -89,6 +87,28 @@ class NaxSupport(CoreSupport):
         return self._get_specific_startup_file("NaxRiscv")
     def get_longnail_datasheet_name(self) -> str:
         return None
+
+    def get_kconfig_fragment(self, kconf_name: str) -> str:
+        return f"""
+config SPINAL_GEN_ARGS
+    string "Additional SpinalHDL generation arguments"
+    default ""
+    depends on {kconf_name}
+"""
+
+    def peripherals(self, env) -> list:
+        # Lazy import: keeps build-time importers from pulling in the cocotb-only
+        # peripherals package.
+        from peripherals.clint import Clint
+        from peripherals.nax_whitebox import NaxWhiteBoxPeripheral
+        return [
+            Clint(base=int(self.CLINT_BASE, 16), busidx=[self.CTRL_BUSIDX]),
+            NaxWhiteBoxPeripheral(
+                clk_period=int(env["CLK_PERIOD"]),
+                defines_path=os.path.abspath(os.path.join("..", env["CORE_NAME"], "nax.h")),
+                gem5_output_path="gem5_output.log",
+            ),
+        ]
 
 def get_supported_cores():
     return [

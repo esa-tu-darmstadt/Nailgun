@@ -59,7 +59,7 @@ class BRAMSlave(BusDriver):
                 word.big_endian = self.big_endian
                 word = array.array('B', word.buff)
 
-                self.memview.write(_st,_end,word,wstrb)
+                await self.memview.awrite(_st,_end,word,wstrb)
 
                 if self.enable_prints:
                     print("BRAM write - addr %08x, din %08x, we %s" % (_st, int(self.bus.din), str(wstrb)))
@@ -72,7 +72,7 @@ class BRAMSlave(BusDriver):
             await self.busdelay.assign_delay()
             assign_delay_applied = True
 
-            read_val = self.memview.read(_st,_end, self.bus.dout.value.n_bits, self.big_endian)
+            read_val = await self.memview.aread(_st,_end, self.bus.dout.value.n_bits, self.big_endian)
             self.bus.dout.value = read_val
 
             if self.enable_prints:

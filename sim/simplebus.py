@@ -119,7 +119,7 @@ class SimpleBusSlave(BusDriver):
                 word.big_endian = self.big_endian
                 word = array.array('B', word.buff)
 
-                self.memview.write(_st,_end,word,wstrb)
+                await self.memview.awrite(_st,_end,word,wstrb)
 
                 if self.enable_prints:
                     print("simble bus write - addr %08x, data %08x, wstrb %s" % (_st, int(self.req_write_data), str(wstrb)))
@@ -136,7 +136,7 @@ class SimpleBusSlave(BusDriver):
                 self.busdelay.assign_delay()
 
             if is_reading:
-                read_val = self.memview.read(_st,_end, self.resp_data.value.n_bits, self.big_endian)
+                read_val = await self.memview.aread(_st,_end, self.resp_data.value.n_bits, self.big_endian)
                 self.resp_data.value = read_val
                 self.resp_valid.value = 1
 

@@ -43,7 +43,7 @@ class VexSupport(CoreSupport):
 
         return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], defines, {}
 
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=2",
@@ -76,6 +76,14 @@ class VexSupport(CoreSupport):
         return self._get_specific_startup_file("VexRiscv")
     def get_longnail_datasheet_name(self) -> str:
         return self.datasheet
+
+    def get_kconfig_fragment(self, kconf_name: str) -> str:
+        return f"""
+config SPINAL_GEN_ARGS
+    string "Additional SpinalHDL generation arguments"
+    default ""
+    depends on {kconf_name}
+"""
 
 def get_supported_cores():
     return [

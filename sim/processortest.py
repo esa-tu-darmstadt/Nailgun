@@ -7,11 +7,11 @@ from cocotb.queue import Queue
 from amba import AXI4Slave
 from bram import BRAMSlave
 from simplebus import SimpleBusSlave
-from memutil import HierarchicalMemView, BytearrayMemView
+from memutil import HierarchicalMemView, BytearrayMemView, MemView
 from TestLoader import TestLoader
 from trace.instr_trace import TracedInstr
 from testutil import dump_32bithex, test_envarg_true, get_envarg_or
-import clint
+from peripherals.base import PeripheralCtx
 import disas
 from UARTPrinter import UARTPrinter
 
@@ -149,6 +149,16 @@ class ProcessorTest:
         for busidx in self.DMEM_BUSIDX:
             self.memsi[busidx].memview.children.append(data_memview)
 
+        # Region-less catch-all on the data bus: HierarchicalMemView only
+        # invokes children whose declared region contains the access, so an
+        # unmapped read (e.g. NaxRiscv speculative read at 0x0) needs an
+        # unclaimed-region fallback to land in. Tried last by `_ordered()`.
+        if self.allowSpeculativeReads:
+            speculative_view = MemView(read_cb=self._check_speculative_read,
+                                       write_cb=self._check_speculative_write)
+            for busidx in self.DMEM_BUSIDX:
+                self.memsi[busidx].memview.children.append(speculative_view)
+
         ctrl_resdata_mem = bytearray()
         ctrl_memview = BytearrayMemView(ctrl_resdata_mem, 0, self.CTRL_RESULTS_SIZE, self.CTRL_BASE, read_cb=self.check_ctrl_read, write_cb=self.check_ctrl_write, auto_resize=True)
         for busidx in self.CTRL_BUSIDX:
@@ -174,21 +184,24 @@ class ProcessorTest:
         if resdata_allowed_max_size < len(self.expected_data):
             raise InputBinaryException("Expected results file is larger than the physical memory section")
 
-        # Create and register a CLINT
-        self.CLINT_BASE = int(env["CLINT_BASE"], 16) if ("CLINT_BASE" in env) else 0x40000000
-        self.CLINT_BUSIDX = [int(idxstr) for idxstr in env["CLINT_BUSIDX"].split(',')] if ("CLINT_BUSIDX" in env) else self.DMEM_BUSIDX
-        clint_memview = clint.start_clint(dut, self.clk, self.CLINT_BASE, self.CLINT_BUSIDX)
-        if clint_memview:
-            for busidx in self.CLINT_BUSIDX:
-                self.memsi[busidx].memview.children.append(clint_memview)
-
-        if self.CORE_NAME == "NaxRiscv":
-            from NaxWhiteBox import NaxWhiteBox
-            naxWhiteBox = NaxWhiteBox(dut, self.CLK_PERIOD,
-                                      disasm=disas.disassemble,
-                                      defines_path=os.path.abspath(os.path.join("..", self.CORE_NAME, "nax.h")),
-                                      gem5_output_path="gem5_output.log")
-            cocotb.start_soon(naxWhiteBox.run(self.clk))
+        # Each core declares its own peripherals via CoreSupport.peripherals().
+        # Iterate the list, probe each peripheral against the DUT, attach the
+        # ones that apply. `probe()` replaces the previous try/except guards
+        # and the CORE_NAME == "NaxRiscv" branch. The CoreSupport module +
+        # its python deps were copied into this sim_dir at simulation setup
+        # time, so the discovery walks `./cores/` (cwd-relative).
+        import scaiev
+        scaiev.register_cores()
+        core_support = scaiev.get_core_support(self.CORE_NAME)
+        peripheral_env = dict(env)
+        peripheral_env["CLK_PERIOD"] = str(self.CLK_PERIOD)
+        peripheral_ctx = PeripheralCtx(dut=dut, clk=self.clk, env=peripheral_env, memsi=self.memsi, data_memview=data_memview)
+        for p in core_support.peripherals(peripheral_env):
+            if p.probe(dut):
+                dut._log.info(f"attaching peripheral: {p.name}")
+                p.attach(peripheral_ctx)
+            else:
+                dut._log.info(f"skipping peripheral (probe failed): {p.name}")
 
         #Append to end of instruction memory, needed as cores tend to prefetch instructions
         self.instr_mem += bytearray(min(self.IMEM_SIZE-len(self.instr_mem),4*32))
@@ -237,24 +250,29 @@ class ProcessorTest:
         return None
 
     def check_data_read(self, addr_begin, addr_end, big_endian):
-        if self.testStarted:
-            if addr_begin >= self.DMEM_BASE and addr_end <= (self.DMEM_BASE + self.DMEM_SIZE):
-                if self.PRINT_DMEM:
-                    print("data read %08x" % addr_begin)
-            elif self.allowSpeculativeReads:
-                print("WARNING: unmapped (speculative?) read at: %08x" % addr_begin)
-                self.past_speculative_reads.add(addr_begin)
-                return bytes([0] * (addr_end-addr_begin))
+        # Only invoked for in-range accesses (data_memview claims [DMEM_BASE,
+        # DMEM_BASE+DMEM_SIZE)); out-of-range speculative reads are handled by
+        # `_check_speculative_read` on a separate region-less fallback view.
+        if self.testStarted and self.PRINT_DMEM:
+            print("data read %08x" % addr_begin)
         return None
     def check_data_write(self, addr_begin, addr_end, word, wstrb):
-        if self.testStarted:
-            if addr_begin >= self.DMEM_BASE and addr_end <= (self.DMEM_BASE + self.DMEM_SIZE):
-                if self.PRINT_DMEM:
-                    print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
-            elif addr_begin in self.past_speculative_reads:
-                self.past_speculative_reads.remove(addr_begin)
-                print("WARNING: allowing write-back of previously speculatively unmapped read: %08x - %08X" % (addr_begin, addr_end))
-                return True
+        if self.testStarted and self.PRINT_DMEM:
+            print("data write %08x: %s strb %s" % (addr_begin, ' '.join([('%02x' % _byte) for _byte in word]), str(wstrb)))
+        return False
+
+    def _check_speculative_read(self, addr_begin, addr_end, big_endian):
+        if not self.testStarted:
+            return None
+        print("WARNING: unmapped (speculative?) read at: %08x" % addr_begin)
+        self.past_speculative_reads.add(addr_begin)
+        return bytes([0] * (addr_end - addr_begin))
+
+    def _check_speculative_write(self, addr_begin, addr_end, word, wstrb):
+        if self.testStarted and addr_begin in self.past_speculative_reads:
+            self.past_speculative_reads.remove(addr_begin)
+            print("WARNING: allowing write-back of previously speculatively unmapped read: %08x - %08X" % (addr_begin, addr_end))
+            return True
         return False
 
     def check_ctrl_write(self, addr_begin, addr_end, word, wstrb):

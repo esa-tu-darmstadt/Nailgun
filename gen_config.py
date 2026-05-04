@@ -53,7 +53,7 @@ config ISAX_{name.upper()}_EN
 
 def gen_core_selection_menu():
     results = []
-    def callback(res):
+    def callback(res, _file_path):
         results.extend(res)
     scaiev._collect_available_cores(callback)
 
@@ -73,18 +73,19 @@ choice
 config {kconf_name}
     bool "{core_name}"
 """)
+        file.write("\nendchoice\n")
 
-        file.write("""
-
-menu "Core settings"
-	depends on CORE_VEX_4S || CORE_VEX_5S || CORE_NAX
-	config SPINAL_GEN_ARGS
-		string "Additional SpinalHDL generation arguments"
-		default ""
-endmenu
-""")
-
-        file.write("endchoice\n")
+        # Per-core Kconfig contributions. Each fragment declares its symbols
+        # gated on the core's own CORE_* kconf_name; symbols shared across
+        # cores (e.g. SPINAL_GEN_ARGS) are merged by kconfiglib — the resulting
+        # `depends on` is the OR of all contributing cores.
+        fragments = [(k, support.get_kconfig_fragment(k)) for k, _, support in results]
+        fragments = [(k, frag) for k, frag in fragments if frag]
+        if fragments:
+            file.write('\nmenu "Core settings"\n')
+            for _, frag in fragments:
+                file.write(frag)
+            file.write("\nendmenu\n")
 
 
 if __name__ == "__main__":

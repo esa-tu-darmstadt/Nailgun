@@ -41,7 +41,7 @@ EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
         }
         return ["CVA5_tb_wrapper.v"], core_srcs + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", [], [], extra_makefile_args
 
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.
             "NUM_BUSSI=3",

@@ -150,7 +150,7 @@ def compile_tb(tb_paths, core_support, elf_out_path, cc_path, objdump_path, flag
 
     return elf_out_path
 
-def llvm_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_disassembly, custom_linker_script=None, analysis_yaml_path=None, asm_only=False, include_startup_files=True):
+def llvm_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_disassembly, kconf_syms, custom_linker_script=None, analysis_yaml_path=None, asm_only=False, include_startup_files=True):
     ext = core_support.get_extensions()
     march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
 
@@ -175,7 +175,7 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_
         strip_path = os.path.join(bin_dir, "llvm-strip")
 
         pico_dir = picolibc.prepare_picolibc()
-        env_vars = core_support.get_tb_env_vars()
+        env_vars = core_support.get_tb_env_vars(kconf_syms)
         pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, ext.abi, scaiev.get_env_value(env_vars, "CTRL_BASE"))
 
         startup_asm = os.path.abspath(os.path.join("sim", "startup_scripts", "startup.S"))
@@ -185,7 +185,7 @@ def llvm_compile_tb(tb_paths, core_support, elf_out_path, additional_flags, run_
 
     return compile_tb(tb_paths, core_support, elf_out_path, clang_path, objdump_path, flags, additional_flags, error.LLVM_BASE + 5, run_disassembly, custom_linker_script, analysis_yaml_path)
 
-def precompile_picolibc_for_all_cores():
+def precompile_picolibc_for_all_cores(kconf_syms):
     dyn_build_dir = prepare_dynamic_isax_llvm()
     clang_path = os.path.join(dyn_build_dir, "bin", "clang++")
 
@@ -199,7 +199,7 @@ def precompile_picolibc_for_all_cores():
 
     for core_name in scaiev.get_known_cores():
         core_support = scaiev.get_core_support(core_name)
-        env_vars = core_support.get_tb_env_vars()
+        env_vars = core_support.get_tb_env_vars(kconf_syms)
         ext = core_support.get_extensions()
         march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
         pico_inst_dir = picolibc.compile_picolibc(pico_dir, clang_path.removesuffix("++"), ar_path, as_path, nm_path, strip_path, march, ext.abi, scaiev.get_env_value(env_vars, "CTRL_BASE"))

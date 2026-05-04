@@ -41,7 +41,11 @@ class CoreSupport(ABC):
     def get_core_srcs(self, scal_sources, core_dir) -> tuple[list[str], list[str], str, str, list[str], list[str], dict[str, str]]:
         pass
     @abstractmethod
-    def get_tb_env_vars(self) -> list[str]:
+    def get_tb_env_vars(self, kconf_syms) -> list[str]:
+        """Return the env vars (as `KEY=VALUE` or bare `KEY` strings) the
+        testbench needs. `kconf_syms` is the kconfiglib symbol table; cores
+        may consult it to propagate kconfig-derived runtime flags.
+        """
         pass
     @abstractmethod
     def get_linker_file(self) -> str:
@@ -66,39 +70,72 @@ class CoreSupport(ABC):
             return f"-DASM_PERCOREENTRY=\\\"{core_specific_asm}\\\""
         return ""
 
+    def peripherals(self, env) -> list:
+        """Return the simulation peripherals this core wants attached.
+
+        Default: none. Cores that need CLINT, PLIC, whitebox tracers, or
+        custom MMIO devices override this and import the relevant peripheral
+        classes from `peripherals.*` lazily (so build-time importers like
+        dispatch.py don't pull in the cocotb-only package).
+        """
+        return []
+
+    def get_kconfig_fragment(self, kconf_name: str) -> str:
+        """Return Kconfig text contributed by this core to the global menu.
+
+        Default: empty. Override and return a multiline string with one or more
+        `config <SYMBOL>` blocks, each with `depends on {kconf_name}` so the
+        symbol is only visible when this core is selected. Symbols are shared
+        across cores by name — multiple cores declaring the same `config
+        SPINAL_GEN_ARGS` produces a single symbol whose dependencies are OR'd
+        together. Type and string-prompt declarations must agree across cores
+        or kconfiglib will reject the merged file.
+        """
+        return ""
+
 
 supported_cores = dict()
 kconfig_to_core_name = dict()
+core_name_to_path = dict()  # core_name -> absolute path of the .py file that registered it
 
 def _collect_available_cores(callback):
+    """Walk cores/ at depth 0; for each .py, import it and pass
+    `(get_supported_cores() result, absolute file path)` to `callback`."""
     plugin_folder = "cores"
-    # Walk through the directory, including subdirectories
     for root, dirs, files in os.walk(plugin_folder):
-        # We calculate the depth by checking the number of separators in the path
         depth = root[len(plugin_folder):].count(os.sep)
-
-        # We are only interested in directories at depth 1 (directories within the plugin folder)
         if depth == 0:
             for file in files:
                 if file.endswith(".py"):
-                    # Use importlib to import the py file
                     py_mod_name = os.path.basename(file)[:-3]
-                    py_mod_spec = importlib.util.spec_from_file_location(py_mod_name, f"{plugin_folder}/{file}")
+                    file_path = os.path.abspath(f"{plugin_folder}/{file}")
+                    py_mod_spec = importlib.util.spec_from_file_location(py_mod_name, file_path)
                     py_mod = importlib.util.module_from_spec(py_mod_spec)
                     py_mod_spec.loader.exec_module(py_mod)
 
                     res = py_mod.get_supported_cores()
-                    callback(res)
+                    callback(res, file_path)
 
 def register_cores():
-    def callback(res):
+    def callback(res, file_path):
         for kconf_name, core_name, core_support in res:
             print(f"INFO: Registering core {core_name}")
             assert(kconf_name not in kconfig_to_core_name)
             assert(core_name not in supported_cores)
             kconfig_to_core_name[kconf_name] = core_name
             supported_cores[core_name] = core_support
+            core_name_to_path[core_name] = file_path
     _collect_available_cores(callback)
+
+def get_core_support_path(core_name) -> str:
+    """Return the absolute path of the .py file that registered `core_name`.
+
+    Used by simulation.py to copy the CoreSupport module into the sim output
+    directory so the generated sim is self-contained (no NAILGUN_ROOT lookup).
+    """
+    if core_name not in core_name_to_path:
+        error.exit_error(f"No core support file path tracked for '{core_name}' — register_cores() must run first", error.SCAIEV_BASE)
+    return core_name_to_path[core_name]
 
 def read_file_lines(filename):
     lines = []
@@ -213,9 +250,9 @@ def get_env_value(env_vars, key):
 def get_known_cores():
     return list(supported_cores.keys())
 
-def select_tb_env_vars(core):
+def select_tb_env_vars(core, kconf_syms):
     assert(core in get_known_cores())
-    return get_core_support(core).get_tb_env_vars()
+    return get_core_support(core).get_tb_env_vars(kconf_syms)
 
 def build_scaiev(kconf_syms):
     if kconf_syms["SCAIEV_DO_NOT_REBUILD"].str_value == "y" and os.path.isfile("./deps/scaie-v/target/SCAIEV-0.0.1-SNAPSHOT.jar"):

@@ -57,8 +57,18 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     # Copy each file and package to the output simulation folder
     for file in py_files:
         shutil.copy(file, sim_dir)
-    for package in ("iss", "trace"):
+    for package in ("iss", "trace", "peripherals"):
         shutil.copytree(os.path.join("sim", package), os.path.join(sim_dir, package))
+
+    # Copy the chosen core's CoreSupport module + its lightweight Python deps
+    # into the sim dir, so processortest.py can call `scaiev.register_cores()`
+    # and `scaiev.get_core_support(core_name)` from cwd without reaching back
+    # into the project tree. Self-contained sim dirs.
+    sim_cores_dir = os.path.join(sim_dir, "cores")
+    os.makedirs(sim_cores_dir, exist_ok=True)
+    shutil.copy(scaiev.get_core_support_path(core_name), sim_cores_dir)
+    for dep in ("scaiev.py", "error.py", "run_cmd.py"):
+        shutil.copy(dep, sim_dir)
 
     assert(len(tb_expected_paths) == len(elf_files))
     # Copy expected output file next to the elf file
@@ -95,7 +105,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         f"PRINT_BRAM={1 if kconfig_syms['SIM_PRINT_BRAM'].str_value == 'y' else 0}",
         f"PRINT_AXI={1 if kconfig_syms['SIM_PRINT_AXI'].str_value == 'y' else 0}",
         f"PRINT_ISS={1 if kconfig_syms['SIM_PRINT_ISS'].str_value == 'y' else 0}",
-    ] + scaiev.select_tb_env_vars(core_name)
+    ] + scaiev.select_tb_env_vars(core_name, kconfig_syms)
 
     newline = "\n"
 
@@ -223,8 +233,8 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
         # We ALWAYS want colors, lol
         run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
-def setup_renode(py_isax_file, tb_paths, tb_expected_paths, core_support, out_dir, yaml_file):
-    env_vars = core_support.get_tb_env_vars()
+def setup_renode(py_isax_file, tb_paths, tb_expected_paths, core_support, out_dir, yaml_file, kconf_syms):
+    env_vars = core_support.get_tb_env_vars(kconf_syms)
     ext = core_support.get_extensions()
     march = f"rv{ext.xlen}{ext.get_compiler_extensions()}"
     py_isax_file_name = os.path.basename(py_isax_file) if py_isax_file else ""
@@ -280,9 +290,9 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, only_add_cc_supp
     def patch_and_compile_with_llvm(filepaths, custom_linker_script=None, asm_only=False, include_startup_files=True):
         if not only_add_cc_support:
             print(f" - Compiling {'assembly' if asm_only else 'C++'} TB with dynamic ISAX clang")
-            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, custom_linker_script, analysis_yaml_path=isax_analysis_yaml, asm_only=asm_only, include_startup_files=include_startup_files)
+            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, kconfig_syms, custom_linker_script, analysis_yaml_path=isax_analysis_yaml, asm_only=asm_only, include_startup_files=include_startup_files)
         else:
-            toolchain.precompile_picolibc_for_all_cores()
+            toolchain.precompile_picolibc_for_all_cores(kconfig_syms)
 
     def process_bin_file(bin_file, elf_file, first_run):
         # Convert axf to elf_file
@@ -364,6 +374,6 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, only_add_cc_supp
         renode_py_file = kconfig_syms["SIM_ISS_RENODE_OVERRIDE"].str_value
         if isax_name and not renode_py_file:
             renode_py_file = os.path.join(out_dir, f"{isax_name}.py")
-        renode_isax_py_path = setup_renode(renode_py_file, elf_files, tb_expected_paths, core_support, out_dir, isax_yaml_path)
+        renode_isax_py_path = setup_renode(renode_py_file, elf_files, tb_expected_paths, core_support, out_dir, isax_yaml_path, kconfig_syms)
         print(" - Start simulation")
         run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls, renode_isax_py_path)

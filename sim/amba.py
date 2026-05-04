@@ -421,7 +421,7 @@ class AXI4Slave(BusDriver):
                 _st_wordoffs = _st & (len(word) - 1)
                 word = word[_st_wordoffs:_end-_st+_st_wordoffs]
                 wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if wstrb.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
-            self.memview.write(_st,_end,word,wstrb)
+            await self.memview.awrite(_st,_end,word,wstrb)
 
             if wlast:
                 await self.busdelay.assign_delay()
@@ -561,7 +561,7 @@ class AXI4Slave(BusDriver):
                 _st = self.burst_nextaddr(_araddr, _arburst, _arlen, bytes_in_beat, diff_beats=_burst_diff)
                 _end = _st + bytes_in_beat
 
-                rdata = self.memview.read(_st,_end, self.bus.RDATA.value.n_bits, self.big_endian)
+                rdata = await self.memview.aread(_st,_end, self.bus.RDATA.value.n_bits, self.big_endian)
                 rlast = 1 if (burst_count == 1) else 0
 
                 self.bus.RDATA.value = rdata
