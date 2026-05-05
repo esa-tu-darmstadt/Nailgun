@@ -67,6 +67,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     sim_cores_dir = os.path.join(sim_dir, "cores")
     os.makedirs(sim_cores_dir, exist_ok=True)
     shutil.copy(scaiev.get_core_support_path(core_name), sim_cores_dir)
+    shutil.copytree(os.path.join("cores", "utils"), os.path.join(sim_cores_dir, "utils"))
     for dep in ("scaiev.py", "error.py", "run_cmd.py"):
         shutil.copy(dep, sim_dir)
 
