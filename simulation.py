@@ -57,7 +57,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     # Copy each file and package to the output simulation folder
     for file in py_files:
         shutil.copy(file, sim_dir)
-    for package in ("iss", "trace", "peripherals"):
+    for package in ("iss", "peripherals", "mem"):
         shutil.copytree(os.path.join("sim", package), os.path.join(sim_dir, package))
 
     # Copy the chosen core's CoreSupport module + its lightweight Python deps
@@ -106,6 +106,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         f"PRINT_BRAM={1 if kconfig_syms['SIM_PRINT_BRAM'].str_value == 'y' else 0}",
         f"PRINT_AXI={1 if kconfig_syms['SIM_PRINT_AXI'].str_value == 'y' else 0}",
         f"PRINT_ISS={1 if kconfig_syms['SIM_PRINT_ISS'].str_value == 'y' else 0}",
+        f"SIM_ENABLE_ISS_LOCKSTEP={1 if kconfig_syms['SIM_ENABLE_ISS_LOCKSTEP'].str_value == 'y' else 0}",
     ] + scaiev.select_tb_env_vars(core_name, kconfig_syms)
 
     newline = "\n"
@@ -129,8 +130,6 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         standard_cell_sources = list(map(lambda cell_verilog: f"VERILOG_SOURCES += {cell_verilog}", cell_paths))
         standard_cell_sources = "\n".join(standard_cell_sources)
 
-    sim_lockstep = kconfig_syms['SIM_ENABLE_ISS_LOCKSTEP'].str_value == 'y'
-
     # Create a makefile to run the simulation
     sim_mk = os.path.join(sim_dir, "Makefile")
     with open(sim_mk, 'w') as f:
@@ -138,7 +137,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
 VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
 TOPLEVEL = {tb_top_module}
-MODULE ?= {"test_iss_lockstep" if sim_lockstep else "test_default"}
+MODULE ?= test_default
 SIM ?= verilator
 GLS ?= 0
 GUI ?= 0

@@ -1,48 +1,35 @@
 import os
-import struct
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event, with_timeout, First
-from cocotb.queue import Queue
-from amba import AXI4Slave
-from bram import BRAMSlave
-from simplebus import SimpleBusSlave
-from memutil import HierarchicalMemView, BytearrayMemView, MemView
+from mem.amba import AXI4Slave
+from mem.bram import BRAMSlave
+from mem.simplebus import SimpleBusSlave
+from mem.memutil import HierarchicalMemView, BytearrayMemView, MemView
 from TestLoader import TestLoader
-from trace.instr_trace import TracedInstr
-from testutil import dump_32bithex, test_envarg_true, get_envarg_or
+from testutil import test_envarg_true, get_envarg_or, QueueBroadcast
 from peripherals.base import PeripheralCtx
+from peripherals.test_control import TestControlPeripheral
+from peripherals.debug_pin import DebugPinPeripheral
+from peripherals.uart_printer import UartPrinterPeripheral
+from peripherals.clock_print import ClockPrintPeripheral
 import disas
-from UARTPrinter import UARTPrinter
 
 class ConfigException(Exception):
     pass
-class InputBinaryException(Exception):
-    pass
 class CoreExceptionException(Exception):
     pass
-class ResultMismatchException(Exception):
-    pass
-class TraceMismatchException(Exception):
-    pass
-
-@cocotb.coroutine
-def clock_print(clk):
-    while True:
-        yield RisingEdge(clk)
-        print ("-", flush=True)
 
 class ProcessorTest:
 
-    def __init__(self, dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS, core_trace_queue: Queue[TracedInstr], iss_trace_queue: Queue[TracedInstr],
+    def __init__(self, dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS,
                  env=os.environ):
         self.dut = dut
         self.CLK_PERIOD = CLK_PERIOD
         self.SAMPLE_DELAY = SAMPLE_DELAY
         self.ASSIGN_DELAY = ASSIGN_DELAY
         self.TIMEOUT_PERIODS = TIMEOUT_PERIODS
-        self.core_trace_queue = core_trace_queue
-        self.iss_trace_queue = iss_trace_queue
+        self.completion_event = Event('processortest_completion')
         self.clk = dut.clk
         self.rst = dut.rst
         self.rst.setimmediatevalue(1) # High active reset
@@ -52,7 +39,6 @@ class ProcessorTest:
         self.PRINT_DMEM = test_envarg_true(env, "PRINT_DMEM")
         self.PRINT_BRAM = test_envarg_true(env, "PRINT_BRAM")
         self.PRINT_AXI = test_envarg_true(env, "PRINT_AXI")
-        self.PRINT_ISS = test_envarg_true(env, "PRINT_ISS")
         self.CORE_NAME = env["CORE_NAME"]
         self.ISAX_YAML = env["ISAX_YAML"]
         self.RESET_CYCLES = 20
@@ -101,40 +87,17 @@ class ProcessorTest:
         self.DMEM_BASE=int(env["DMEM_BASE"], 16)
         self.DMEM_SIZE=int(env["DMEM_SIZE"], 16)
 
-        self.CTRL_BUSIDX=[int(idxstr) for idxstr in env["CTRL_BUSIDX"].split(',')]
-        self.CTRL_BASE=int(env["CTRL_BASE"], 16)
-        self.CTRL_RESULTS_OFFS=int(env["CTRL_RESULTS_OFFS"], 16) if ("CTRL_RESULTS_OFFS" in env) else 0x20000
+        ctrl_base_for_imem = int(env["CTRL_BASE"], 16)
 
         self.IMEM_SIZE = 0x10000000
         if self.DMEM_BASE > self.IMEM_BASE:
             self.IMEM_SIZE = self.DMEM_BASE - self.IMEM_BASE
-        if self.CTRL_BASE > self.IMEM_BASE:
-            self.IMEM_SIZE = min(self.IMEM_SIZE, self.CTRL_BASE - self.IMEM_BASE)
-        self.CTRL_RESULTS_SIZE=self.IMEM_SIZE
+        if ctrl_base_for_imem > self.IMEM_BASE:
+            self.IMEM_SIZE = min(self.IMEM_SIZE, ctrl_base_for_imem - self.IMEM_BASE)
 
         TESTPROG = env["TESTPROG"]
-        EXPECTED = get_envarg_or(env, "EXPECTED", None)
 
         self.allowSpeculativeReads = test_envarg_true(env, "ALLOW_SPECULATIVE_READS")
-
-        self.uart_printer = UARTPrinter()
-
-        self.expected_data = bytearray()
-        if EXPECTED is None:
-            pass
-        elif EXPECTED.endswith(".bin"):
-            with open(EXPECTED, "rb") as f:
-                self.expected_data = bytearray(f.read())
-                fill_to_4align = ((len(self.expected_data) + 3) & ~3) - len(self.expected_data)
-                self.expected_data += bytearray([0] * fill_to_4align)
-        else:
-            with open(EXPECTED, "r") as f:
-                for line in f:
-                    line_lstrip = line.lstrip()
-                    if len(line_lstrip) != 0 and line_lstrip[0] != '#':
-                        self.expected_data += bytearray(int(line_lstrip, 16).to_bytes(4, byteorder='little'))
-
-        self._event_irq = Event('core_irq')
 
         self.testStarted = False
 
@@ -159,30 +122,8 @@ class ProcessorTest:
             for busidx in self.DMEM_BUSIDX:
                 self.memsi[busidx].memview.children.append(speculative_view)
 
-        ctrl_resdata_mem = bytearray()
-        ctrl_memview = BytearrayMemView(ctrl_resdata_mem, 0, self.CTRL_RESULTS_SIZE, self.CTRL_BASE, read_cb=self.check_ctrl_read, write_cb=self.check_ctrl_write, auto_resize=True)
-        for busidx in self.CTRL_BUSIDX:
-            self.memsi[busidx].memview.children.append(ctrl_memview)
-
         elfLoader = TestLoader(dut._log, [instr_memview, data_memview], [(self.IMEM_BASE,self.IMEM_BASE+self.IMEM_SIZE),(self.DMEM_BASE,self.DMEM_BASE+self.DMEM_SIZE)])
-        self.resdata_location = elfLoader.load_test_case(TESTPROG+".elf")
-
-        resdata_allowed_max_size = 0
-        if self.resdata_location is not None:
-            if self.resdata_location >= self.DMEM_BASE and self.resdata_location < self.DMEM_BASE + self.DMEM_SIZE:
-                resdata_allowed_max_size = (self.DMEM_BASE + self.DMEM_SIZE) - self.resdata_location
-                self.resdata_memview = data_memview
-            elif self.resdata_location >= self.CTRL_BASE and self.resdata_location < self.CTRL_BASE + self.CTRL_RESULTS_SIZE:
-                resdata_allowed_max_size = (self.CTRL_BASE + self.CTRL_RESULTS_SIZE) - self.resdata_location
-                self.resdata_memview = ctrl_memview
-            else:
-                raise InputBinaryException("_test_resdata symbol points outside the DMEM range")
-        else:
-            self.resdata_location = self.CTRL_BASE + self.CTRL_RESULTS_OFFS
-            self.resdata_memview = ctrl_memview
-            resdata_allowed_max_size = (self.CTRL_BASE + self.CTRL_RESULTS_SIZE) - self.resdata_location
-        if resdata_allowed_max_size < len(self.expected_data):
-            raise InputBinaryException("Expected results file is larger than the physical memory section")
+        resdata_location = elfLoader.load_test_case(TESTPROG+".elf")
 
         # Each core declares its own peripherals via CoreSupport.peripherals().
         # Iterate the list, probe each peripheral against the DUT, attach the
@@ -195,22 +136,48 @@ class ProcessorTest:
         core_support = scaiev.get_core_support(self.CORE_NAME)
         peripheral_env = dict(env)
         peripheral_env["CLK_PERIOD"] = str(self.CLK_PERIOD)
-        peripheral_ctx = PeripheralCtx(dut=dut, clk=self.clk, env=peripheral_env, memsi=self.memsi, data_memview=data_memview)
-        for p in core_support.peripherals(peripheral_env):
+        peripheral_ctx = PeripheralCtx(dut=dut, clk=self.clk, env=peripheral_env,
+                                       memsi=self.memsi,
+                                       completion_event=self.completion_event,
+                                       resdata_location=resdata_location)
+
+        # The test_control peripheral (CTRL bus owner + result-check) attaches
+        # unconditionally — the harness needs a reference for do_result_check.
+        # The debug-pin and UART byte sink are default peripherals: they sit
+        # alongside any core-supplied peripherals in the probe/attach loop.
+        # Their smaller declared regions (4 bytes each) shadow the
+        # test_control bytearray for their addresses via HierarchicalMemView
+        # dispatch.
+        ctrl_base = int(peripheral_env["CTRL_BASE"], 16)
+        ctrl_busidx = [int(s) for s in peripheral_env["CTRL_BUSIDX"].split(',')]
+        self._test_control = TestControlPeripheral(peripheral_env)
+        self._test_control.attach(peripheral_ctx)
+
+        default_peripherals = [
+            DebugPinPeripheral(ctrl_base + 4, ctrl_busidx),
+            UartPrinterPeripheral(ctrl_base + 8, ctrl_busidx),
+            ClockPrintPeripheral(test_envarg_true(peripheral_env, "PRINT_CLK")),
+        ]
+        for p in default_peripherals + core_support.peripherals(peripheral_env):
             if p.probe(dut):
                 dut._log.info(f"attaching peripheral: {p.name}")
                 p.attach(peripheral_ctx)
             else:
                 dut._log.info(f"skipping peripheral (probe failed): {p.name}")
+        self._peripheral_ctx = peripheral_ctx
+
+        # Fan the per-core tracer's RTL trace stream out to all subscribers
+        # (e.g. the ISS lockstep peripheral's driver and comparator). When no
+        # peripheral subscribed the producer queue is left untouched.
+        if peripheral_ctx._core_trace_subscribers:
+            QueueBroadcast(peripheral_ctx.core_trace_queue, *peripheral_ctx._core_trace_subscribers)
 
         #Append to end of instruction memory, needed as cores tend to prefetch instructions
         self.instr_mem += bytearray(min(self.IMEM_SIZE-len(self.instr_mem),4*32))
 
-    async def run(self, print_clk):
+    async def run(self):
         clkdriver = Clock(self.clk, self.CLK_PERIOD, units='ps')
         assert(self.RESET_CYCLES > self.RESET_CLKGATE_CYCLES_PRE)
-        if print_clk:
-            cocotb.start_soon(clock_print(self.clk))
 
         # Reset the core
         cocotb.start_soon(clkdriver.start(self.RESET_CYCLES - self.RESET_CLKGATE_CYCLES_PRE))
@@ -233,7 +200,6 @@ class ProcessorTest:
         self.dut._log.info("Driving clock again")
         self.testStarted = True
 
-        cocotb.start_soon(self._observe_traces())
         await self._run_test()
 
     def check_instr_read(self, addr_begin, addr_end, big_endian):
@@ -275,46 +241,6 @@ class ProcessorTest:
             return True
         return False
 
-    def check_ctrl_write(self, addr_begin, addr_end, word, wstrb):
-        if addr_begin == self.CTRL_BASE or addr_begin == self.CTRL_BASE + 0x4000:
-            # Assuming little endian
-            if word[0] != 0 and wstrb[0] != 0:
-                # Handle IRQ write
-                self._event_irq.set()
-                return True
-            print("check_ctrl_write: Unexpected write to IRQ")
-            return False
-        elif addr_begin == self.CTRL_BASE + 4:
-            try:
-                # Set debug pin!
-                self.dut.debugState.value = word
-            except:
-                pass
-            return True
-        elif addr_begin == self.CTRL_BASE + 8:
-            if word[0] != 0 and wstrb[0] != 0:
-                for i in range(len(wstrb.binstr)):
-                    if wstrb[i] != 0:
-                        self.uart_printer.write_byte(word[i])
-                return True
-        return False
-    def check_ctrl_read(self, addr_begin, addr_end, big_endian):
-        # For now, always return 0 for read access on the CTRL memory space.
-        if addr_begin >= self.CTRL_BASE and addr_end <= self.CTRL_BASE+8:
-            return bytes([0] * (addr_end - addr_begin))
-        return None
-
-    @cocotb.coroutine
-    async def _observe_traces(self):
-        while True:
-            core_trace_entry = await self.core_trace_queue.get()
-            iss_trace_entry = await self.iss_trace_queue.get()
-            if not (core_trace_entry == iss_trace_entry):
-                self.dut._log.error("-TRACE mismatch ISS %s; Core %s" % (str(iss_trace_entry), str(core_trace_entry)))
-                raise TraceMismatchException("ISS trace not matching core")
-            elif self.PRINT_ISS:
-                self.dut._log.info("-TRACE match ISS %s; Core %s" % (str(iss_trace_entry), str(core_trace_entry)))
-
     async def _sample_delay(self):
         if self.SAMPLE_DELAY > 0:
             await Timer(self.SAMPLE_DELAY, units='ps')
@@ -328,7 +254,7 @@ class ProcessorTest:
             timeout_periods -= 5
         await self._sample_delay()
 
-        core_done_trigger = self._event_irq.wait()
+        core_done_trigger = self._peripheral_ctx.test_done_event.wait()
         if self.trap is not None:
             if self.trap.value == 1:
                 raise CoreExceptionException("The core set its trap pin")
@@ -342,23 +268,4 @@ class ProcessorTest:
         if (self.trap is not None) and self.trap.value == 1:
             raise CoreExceptionException("The core set its trap pin")
 
-        self.dut._log.info("expected_data: " + str(self.expected_data))
-        got_all = bytearray()
-        mismatch_exception = None
-        for i in range(0, len(self.expected_data), 4):
-            got = self.resdata_memview.read(self.resdata_location+i,self.resdata_location+i+4, 32).buff
-            got_all += got
-            expected = self.expected_data[i:i+4]
-            self.dut._log.info("got: 0x%s, expected: 0x%s%s" % (str(got.hex()), str(expected.hex()), " (ERR)" if (got != expected) else ""))
-            if mismatch_exception is None and got != expected:
-                mismatch_exception = ResultMismatchException(
-                    "At 0x%X: Got 0x%08x, expected 0x%08x. Wrote complete results to outputs_got.txt and outputs_expected.txt." % (
-                        i, struct.unpack('<L', got)[0], struct.unpack('<L', expected)[0]))
-        with open("outputs_got.txt", "w") as f:
-            dump_32bithex(f, got_all)
-        with open("outputs_expected.txt", "w") as f:
-            dump_32bithex(f, self.expected_data)
-        if mismatch_exception is not None:
-            raise mismatch_exception
-
-        self.uart_printer.flush()
+        self._test_control.do_result_check()

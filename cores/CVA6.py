@@ -247,6 +247,16 @@ EXTRA_ARGS+=-Wno-BLKANDNBLK $(SRCDIR)/verilator_config.vlt -Wno-fatal
     def get_longnail_datasheet_name(self) -> str:
         return "CVA6.yaml"
 
+    def peripherals(self, env) -> list:
+        # Lazy import: keeps build-time importers from pulling in the cocotb-only
+        # peripherals package.
+        from peripherals.cva6_tracer import CVA6TracerPeripheral
+        from peripherals.iss_lockstep import ISSLockstepPeripheral
+        return [
+            CVA6TracerPeripheral(),
+            ISSLockstepPeripheral(is_64=self.is_64_bit),
+        ]
+
 def get_supported_cores():
     def _config_variant_bcb0f7d(is_64_bit: bool, is_dual: bool) -> tuple[str, str, CVA6Support_bcb0f7d]:
         inst = CVA6Support_bcb0f7d(is_64_bit, is_dual)

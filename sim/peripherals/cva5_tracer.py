@@ -1,11 +1,13 @@
-import os
-from collections import namedtuple, deque
 import cocotb
-from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event, with_timeout, First
+from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event
 from cocotb.binary import BinaryValue
 from cocotb.queue import Queue
-from trace.instr_trace import TracedInstr
 from cocotb.handle import HierarchyObject
+
+from .base import SimPeripheral, PeripheralCtx
+from testutil import test_envarg_true
+from instr_trace import TracedInstr
+
 
 def _revertBitOrder(val: BinaryValue) -> BinaryValue:
     return BinaryValue(val.binstr[::-1])
@@ -399,3 +401,39 @@ class CVA5Tracer:
             await self._sample_delay()
         pass
 
+
+class CVA5TracerPeripheral(SimPeripheral):
+    """RTL → core_trace_queue producer for CVA5.
+
+    Probes the standard hierarchy first; falls back to the GLS export pin set
+    when running gate-level simulation. The previous core_name-based dispatch
+    in test_iss_lockstep collapses into a single peripheral whose probe()
+    decides which TracePins flavor to use.
+    """
+    name = "cva5_tracer"
+
+    def probe(self, dut) -> bool:
+        try:
+            _ = dut.cva5_inst.cva5
+            return True
+        except Exception:
+            pass
+        return hasattr(dut, "export_issue_PC")
+
+    def attach(self, ctx: PeripheralCtx) -> None:
+        is_gls = test_envarg_true(ctx.env, "GLS")
+        if is_gls:
+            pins = CVA5TracePins_GLS(ctx.dut)
+        else:
+            pins = CVA5TracePins_Standard(ctx.dut, ctx.dut.cva5_inst.cva5)
+        sample_delay = int(ctx.env.get("SAMPLE_DELAY", "0"))
+        print_iss = test_envarg_true(ctx.env, "PRINT_ISS")
+        self._tracer = CVA5Tracer(ctx.dut, sample_delay, pins,
+                                  ctx.completion_event, ctx.core_trace_queue, print_iss)
+        ctx.tracer_peripheral = self
+
+    def is_start_of_interrupt(self, traced_instr) -> bool:
+        # CVA5 mtvec mode is always DIRECT — interrupt handler PC == mtvec
+        # and the entry is not flagged as an exception.
+        assert (traced_instr.mtvec & 3) == 0
+        return traced_instr.mtvec == traced_instr.pc and not traced_instr.is_exception_handler_entry

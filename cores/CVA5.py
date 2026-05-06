@@ -77,6 +77,16 @@ EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
     def get_longnail_datasheet_name(self) -> str:
         return "CVA5.yaml"
 
+    def peripherals(self, env) -> list:
+        # Lazy import: keeps build-time importers from pulling in the cocotb-only
+        # peripherals package.
+        from peripherals.cva5_tracer import CVA5TracerPeripheral
+        from peripherals.iss_lockstep import ISSLockstepPeripheral
+        return [
+            CVA5TracerPeripheral(),
+            ISSLockstepPeripheral(is_64=False),
+        ]
+
 def get_supported_cores():
     return [
         ("CORE_CVA5", "CVA5", CVA5Support()),

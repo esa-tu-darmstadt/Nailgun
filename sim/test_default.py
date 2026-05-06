@@ -1,6 +1,5 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge
-from cocotb.queue import Queue
 from processortest import ProcessorTest
 from testutil import test_envarg_true, get_envarg_or, gls_init_defaults
 
@@ -9,7 +8,6 @@ CLK_PERIOD = int(get_envarg_or(cocotb.plusargs, "CLK_PERIOD", "1000")) # Length 
 SAMPLE_DELAY = int(get_envarg_or(cocotb.plusargs, "SAMPLE_DELAY", "0")) # When to sample an output by the core
 ASSIGN_DELAY = int(get_envarg_or(cocotb.plusargs, "ASSIGN_DELAY", "0")) # When to change an input to the core
 TIMEOUT_PERIODS = int(get_envarg_or(cocotb.plusargs, "CYCLE_TIMEOUT", "1000")) # Number of clock periods until timeout
-PRINT_CLK = test_envarg_true(cocotb.plusargs, "PRINT_CLK")
 
 @cocotb.test()
 async def run_test(dut):
@@ -24,11 +22,11 @@ async def run_test(dut):
     if is_gls:
         gls_init_defaults(dut)
 
-    core_trace_queue_toProcessorTest = Queue()
-    iss_trace_queue = Queue()
+    proctest = ProcessorTest(dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS, env=cocotb.plusargs)
 
-    proctest = ProcessorTest(dut, CLK_PERIOD, SAMPLE_DELAY, ASSIGN_DELAY, TIMEOUT_PERIODS, core_trace_queue_toProcessorTest, iss_trace_queue, env=cocotb.plusargs)
-
-    await proctest.run(PRINT_CLK)
+    await proctest.run()
+    # Signal lockstep / observer coroutines (driven by attached peripherals)
+    # to drain and shut down before the test finishes.
+    proctest.completion_event.set()
 
     await RisingEdge(proctest.clk)

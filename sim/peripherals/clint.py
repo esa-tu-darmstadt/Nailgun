@@ -2,7 +2,7 @@ import struct
 import cocotb
 from cocotb.triggers import FallingEdge
 
-from memutil import MemView
+from mem.memutil import MemView
 from .base import SimPeripheral, PeripheralCtx
 
 

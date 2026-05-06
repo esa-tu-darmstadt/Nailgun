@@ -297,7 +297,7 @@ Stratified by component: USER_ERROR=1, INTERNAL_ERROR=2, TN=50+, LN=100+, SCAIEV
 ### Test Infrastructure
 
 - `custom_tbs/` — Assembly/C++ test sources with `*_expected.txt` output files
-- `sim/` — cocotb test runners (`processortest.py`, `test_iss_lockstep.py`, `test_default.py`), bus models, ISS, trace utilities
+- `sim/` — cocotb test runner (`test_default.py` + `processortest.py`), bus models, ISS, trace utilities. ISS lockstep is implemented as a peripheral (`sim/peripherals/iss_lockstep.py`) that probes True when `SIM_ENABLE_ISS_LOCKSTEP=y`; the per-core CVA5/CVA6 tracer peripherals (`sim/peripherals/cva{5,6}_tracer.py`) feed the RTL trace queue.
 - `tools/run_integration_tests.py` — CLI for running integration tests across core/ISAX combinations
 
 ### Dependencies (`deps/`)

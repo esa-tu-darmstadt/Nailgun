@@ -9,8 +9,8 @@ from cocotb.triggers import RisingEdge, ReadOnly, Lock
 from cocotb_bus.drivers import BusDriver
 from cocotb.binary import BinaryValue
 
-from memutil import MemView
-from busutil import BusDelay
+from .memutil import MemView
+from .busutil import BusDelay
 
 import array
 

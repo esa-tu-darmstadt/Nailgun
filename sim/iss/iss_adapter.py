@@ -6,7 +6,7 @@ from collections import deque
 import cocotb
 from cocotb.triggers import Combine
 
-from trace.instr_trace import TracedInstr
+from instr_trace import TracedInstr
 
 
 class ISSInitError(Exception):

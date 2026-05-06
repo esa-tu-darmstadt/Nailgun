@@ -4,7 +4,7 @@
 from elftools.elf.elffile import ELFFile, Section
 from cocotb.binary import BinaryValue
 from logging import Logger
-from memutil import MemView
+from mem.memutil import MemView
 from typing import List, Tuple
 
 class TestLoader:

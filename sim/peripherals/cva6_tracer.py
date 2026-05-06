@@ -1,11 +1,12 @@
-import os
-from collections import namedtuple, deque
 import cocotb
-from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event, with_timeout, First
+from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event
 from cocotb.binary import BinaryValue
 from cocotb.queue import Queue
-from trace.instr_trace import TracedInstr
-from cocotb.handle import HierarchyObject
+
+from .base import SimPeripheral, PeripheralCtx
+from testutil import test_envarg_true
+from instr_trace import TracedInstr
+
 
 def _revertBitOrder(val: BinaryValue) -> BinaryValue:
     return BinaryValue(val.binstr[::-1])
@@ -88,3 +89,27 @@ class CVA6Tracer:
             await clock_re
             await self._sample_delay()
         pass
+
+
+class CVA6TracerPeripheral(SimPeripheral):
+    """RTL → core_trace_queue producer for CVA6 (RVFI-based)."""
+    name = "cva6_tracer"
+
+    def probe(self, dut) -> bool:
+        return hasattr(dut, "rvfi_o_valid_A")
+
+    def attach(self, ctx: PeripheralCtx) -> None:
+        sample_delay = int(ctx.env.get("SAMPLE_DELAY", "0"))
+        pins = CVA6RVFITracePins(ctx.dut, ctx.dut)
+        self._tracer = CVA6Tracer(ctx.dut, sample_delay, pins,
+                                  ctx.completion_event, ctx.core_trace_queue)
+        ctx.tracer_peripheral = self
+
+    def is_start_of_interrupt(self, traced_instr) -> bool:
+        # CVA6's RVFI tracer doesn't yet surface mtvec / exception-entry
+        # information (cva6_rvfi_probes.sv would need to expose it), so the
+        # ISS-lockstep peripheral cannot detect interrupt handler entry on
+        # CVA6 today. Returning False keeps the queue strictly in lockstep
+        # for non-interrupt programs, matching the previous behavior in
+        # test_iss_lockstep.py for CVA6.
+        return False
