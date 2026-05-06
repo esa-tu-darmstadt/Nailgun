@@ -8,6 +8,7 @@
 | custom-0     | sqrt_stall        | sqrt_stall           | `000010100000-----000-----0001011` |
 | custom-0     | sqrt              | sqrt_decoupled       | `000011000000-----000-----0001011` |
 | custom-0     | tablejump         | set_jump_table_addr  | `000000000000-----000-----0001011` |
+| custom-0     | mac               | MAC                  | `0010000----------000-----0001011` |
 | custom-0     | dotprod           | DOTP                 | `0001001----------000-----0001011` |
 | custom-0     | swap              | SWAP_N_MAC           | `0000000----------001-----0001011` |
 | custom-0     | init              | INIT_RF_42           | `00000010000000000001000000001011` |

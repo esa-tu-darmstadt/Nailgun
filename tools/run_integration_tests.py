@@ -289,6 +289,8 @@ class CommandTemplate:
 # Integration tests that are run for EVERY available core
 # (cmd:str, required_features:CoreFeature, command_flags:CommandFlags)
 command_templates = [
+    CommandTemplate('ISAXES="MAC" SIM_ENABLE="y" TB_PATH="custom_tbs/mac.cpp" TB_EXPECTED_PATH="custom_tbs/mac_expected.txt"',
+                    [CoreFeature.RdRD, CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
                     [CoreFeature.Memory], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
