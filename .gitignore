@@ -1,4 +1,6 @@
 __pycache__
+.direnv
+.claude
 .config*
 build
 outputs

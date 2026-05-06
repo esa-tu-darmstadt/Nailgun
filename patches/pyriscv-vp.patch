@@ -1,0 +1,13 @@
+diff --git a/src/platform/basic/display.hpp b/src/platform/basic/display.hpp
+index a9e5405..e1083b0 100644
+--- a/src/platform/basic/display.hpp
++++ b/src/platform/basic/display.hpp
+@@ -9,7 +9,7 @@
+ 
+ #include <tlm_utils/simple_target_socket.h>
+ #include <systemc>
+-#include "../../../../env/basic/vp-display/framebuffer.h"
++#include "framebuffer.h"
+ 
+ using namespace std;
+ using namespace sc_core;
