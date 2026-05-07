@@ -321,10 +321,6 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, only_add_cc_supp
             test_config = yaml.safe_load(yamlfile)
 
         gls = test_config.get("gls", None)
-        compiler = test_config.get("compiler", None)
-        if type(compiler) == str:
-            error.exit_error(f"Specify the compiler via the `name` property", error.USER_ERROR)
-        compiler_name = compiler.get("name", None)
         files = test_config.get("files", [])
         if len(files) == 0:
             error.exit_error(f"Field testbench `files` is missing or empty", error.USER_ERROR)
@@ -354,10 +350,7 @@ def run_simulation(out_dir, core_name, kconfig_syms, isax_name, only_add_cc_supp
                     custom_linker_script = os.path.join(tb_folder, custom_linker_script)
                     print(f"Using custom linker script {custom_linker_script}")
 
-            if compiler_name == "clang":
-                elf_file = patch_and_compile_with_llvm(absolute_file_paths, custom_linker_script)
-            else:
-                error.exit_error(f"Unknown compiler name '{compiler_name}'. Use 'clang'.", error.USER_ERROR)
+            elf_file = patch_and_compile_with_llvm(absolute_file_paths, custom_linker_script)
 
             if memory_config is not None:
                 for hex_name, hex_config in memory_config.get("convert_to_hex", {}).items():

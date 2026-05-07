@@ -1,5 +1,3 @@
-compiler:
-  name: "clang"
 files:
   - dotprod.cpp
   - dotprod_helpers.cpp
