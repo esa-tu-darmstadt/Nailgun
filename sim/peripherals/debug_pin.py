@@ -33,7 +33,7 @@ class DebugPinPeripheral(SimPeripheral):
         ))
 
     def _write(self, addr_begin, addr_end, word, wstrb):
-        self._dut.debugState.value = word
+        self._dut.debugState.value = int.from_bytes(bytes(word), "little")
         return True
 
     def _read(self, addr_begin, addr_end, big_endian):
