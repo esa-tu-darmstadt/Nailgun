@@ -3,7 +3,7 @@ import cocotb
 from cocotb.triggers import RisingEdge, FallingEdge, ReadOnly
 from cocotb.binary import BinaryValue
 
-from memutil import HierarchicalMemView
+from mem.memutil import HierarchicalMemView
 from .base import SimPeripheral, PeripheralCtx
 
 
