@@ -67,6 +67,28 @@ def resolve_opty_lib(kconfig_syms):
 def get_default_longnail_bin(fallback_folder = "longnail"):
     return os.path.abspath(f"deps/{fallback_folder}/build/bin/longnail-opt")
 
+def get_shortnail_bin():
+    # Resolves a binary capable of running ShortNail passes
+    # (-merge-multiple-isaxes, -analyze-isax, ...). Prefer a dedicated
+    # shortnail-opt build so the open-source pieces work without the
+    # closed-source longnail. Standalone layout is tried first, then the
+    # nested-under-longnail layout used by the integration meta-repo.
+    # longnail-opt is a last-resort fallback because it bundles the same
+    # passes via the ShortNail dialect library.
+    for rel in (
+        "deps/shortnail/build/bin/shortnail-opt",
+        "deps/longnail/shortnail/build/bin/shortnail-opt",
+        "deps/longnail/build/bin/longnail-opt",
+    ):
+        p = os.path.abspath(rel)
+        if os.path.isfile(p):
+            return p
+    error.exit_error(
+        "Could not find shortnail-opt (or longnail-opt as a fallback). "
+        "Run ./setup.sh to build shortnail.",
+        error.LN_BASE + 12,
+    )
+
 def get_longnail_bin(kconf_syms, opt_prefix = "LN", fallback_folder = "longnail"):
     if kconf_syms[f"USE_PREBUILT_{opt_prefix}"].str_value == "y":
         ln_path = os.path.abspath(kconf_syms[f"{opt_prefix}_BINARY"].str_value)

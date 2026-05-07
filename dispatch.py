@@ -108,20 +108,22 @@ if __name__ == "__main__":
     while True:
         mlir_path = None
         if mlir_paths:
-            longnail.build_longnail(kconf.syms)
             if only_add_cc_support:
                 # Only merge ISAXes — skip HLS scheduling and HW generation.
                 # The compiler-patcher invokes its own LIL lowering internally.
-                ln_path = longnail.get_longnail_bin(kconf.syms)
+                # This path needs only ShortNail passes, so we don't build or
+                # call longnail at all.
+                sn_path = longnail.get_shortnail_bin()
                 if len(mlir_paths) > 1:
                     concat_file = os.path.abspath(os.path.join(out_dir, "pre_merged_isax.mlir"))
                     longnail.concat_mlir_files(mlir_paths, concat_file)
                 else:
                     concat_file = mlir_paths[0]
                 mlir_path = os.path.abspath(os.path.join(out_dir, "merged_isax.mlir"))
-                longnail.merge_isaxes(out_dir, ln_path, concat_file, mlir_path)
+                longnail.merge_isaxes(out_dir, sn_path, concat_file, mlir_path)
             else:
                 # Full LN pipeline: merge → schedule → HW-gen (.sv)
+                longnail.build_longnail(kconf.syms)
                 datasheet = longnail.select_core_datasheet(core_support)
                 mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
                 # Generate SystemVerilog for any split-datapath operators exported by LN

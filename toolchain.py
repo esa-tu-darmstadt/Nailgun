@@ -102,11 +102,11 @@ def run_analyze_isax(mlir_path, out_dir):
 
     Returns the absolute path to the generated YAML file.
     """
-    longnail_opt = longnail.get_default_longnail_bin()
+    sn_opt = longnail.get_shortnail_bin()
     yaml_path = os.path.abspath(os.path.join(out_dir, "isax_analysis.yaml"))
     mlir_path = os.path.abspath(mlir_path)
     analysis_cmd = (
-        f"{longnail_opt} "
+        f"{sn_opt} "
         f"'--pass-pipeline=builtin.module(inline,analyze-isax{{output={yaml_path}}})' {mlir_path}"
     )
     run_cmd.run(".", analysis_cmd, "Failed to analyze ISAX MLIR", error.LLVM_BASE + 4, False, 200)
