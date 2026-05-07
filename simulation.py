@@ -270,103 +270,108 @@ def get_target_elf_file_path(out_dir):
 
 def run_simulation(out_dir, core_name, kconfig_syms, isax_name, only_add_cc_support, isax_analysis_yaml):
     core_support = scaiev.get_core_support(core_name)
-    if not only_add_cc_support and kconfig_syms['SIM_ENABLE'].str_value != "y":
-        return
-    if not only_add_cc_support:
-        print("Running full core + ISAX simulation:")
-        if not os.path.exists(kconfig_syms['SIM_TB_PATH'].str_value):
-            error.exit_error("Simulation testbench path is missing!", error.USER_ERROR)
-        if not os.path.exists(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value):
-            error.exit_error("Simulation testbench expected output path is missing!", error.USER_ERROR)
-    else:
+
+    # ONLY_PATCH_CC mode: build the dynamic-ISAX clang and bail before simulation.
+    if only_add_cc_support:
         print("Only adding ISAX compiler support")
-    isax_yaml_path = find_yaml_file(out_dir)
+        toolchain.precompile_picolibc_for_all_cores(kconfig_syms)
+        return
+
+    if kconfig_syms['SIM_ENABLE'].str_value != "y":
+        return
+
+    print("Running full core + ISAX simulation:")
     tb_path = os.path.abspath(kconfig_syms['SIM_TB_PATH'].str_value)
     tb_expected_path = os.path.abspath(kconfig_syms['SIM_TB_EXPECTED_PATH'].str_value)
-    tb_expected_paths = [tb_expected_path]
+    if not os.path.exists(tb_path):
+        error.exit_error("Simulation testbench path is missing!", error.USER_ERROR)
+    if not os.path.exists(tb_expected_path):
+        error.exit_error("Simulation testbench expected output path is missing!", error.USER_ERROR)
+
+    isax_yaml_path = find_yaml_file(out_dir)
     additional_flags = kconfig_syms['SIM_TB_COMPILE_FLAGS'].str_value
     disassemble_tb = kconfig_syms['SIM_TB_DISASSEMBLE_ELF'].str_value == "y"
 
-    def patch_and_compile_with_llvm(filepaths, custom_linker_script=None, asm_only=False, include_startup_files=True):
-        if not only_add_cc_support:
-            print(f" - Compiling {'assembly' if asm_only else 'C++'} TB with dynamic ISAX clang")
-            return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir), additional_flags, disassemble_tb, kconfig_syms, custom_linker_script, analysis_yaml_path=isax_analysis_yaml, asm_only=asm_only, include_startup_files=include_startup_files)
-        else:
-            toolchain.precompile_picolibc_for_all_cores(kconfig_syms)
+    def is_prebuilt_binary(path):
+        return path.endswith(".axf") or path.endswith(".elf")
 
-    def process_bin_file(bin_file, elf_file, first_run):
-        # Convert axf to elf_file
+    def compile_with_llvm(filepaths, custom_linker_script=None, asm_only=False, include_startup_files=True):
+        print(f" - Compiling {'assembly' if asm_only else 'C++'} TB with dynamic ISAX clang")
+        return toolchain.llvm_compile_tb(filepaths, core_support, get_target_elf_file_path(out_dir),
+                                          additional_flags, disassemble_tb, kconfig_syms, custom_linker_script,
+                                          analysis_yaml_path=isax_analysis_yaml, asm_only=asm_only,
+                                          include_startup_files=include_startup_files)
+
+    def stage_prebuilt_binary(bin_file, elf_file):
+        # Convert .axf via objcopy, or copy .elf straight through.
         if bin_file.endswith(".axf"):
-            objcopy_path = toolchain.get_objcopy_path()
-            run_cmd.run(".", f"{objcopy_path} {bin_file} {elf_file}", "Failed to convert axf file to an elf file!", error.SIM_BASE + 5, False)
+            run_cmd.run(".", f"{toolchain.get_objcopy_path()} {bin_file} {elf_file}",
+                        "Failed to convert axf file to an elf file!", error.SIM_BASE + 5, False)
         else:
-            # copy the elf file to our target folder
             shutil.copy(bin_file, elf_file)
-        # If requested disassemble the elf file
         if disassemble_tb:
-            objdump_path = toolchain.get_objdump_path()
-            toolchain.disas_tb(objdump_path, elf_file, error.SIM_BASE + 6)
+            toolchain.disas_tb(toolchain.get_objdump_path(), elf_file, error.SIM_BASE + 6)
 
-    memory_config = None
-    gls = None
-    if tb_path.endswith(".axf") or tb_path.endswith(".elf"):
-        elf_file = get_target_elf_file_path(out_dir)
-        process_bin_file(tb_path, elf_file, first_run=True)
-        elf_files = [elf_file]
-    elif tb_path.endswith(".s") or tb_path.endswith(".S"):
-        elf_files = [patch_and_compile_with_llvm([tb_path], asm_only=True, include_startup_files=False)]
-    elif tb_path.endswith(".yml") or tb_path.endswith(".yaml"):
+    def process_yaml_tb():
+        # Returns (elf_files, tb_expected_paths, memory_config, gls).
         shutil.copy(tb_path, out_dir)
         with open(tb_path, "r") as yamlfile:
             test_config = yaml.safe_load(yamlfile)
 
         gls = test_config.get("gls", None)
         files = test_config.get("files", [])
-        if len(files) == 0:
-            error.exit_error(f"Field testbench `files` is missing or empty", error.USER_ERROR)
-
-        multi_binary_test = all([f.endswith(".axf") or f.endswith(".elf") for f in files])
+        if not files:
+            error.exit_error("Field testbench `files` is missing or empty", error.USER_ERROR)
 
         tb_folder = os.path.dirname(tb_path)
         absolute_file_paths = [f if os.path.isabs(f) else os.path.join(tb_folder, f) for f in files]
 
-        if multi_binary_test:
-            first_run = True
+        if all(is_prebuilt_binary(f) for f in absolute_file_paths):
+            # Multi-binary: stage each prebuilt elf/axf as tb_<idx>.elf.
             elf_files = []
             root, ext = os.path.splitext(get_target_elf_file_path(out_dir))
             for idx, f in enumerate(absolute_file_paths):
                 target_elf_file = f"{root}_{idx}{ext}"
                 elf_files.append(target_elf_file)
-                process_bin_file(f, target_elf_file, first_run=first_run)
-                first_run = False
-            # For now just replicate the expected path... TODO add support for specifiying for each tb file a different expected file
-            tb_expected_paths = tb_expected_paths * len(absolute_file_paths)
-        else:
-            custom_linker_script = None
-            memory_config = test_config.get("memory", None)
-            if memory_config is not None:
-                custom_linker_script = memory_config.get("linker_script", None)
-                if custom_linker_script is not None:
-                    custom_linker_script = os.path.join(tb_folder, custom_linker_script)
-                    print(f"Using custom linker script {custom_linker_script}")
+                stage_prebuilt_binary(f, target_elf_file)
+            # TODO: support per-testbench expected files; for now broadcast the same one.
+            return elf_files, [tb_expected_path] * len(elf_files), None, gls
 
-            elf_file = patch_and_compile_with_llvm(absolute_file_paths, custom_linker_script)
+        # Single source group: compile, optionally with linker script + hex section dumps.
+        memory_config = test_config.get("memory", None)
+        custom_linker_script = None
+        if memory_config and memory_config.get("linker_script"):
+            custom_linker_script = os.path.join(tb_folder, memory_config["linker_script"])
+            print(f"Using custom linker script {custom_linker_script}")
 
-            if memory_config is not None:
-                for hex_name, hex_config in memory_config.get("convert_to_hex", {}).items():
-                    section_names = hex_config["sections"]
-                    print(f"Dumping sections {section_names} to file {hex_name}")
-                    memory_size = int(hex_config["size"])
-                    bytes_per_word = int(hex_config["word_width"])
-                    elf_to_hex(elf_file, os.path.abspath(os.path.join(out_dir, "tb_bin", hex_name)), section_names, word_size=bytes_per_word, memory_size=memory_size)
-            elf_files = [elf_file]
+        elf_file = compile_with_llvm(absolute_file_paths, custom_linker_script)
+
+        if memory_config:
+            for hex_name, hex_config in memory_config.get("convert_to_hex", {}).items():
+                print(f"Dumping sections {hex_config['sections']} to file {hex_name}")
+                elf_to_hex(elf_file, os.path.abspath(os.path.join(out_dir, "tb_bin", hex_name)),
+                           hex_config["sections"],
+                           word_size=int(hex_config["word_width"]),
+                           memory_size=int(hex_config["size"]))
+        return [elf_file], [tb_expected_path], memory_config, gls
+
+    memory_config = None
+    gls = None
+    tb_expected_paths = [tb_expected_path]
+    if is_prebuilt_binary(tb_path):
+        elf_file = get_target_elf_file_path(out_dir)
+        stage_prebuilt_binary(tb_path, elf_file)
+        elf_files = [elf_file]
+    elif tb_path.endswith(".s") or tb_path.endswith(".S"):
+        elf_files = [compile_with_llvm([tb_path], asm_only=True, include_startup_files=False)]
+    elif tb_path.endswith(".yml") or tb_path.endswith(".yaml"):
+        elf_files, tb_expected_paths, memory_config, gls = process_yaml_tb()
     else:
-        elf_files = [patch_and_compile_with_llvm([tb_path])]
+        elf_files = [compile_with_llvm([tb_path])]
 
-    if not only_add_cc_support:
-        renode_py_file = kconfig_syms["SIM_ISS_RENODE_OVERRIDE"].str_value
-        if isax_name and not renode_py_file:
-            renode_py_file = os.path.join(out_dir, f"{isax_name}.py")
-        renode_isax_py_path = setup_renode(renode_py_file, elf_files, tb_expected_paths, core_support, out_dir, isax_yaml_path, kconfig_syms)
-        print(" - Start simulation")
-        run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls, renode_isax_py_path)
+    renode_py_file = kconfig_syms["SIM_ISS_RENODE_OVERRIDE"].str_value
+    if isax_name and not renode_py_file:
+        renode_py_file = os.path.join(out_dir, f"{isax_name}.py")
+    renode_isax_py_path = setup_renode(renode_py_file, elf_files, tb_expected_paths, core_support, out_dir, isax_yaml_path, kconfig_syms)
+    print(" - Start simulation")
+    run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expected_paths, memory_config, gls, renode_isax_py_path)
