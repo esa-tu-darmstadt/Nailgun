@@ -3,7 +3,7 @@ import cocotb
 from cocotb.triggers import RisingEdge, FallingEdge, ReadOnly
 from cocotb.types import LogicArray
 
-from memutil import HierarchicalMemView, word_range, word_to_bytes
+from mem.memutil import HierarchicalMemView, word_range, word_to_bytes
 from .base import SimPeripheral, PeripheralCtx
 
 

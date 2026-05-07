@@ -2,7 +2,7 @@ import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, NextTimeStep, Lock
 from cocotb.handle import Immediate
 
-from memutil import MemView
+from mem.memutil import MemView
 from .base import SimPeripheral, PeripheralCtx
 
 
