@@ -262,17 +262,32 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
 
     sol_selection_args = "forceUseMinIISolution=true" if force_min_II_solutions else f"solutionSelection={sol_selection_file}"
 
+    # Commit to one scheduling solution per sharing group up front so
+    # downstream passes work on canonical, pre-selected IR.
+    longnail_hw_gen_flags.append(f"-select-lil-solution=\"{sol_selection_args}\"")
+
     if mi_enabled:
         splitops_dir = os.path.abspath(os.path.join(out_dir, "splitops"))
         os.makedirs(splitops_dir, exist_ok=True)
-        longnail_hw_gen_flags.append(f"-export-splitop-yaml=\"outputDir={splitops_dir} {sol_selection_args}\"")
+        # `-materialize-instances` writes one splitop-gen YAML per
+        # multi-mode instance straight off its segAnalysis output (no
+        # encode-then-decode round-trip via moduleName).
+        materialize_instances_flag = (
+            f"-materialize-instances=\"splitopYAMLDir={splitops_dir}\""
+        )
+    else:
+        materialize_instances_flag = "-materialize-instances"
 
     lat_1_ops_latch_inputs = "false"
     if kconfig_syms['LN_LATENCY_1_OPS_LATCH_INPUTS'].str_value == "y":
         lat_1_ops_latch_inputs = "true"
 
     longnail_hw_gen_flags += [
-        f"-lower-lil-to-hw={sol_selection_args}",
+        "-materialize-pipeline-stages",
+        materialize_instances_flag,
+        "-materialize-predicates",
+        "-generate-isax-ports",
+        "-lower-lil-to-hw",
         f"-lat-1-ops-latch-inputs={lat_1_ops_latch_inputs}",
         "-simplify-structure", "-cse", "-print-stats",
         "-lower-seq-to-sv", "-hw-cleanup", "-cse", "-hw-legalize-modules", "-prettify-verilog",
