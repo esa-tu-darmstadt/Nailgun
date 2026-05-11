@@ -65,43 +65,43 @@
         tabulate # printing tables
 
         # Package pyriscv-vp
-#        (buildPythonPackage (let
-#          pyriscvvp_repo = pkgs.fetchFromGitHub {
-#            owner = "esa-tu-darmstadt";
-#            repo = "pyriscv-vp";
-#            rev = "b38ca2bea0920b68c7c8c12aa1d77b7a1c9d5ea1";
-#            hash = "";
-#            submodules = true;
-#          };
-#        in rec {
-#          pname = "pyriscvvp";
-#          version = "0.0.1";
-#          src = "${pyriscvvp_repo}/vp";
-#          patches = [
-#            ./patches/pyriscv-vp.patch
-#          ];
-#          postPatch = let
-#            systemc_src = pkgs.fetchurl {
-#              url = "https://www.accellera.org/images/downloads/standards/systemc/systemc-2.3.3.tar.gz";
-#              hash = "sha256-V4G5o1Hlr+2rw30UXl9+3sCPP9XeAP/rj6HzCGsfez8=";
-#            };
-#          in ''
-#            cp ${pyriscvvp_repo}/env/basic/vp-display/framebuffer.h src/platform/basic/
-#            # Excuse me wtf
-#            cp ${systemc_src} dependencies/systemc-2.3.3.tar.gz
-#            (cd dependencies && ./build_systemc_233.sh)
-#            (cd dependencies && ./build_softfloat.sh)
-#          '';
-#          build-system = [
-#            cmake
-#            pybind11
-#          ];
-#          dontUseCmakeConfigure = true;
-#          buildInputs = [
-#            boost
-#          ];
-#          pythonImportsCheck = [ "pyriscvvp" ];
-#        }))
+        (buildPythonPackage (let
+          pyriscvvp_repo = pkgs.fetchFromGitHub {
+            owner = "esa-tu-darmstadt";
+            repo = "pyriscv-vp";
+            rev = "b2a3e2aaf677ca3aaa7ca59105bf4f5246292848";
+            hash = "sha256-h2LMCmn5xxbDWUF6UZ4568IPJ62X5VLKpMhVMoS2ttA=";
+            fetchSubmodules = true;
+          };
+        in rec {
+          pname = "pyriscvvp";
+          version = "0.0.1";
+          src = "${pyriscvvp_repo}/vp";
+          patches = [
+            ./patches/pyriscv-vp.patch
+          ];
+          postPatch = let
+            systemc_src = pkgs.fetchurl {
+              url = "https://www.accellera.org/images/downloads/standards/systemc/systemc-2.3.3.tar.gz";
+              hash = "sha256-V4G5o1Hlr+2rw30UXl9+3sCPP9XeAP/rj6HzCGsfez8=";
+            };
+          in ''
+            cp ${pyriscvvp_repo}/env/basic/vp-display/framebuffer.h src/platform/basic/
+            # Excuse me wtf
+            cp ${systemc_src} dependencies/systemc-2.3.3.tar.gz
+            (cd dependencies && ./build_systemc_233.sh)
+            (cd dependencies && ./build_softfloat.sh)
+          '';
+          build-system = [
+            cmake
+            pybind11
+          ];
+          dontUseCmakeConfigure = true;
+          buildInputs = [
+            boost
+          ];
+          pythonImportsCheck = [ "pyriscvvp" ];
+        }))
       ];
 
       myPythonWithPackages = myPython.withPackages myPyPackages;

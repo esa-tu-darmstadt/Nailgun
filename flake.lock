@@ -50,7 +50,7 @@
         "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
         "revCount": 69,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz?rev=ff81ac966bb2cae68946d5ed5fc4994f96d0ffec&revCount=69"
+        "url": "https://api.flakehub.com/f/pinned/edolstra/flake-compat/1.1.0/01948eb7-9cba-704f-bbf3-3fa956735b52/source.tar.gz"
       },
       "original": {
         "type": "tarball",
