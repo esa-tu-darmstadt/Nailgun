@@ -342,7 +342,16 @@ class NaxWhiteBoxPeripheral(SimPeripheral):
         if not hasattr(dut, "top_INST"):
             return False
         try:
-            _ = dut.top_INST.NaxRiscv_inst
+            nax = dut.top_INST.NaxRiscv_inst
+        except Exception:
+            return False
+        # Synthesized (GLS) netlists flatten the deep internal whitebox signals
+        # away — NaxRiscv_inst still exists as an instance shell but the per-
+        # signal handles `_NaxWhiteBox.__init__` needs (robToPc_pc_*, ...) are
+        # gone. Use the first signal it would access as a canary so we bail
+        # before constructing the tracer and crashing.
+        try:
+            nax._id("robToPc_pc_0", extended=False)
         except Exception:
             return False
         return True
