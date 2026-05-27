@@ -54,11 +54,22 @@ class NaxRTOSUnitSupport(CoreSupport):
         defines = [
             "FORMAL"
         ]
+        extra_makefile_args = {
+            "verilator": """
+# Promote combinational loops (UNOPTFLAT) to a hard error. Known true loop
+# exists in the SLT-mode RTOSUnit (HW Scheduler: EN_custom_inst ->
+# CAN_FIRE_RL_u_sched_mark_pending -> stall_next_ctx_custom_inst ->
+# schedQueueSortBarrier -> isaxStart -> io_isax_inputs_valid -> EN_custom_inst);
+# Werror'ing here surfaces it at elaboration instead of at synthesis or
+# during a zero-delay oscillation at sim time.
+EXTRA_ARGS += -Werror-UNOPTFLAT
+"""
+        }
 
         return ["Nax_tb_wrapper.sv"], [
                 "nax.v", "src/main/verilog/xilinx/RamXilinx.v", "Nax_top.sv", "mkRTOSUnitSynth.v", "SizedFIFO.v", "FIFO2.v",
                 "plic_dynamic_registers.sv", "plic_core.sv", "plic_cell.sv", "plic_target.sv", "plic_gateway.sv", "plic_priority_index.sv",
-                ] + scal_sources, "nax_wrapper", "top", [], defines, {}
+                ] + scal_sources, "nax_wrapper", "top", [], defines, extra_makefile_args
     def get_tb_env_vars(self, kconf_syms) -> list[str]:
         env_vars = [
             # Number of Bus slave interfaces the simulator should instantiate.
