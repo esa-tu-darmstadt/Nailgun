@@ -100,6 +100,7 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         f"ISAX_PYTHON={kconfig_syms['SIM_ISS_PREDEFINED_ISAXES'].str_value}",
         f"NUMBER_OF_CONTEXTS={num_ctxs}",
         f"CYCLE_TIMEOUT={kconfig_syms['SIM_CYCLE_TIMEOUT'].str_value}",
+        f"CLK_PERIOD={kconfig_syms['SIM_CLK_PERIOD'].str_value}",
         f"PRINT_CLK={1 if kconfig_syms['SIM_PRINT_CLK'].str_value == 'y' else 0}",
         f"PRINT_IMEM={1 if kconfig_syms['SIM_PRINT_IMEM'].str_value == 'y' else 0}",
         f"PRINT_DMEM={1 if kconfig_syms['SIM_PRINT_DMEM'].str_value == 'y' else 0}",

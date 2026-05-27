@@ -16,6 +16,13 @@ menu "Simulation configuration"
 	config SIM_CYCLE_TIMEOUT
 		string "Cycle limit"
 		default "1000000"
+	config SIM_CLK_PERIOD
+		string "Simulated clock period (ps)"
+		default "1000"
+		help
+		  Drives the cocotb Clock(...) toggle rate via the +CLK_PERIOD plusarg
+		  read by sim/test_default.py. Set to match the synthesis target when
+		  running GLS (e.g. 2000 for 500 MHz).
 	menu "Lock-step"
 		depends on CORE_CVA5 || CORE_CVA6 || CORE_CVA6_DUAL
 		config SIM_ENABLE_ISS_LOCKSTEP
