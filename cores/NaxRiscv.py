@@ -47,10 +47,17 @@ class NaxSupport(CoreSupport):
         defines = [
             "FORMAL"
         ]
+        extra_makefile_args = {
+            "verilator": """
+# This core's integration is loop-free under Verilator; promote any future
+# combinational loop (UNOPTFLAT) to a hard error so it can't sneak through.
+EXTRA_ARGS += -Werror-UNOPTFLAT
+"""
+        }
 
         return ["Nax_tb_wrapper.sv"], [
                 "nax.v", "src/main/verilog/xilinx/RamXilinx.v", "Nax_top.sv",
-                ] + scal_sources, "nax_wrapper", "top", [], defines, {}
+                ] + scal_sources, "nax_wrapper", "top", [], defines, extra_makefile_args
     def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [
             # Number of Bus slave interfaces the simulator should instantiate.

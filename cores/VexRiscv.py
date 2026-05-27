@@ -40,8 +40,15 @@ class VexSupport(CoreSupport):
         defines = [
             "FORMAL"
         ]
+        extra_makefile_args = {
+            "verilator": """
+# This core's integration is loop-free under Verilator; promote any future
+# combinational loop (UNOPTFLAT) to a hard error so it can't sneak through.
+EXTRA_ARGS += -Werror-UNOPTFLAT
+"""
+        }
 
-        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], defines, {}
+        return ["Vex_tb_wrapper.sv"], ["VexRiscv.v", "Vex_top.sv"] + scal_sources, "vex_wrapper", "top", [], defines, extra_makefile_args
 
     def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [

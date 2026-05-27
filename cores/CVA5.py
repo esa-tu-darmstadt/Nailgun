@@ -37,6 +37,11 @@ class CVA5Support(CoreSupport):
             "questa": """
 EXTRA_ARGS += -suppress 7061 # Ignore some undriven signals
 EXTRA_ARGS += -suppress 3601 # Ignore iteration timeout
+""",
+            "verilator": """
+# This core's integration is loop-free under Verilator; promote any future
+# combinational loop (UNOPTFLAT) to a hard error so it can't sneak through.
+EXTRA_ARGS += -Werror-UNOPTFLAT
 """
         }
         return ["CVA5_tb_wrapper.v"], core_srcs + ["core/cva5_wrapper.sv", "CVA5_top.v"] + scal_sources, "testbench", "cva5_top", [], [], extra_makefile_args

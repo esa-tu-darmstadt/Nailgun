@@ -32,7 +32,14 @@ class OrcaSupport(CoreSupport):
 
     # -> tb srcs, core srcs, tb top module, core top module, include dirs, defines, extra sim makefile args
     def get_core_srcs(self, scal_sources, core_dir) -> tuple[list[str], list[str], str, str, list[str], list[str], dict[str, str]]:
-        return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", "top", [], [], {}
+        extra_makefile_args = {
+            "verilator": """
+# This core's integration is loop-free under Verilator; promote any future
+# combinational loop (UNOPTFLAT) to a hard error so it can't sneak through.
+EXTRA_ARGS += -Werror-UNOPTFLAT
+"""
+        }
+        return ["ORCA_tb_wrapper.sv"], ["ORCA.v", "ORCA_top.v"] + scal_sources, "testbench", "top", [], [], extra_makefile_args
 
     def get_tb_env_vars(self, kconf_syms) -> list[str]:
         return [

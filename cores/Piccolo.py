@@ -39,6 +39,9 @@ class PiccoloSupport(CoreSupport):
             "verilator": """
 # Verilator throws lots of warnings on the BlueSpec-compiled core. Ignoring some of them.
 EXTRA_ARGS+=-Wno-STMTDLY -Wno-UNSIGNED -Wno-CMPCONST -Wno-CASEINCOMPLETE
+# This core's integration is loop-free under Verilator; promote any future
+# combinational loop (UNOPTFLAT) to a hard error so it can't sneak through.
+EXTRA_ARGS += -Werror-UNOPTFLAT
 """
         }
         return ["Piccolo_tb_wrapper.sv"], core_srcs + bsv_lib_sources + ["Piccolo_top.v"] + scal_sources, "testbench", "top", [], [], extra_makefile_args
