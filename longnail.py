@@ -178,6 +178,10 @@ def prepare_scheduling(out_dir, ln_path, isax_mlir, prepared_sched_mlir_file, da
         os.remove(mlir_copy)
 
     longnail_prepare_schedule_flags = [
+        # Legalize control flow (e.g. switch statements) into scf before any
+        # CoreDSL lowering. Both -coredsl-to-python and -lower-coredsl-to-lil
+        # require the IR to be free of cf ops, so this must run first.
+        "-coredsl-legalize-cf",
         "-coredsl-to-python",
         "-lower-coredsl-to-lil",
         f"-max-unroll-factor={kconfig_syms['LN_MAX_LOOP_UNROLL_FACTOR'].str_value}",

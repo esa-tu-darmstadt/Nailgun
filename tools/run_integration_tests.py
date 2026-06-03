@@ -319,6 +319,8 @@ command_templates = [
                     [CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SWAP" SIM_ENABLE="y" TB_PATH="custom_tbs/swap.cpp" TB_EXPECTED_PATH="custom_tbs/swap_expected.txt"',
                     [CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
+    CommandTemplate('ISAXES="SWITCHOP" SIM_ENABLE="y" TB_PATH="custom_tbs/switchop.cpp" TB_EXPECTED_PATH="custom_tbs/switchop_expected.txt"',
+                    [CoreFeature.NONE], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="MULTIMEMREADWRITE" SIM_ENABLE="y" TB_PATH="custom_tbs/multi_mem_read_write.cpp" TB_EXPECTED_PATH="custom_tbs/multi_mem_read_write_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.MultiLoadStore], CommandFlags.EnableISSLockstep),
     CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',

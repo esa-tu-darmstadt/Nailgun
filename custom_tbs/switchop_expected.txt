@@ -1,0 +1,18 @@
+# sel 0: add
+00000000
+# sel 1: sub
+00000000
+# sel 2: and
+00000000
+# sel 3: or
+00000000
+# sel 4: xor
+00000000
+# sel 5: shl
+00000000
+# sel 6: shr
+00000000
+# sel 7: default
+00000000
+# sentinel
+ffffffff

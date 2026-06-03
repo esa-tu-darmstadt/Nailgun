@@ -1,0 +1,47 @@
+InstructionSet switchop {
+  architectural_state {
+    register unsigned<32> X[32] [[is_main_reg]];
+  }
+
+  instructions {
+    // A small ALU whose operation is selected at runtime via a switch
+    // statement. The low 3 bits of X[rs2] pick the operation that is applied
+    // to X[rs1] and X[rs2]; the result is written to X[rd].
+    SWITCHOP {
+      encoding: 7'b0000001 :: rs2[4:0] :: rs1[4:0] :: 3'b010 :: rd[4:0] :: 7'b0001011;
+      behavior: {
+        unsigned<32> a = X[rs1];
+        unsigned<32> b = X[rs2];
+        unsigned<3> sel = b[2:0];
+        unsigned<32> res = 0;
+        switch (sel) {
+          case 0:
+            res = (unsigned<32>)(a + b);
+            break;
+          case 1:
+            res = (unsigned<32>)(a - b);
+            break;
+          case 2:
+            res = a & b;
+            break;
+          case 3:
+            res = a | b;
+            break;
+          case 4:
+            res = a ^ b;
+            break;
+          case 5:
+            res = a << (b & 31);
+            break;
+          case 6:
+            res = a >> (b & 31);
+            break;
+          default:
+            res = a;
+            break;
+        }
+        X[rd] = res;
+      }
+    }
+  }
+}
