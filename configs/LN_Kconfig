@@ -116,6 +116,10 @@ menu "Longnail HLS configuration"
 			bool "Also generate cocotb testbenches for split-op modules"
 			default n
 	endmenu
+	config LN_MERGE_PIPELINE_STAGES
+		depends on LN_SCHED_ALGO_MI
+		bool "Share pipeline registers across mutually-exclusive graphs"
+		default n
 	menu "Debugging"
 		config LN_ALWAYS_SHOW_OUTPUT
 			bool "Always show the full output of Longnail invocations"

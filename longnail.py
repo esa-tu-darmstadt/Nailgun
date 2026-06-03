@@ -248,6 +248,7 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
     mi_enabled = kconfig_syms['LN_SCHED_ALGO_MI'].str_value == "y"
     visualize_mrt = mi_enabled and kconfig_syms['LN_VISUALIZE_MRT'].str_value == "y"
     optimize_slot_bindings = mi_enabled and kconfig_syms['LN_OPTIMIZE_SLOT_BINDINGS'].str_value == "y"
+    merge_pipeline_stages = mi_enabled and kconfig_syms['LN_MERGE_PIPELINE_STAGES'].str_value == "y"
 
     longnail_hw_gen_flags = []
 
@@ -282,11 +283,17 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
     if kconfig_syms['LN_LATENCY_1_OPS_LATCH_INPUTS'].str_value == "y":
         lat_1_ops_latch_inputs = "true"
 
+    # Optionally fuse same-start_time pipeline stages of mutually-exclusive
+    # graphs so they share one pipeline-boundary register (after port
+    # generation dissolves the graphs, before they lower to hardware).
+    merge_pipeline_stages_flags = ["-merge-pipeline-stages"] if merge_pipeline_stages else []
+
     longnail_hw_gen_flags += [
         "-materialize-pipeline-stages",
         materialize_instances_flag,
         "-materialize-predicates",
         "-generate-isax-ports",
+        *merge_pipeline_stages_flags,
         "-lower-lil-to-hw",
         f"-lat-1-ops-latch-inputs={lat_1_ops_latch_inputs}",
         "-simplify-structure", "-cse", "-print-stats",
