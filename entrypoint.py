@@ -81,3 +81,41 @@ def resolve_mlir_paths(scaiev_core_name, out_dir, kconf_syms):
             pass
 
     return mlir_paths, isax_yaml
+
+
+def entry_point_has_coredsl(kconf_syms):
+    """True iff the active entry point yields CoreDSL-dialect MLIR.
+
+    analyze-isax (which produces the ISAX analysis YAML) only accepts CoreDSL
+    MLIR. Only these entry points still hold it; the others start past the
+    CoreDSL stage and must carry the YAML as a companion artifact instead.
+    """
+    return (kconf_syms["DEFAULT_ENTRY_POINT"].str_value == "y"
+            or kconf_syms["COREDSL_MLIR_ENTRY_POINT"].str_value == "y")
+
+
+def resolve_analysis_yaml(kconf_syms):
+    """Resolve the companion ISAX analysis YAML for skip-ahead entry points.
+
+    Resolution order:
+        1. explicit ISAX_ANALYSIS_YAML_PATH override
+        2. sibling 'isax_analysis.yaml' next to the entry-point artifact
+           (the layout a prior NailGun run produces)
+        3. None (caller decides whether that is fatal)
+    """
+    override = kconf_syms["ISAX_ANALYSIS_YAML_PATH"].str_value
+    if override:
+        if not os.path.exists(override):
+            error.exit_error(
+                f"Could not find ISAX analysis YAML '{override}'. "
+                "Please check the ISAX_ANALYSIS_YAML_PATH setting!", error.USER_ERROR)
+        return os.path.abspath(override)
+
+    entry_artifact = (kconf_syms["MLIR_ENTRY_POINT_PATH"].str_value
+                      or kconf_syms["SV_ENTRY_POINT_PATH"].str_value)
+    if entry_artifact:
+        sibling = os.path.join(os.path.dirname(os.path.abspath(entry_artifact)),
+                               "isax_analysis.yaml")
+        if os.path.exists(sibling):
+            return sibling
+    return None

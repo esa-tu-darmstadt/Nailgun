@@ -39,6 +39,18 @@ menu "Advanced Options"
 			string "Path to ISAX YAML file"
 	endmenu
 
+	config ISAX_ANALYSIS_YAML_PATH
+		depends on PREPARED_MLIR_ENTRY_POINT || SOLUTION_MLIR_ENTRY_POINT || SV_ENTRY_POINT
+		string "Path to ISAX analysis YAML file"
+		help
+		  Companion ISAX analysis YAML (as produced by the analyze-isax pass)
+		  for the dynamic-ISAX clang's -misax-desc during simulation. These
+		  entry points start past the CoreDSL stage, so the analysis YAML can no
+		  longer be (re)generated and must be supplied. If left empty, NailGun
+		  falls back to a sibling 'isax_analysis.yaml' next to the entry-point
+		  artifact (the layout a prior NailGun run produces). Without either,
+		  testbench compilation runs without ISAX instruction support.
+
 	config USE_PREBUILT_LN
 		bool "Use prebuilt Longnail binaries"
 		default n

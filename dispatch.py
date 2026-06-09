@@ -130,10 +130,24 @@ if __name__ == "__main__":
                 if kconf.syms["LN_SCHED_ALGO_MI"].str_value == "y":
                     splitop.run_splitop_gen(os.path.join(out_dir, "splitops"), out_dir, kconf.syms)
                 isax_yaml = longnail.provide_isax_yaml(out_dir)
-        # Run AnalyzeISAX to produce structured YAML (used by LLVM patching).
+        # ISAX analysis YAML, consumed only by the dynamic-ISAX clang during
+        # simulation / compiler patching. Produce it only if such a consumer
+        # will run: generate it from CoreDSL MLIR when the entry point provides
+        # one, otherwise take the companion YAML carried by a skip-ahead entry
+        # point (PREPARED/SOLUTION/SV start past the CoreDSL stage, so it cannot
+        # be regenerated there).
         isax_analysis_yaml = None
-        if mlir_path is not None:
-            isax_analysis_yaml = toolchain.run_analyze_isax(mlir_path, out_dir)
+        sim_enabled = kconf.syms["SIM_ENABLE"].str_value == "y"
+        if only_add_cc_support or sim_enabled:
+            if mlir_path is not None and entrypoint.entry_point_has_coredsl(kconf.syms):
+                isax_analysis_yaml = toolchain.run_analyze_isax(mlir_path, out_dir)
+            else:
+                isax_analysis_yaml = entrypoint.resolve_analysis_yaml(kconf.syms)
+                if isax_analysis_yaml is None and sim_enabled:
+                    print("Warning: no ISAX analysis YAML available for this entry "
+                          "point; testbench compilation will run without -misax-desc "
+                          "(ISAX instructions cannot be assembled/disassembled). Set "
+                          "ISAX_ANALYSIS_YAML_PATH to enable it.")
 
         isax_name = None
         if mlir_path is not None and os.path.exists(mlir_path):
