@@ -34,6 +34,14 @@ menu "Longnail HLS configuration"
 	config LN_REFINE_TIMEOUT
 		int "Longnail schedule refinement timeout in seconds"
 		default 10
+	config LN_MAX_EXPLORED_II
+		int "Longnail max explored II (0 = unbounded)"
+		default 0
+		help
+		  Upper bound for the initiation intervals (II) explored during
+		  scheduling, e.g. 4 -> only II<=4 solutions are explored. The
+		  heuristic fallback solution is kept regardless of its II.
+		  0 disables the bound.
 
 	choice
 		prompt "ILP Solver"

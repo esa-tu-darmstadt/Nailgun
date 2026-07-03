@@ -219,8 +219,15 @@ def run_scheduling(out_dir, ln_path, critical_chains, prepared_sched_mlir_file, 
         chains_yaml_path = os.path.abspath(os.path.join(out_dir, f"critical_chains_run_{iteration}.yaml"))
         export_chains_as_yaml(chains_yaml_path, critical_chains)
 
+    # Only pass maxII when a bound is configured so longnail binaries
+    # predating the option keep working with the default (unbounded)
+    # configuration.
+    max_ii_opt = ""
+    if kconfig_syms['LN_MAX_EXPLORED_II'].str_value not in ("", "0"):
+        max_ii_opt = f" maxII={kconfig_syms['LN_MAX_EXPLORED_II'].str_value}"
+
     longnail_schedule_flags = [
-        f"-schedule-lil=\"chainPaths={chains_yaml_path} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} solver={ilp_solver} useHeuristicAlternative={map_heuristic_to_ln_arg(kconfig_syms)} onlyUseHeuristic={'true' if kconfig_syms['LN_USE_ONLY_HEURISTICS'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}\"",
+        f"-schedule-lil=\"chainPaths={chains_yaml_path} clockTime={kconfig_syms['LN_CLOCK_PERIOD'].str_value} solver={ilp_solver} useHeuristicAlternative={map_heuristic_to_ln_arg(kconfig_syms)} onlyUseHeuristic={'true' if kconfig_syms['LN_USE_ONLY_HEURISTICS'].str_value == 'y' else 'false'} schedulingTimeout={kconfig_syms['LN_SCHEDULE_TIMEOUT'].str_value} schedRefineTimeout={kconfig_syms['LN_REFINE_TIMEOUT'].str_value} solSelKconfPath={sched_sol_kconf_file} verbose={verbose}{max_ii_opt}\"",
         f"-lat-1-ops-latch-inputs={lat_1_ops_latch_inputs}",
         f"-o {sched_sol_mlir_file}",
     ]

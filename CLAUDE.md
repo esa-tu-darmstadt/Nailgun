@@ -44,6 +44,7 @@ For CI, configuration is driven by environment variables mapped to Kconfig symbo
 | `LN_ILP_SOLVER` | Select ILP solver → sets `LN_SOLVER_USE_<solver>=y` |
 | `LN_CELL_LIBRARY` / `LN_CLOCK_PERIOD` | Longnail cell library and clock period |
 | `LN_SCHED_ALGO_MS` / `LN_SCHED_ALGO_PA` | Enable scheduling algorithms |
+| `LN_MAX_EXPLORED_II` | Upper bound for the explored II solutions (e.g. `4` → only II≤4; `0` = unbounded, heuristic fallback always kept) |
 | `LN_OPTY_OL2_MODEL` / `LN_OPTY_CUSTOM_MODEL_PATH` | Longnail optimization models |
 | `LN_PREDEFINED_SOLUTION_SELECTION` | Skip interactive solution selection |
 | `LN_OPTIMIZE_SLOT_BINDINGS` / `LN_OPTIMIZE_SLOT_BINDINGS_TIMEOUT` | Run ILP slot-binding optimization (and its timeout) |
