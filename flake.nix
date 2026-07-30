@@ -24,12 +24,16 @@
         config = nixpkgs_cfg;
       };
 
+      # Highest Gurobi usable with or-tools 9.15: Gurobi 13 dropped the
+      # GRBcopyparams export, which or-tools' dynamic loader CHECK-fails on
+      # (fix pending upstream: google/or-tools#5272). Bump to 13.x once that
+      # lands in a release.
       my_gurobi = pkgs.gurobi.overrideAttrs (oldAttrs: rec {
-        version = "11.0.3";
+        version = "12.0.3";
         sourceRoot = "gurobi${builtins.replaceStrings ["."] [""] version}/linux64";
         src = pkgs.fetchurl {
           url = "https://packages.gurobi.com/${pkgs.lib.versions.majorMinor version}/gurobi${version}_linux64.tar.gz";
-          sha256 = "sha256-gqLIZxwjS7qp3GTaIrGVGr9BxiBH/fdwBOZfJKkd/RM=";
+          sha256 = "sha256-Ib2ruq+Dzi2kKk8T7N56H9F7buxNdMl7rYoFGIfRECE=";
         };
       });
 
