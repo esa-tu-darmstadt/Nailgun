@@ -45,24 +45,19 @@ menu "Longnail HLS configuration"
 
 	choice
 		prompt "ILP Solver"
-		default LN_SOLVER_USE_CBC
+		default LN_SOLVER_USE_HIGHS
+		help
+		  MathOpt backend for Longnail's ILP passes. Unavailable backends
+		  fall back to HiGHS (bundled, open source) with a warning.
 
-		config LN_SOLVER_USE_CBC
-			bool "Use CBC"
-		config LN_SOLVER_USE_GLPK
-			bool "Use GLPK"
-		config LN_SOLVER_USE_SCIP
-			bool "Use SCIP"
 		config LN_SOLVER_USE_HIGHS
 			bool "Use HiGHS"
+		config LN_SOLVER_USE_SCIP
+			bool "Use SCIP (not in the lean OR-Tools build)"
+		config LN_SOLVER_USE_CPSAT
+			bool "Use CP-SAT"
 		config LN_SOLVER_USE_GUROBI
 			bool "Use Gurobi (license required)"
-		# config LN_SOLVER_USE_CPLEX
-		# 	bool "Use CPLEX (license required)"
-		config LN_SOLVER_USE_XPRESS
-			bool "Use XPRESS (license required)"
-		config LN_SOLVER_USE_COPT
-			bool "Use COPT (license required)"
 	endchoice
 	config LN_FORCE_MIN_II_SOLUTIONS
 		bool "Longnail always use min II solution"
