@@ -49,7 +49,8 @@
             ];
           });
         };
-      in pkgs.python3.override {inherit packageOverrides; };
+      # Pinned to 3.13: cocotb 2.0.1 does not support python 3.14 yet.
+      in pkgs.python313.override {inherit packageOverrides; };
 
       myPyPackages = python-packages: with python-packages; [
         find-libpython
@@ -96,11 +97,20 @@
             (cd dependencies && ./build_systemc_233.sh)
             (cd dependencies && ./build_softfloat.sh)
           '';
+          # setup.py-only project: nixpkgs no longer defaults to setuptools,
+          # so declare the PEP 517 backend explicitly.
+          pyproject = true;
           build-system = [
+            setuptools
             cmake
             pybind11
           ];
           dontUseCmakeConfigure = true;
+          # SystemC 2.3.3's QuickThreads assembly has no .note.GNU-stack section,
+          # so the linker marks the resulting module as requiring an executable
+          # stack, which glibc refuses to load. QuickThreads only switches the
+          # stack pointer (no trampolines), so forcing noexecstack is safe.
+          NIX_LDFLAGS = "-z noexecstack";
           buildInputs = [
             boost
           ];
@@ -110,31 +120,7 @@
 
       myPythonWithPackages = myPython.withPackages myPyPackages;
 
-      my_verilator = pkgs.verilator.overrideAttrs (oldAttrs: rec {
-        # version = "5.032";
-        version = "5.033";
-        # Verilator gets the version from this environment variable
-        # if it can't do git describe while building.
-        VERILATOR_SRC_VERSION = "v${version}";
-
-        src = pkgs.fetchFromGitHub {
-          owner = oldAttrs.pname;
-          repo = oldAttrs.pname;
-          rev = "f4a01eb4525f23ee6ad8b6a4f17535a45adcea61";
-          hash = "sha256-bpTAG3r68oAKv6oZqoQmahfirf8sL6Y1q5l1PhcxHUs=";
-        };
-
-        patches = [
-          # Cruel "fix" to remove the failing asserting: https://github.com/verilator/verilator/issues/5668
-          # TODO remove once https://github.com/verilator/verilator/issues/5668 was properly fixed!
-          (pkgs.fetchpatch {
-            url = "https://github.com/verilator/verilator/pull/5313.patch";
-            hash = "sha256-o3eC/vLNtOeubwUnhehVg9tfOp09GHxkRLBDvsKZ0Ms=";
-          })
-        ] ++ (oldAttrs.patches or []);
-
-        doCheck = false;
-      });
+      my_verilator = pkgs.verilator;
 
       env_packages = with pkgs; [
           git # Pin git to version 2.47.1. Apparently the init.sh script no longer works with version >= 2.48.1
@@ -173,10 +159,11 @@
           ccache
           ninja
           gnumake # get-or-tools.sh
-          (hiPrio clang_18) # Fix /bin/c++ collision with gcc
+          (lib.hiPrio clang_18) # Fix /bin/c++ collision with gcc
           llvmPackages_18.bintoolsNoLibc # ld.lld required for "awesome compiler patcher"
           llvmPackages_18.clang-unwrapped.python # git-clang-format
           zlib.dev # Needed for verilator fst exports
+          lz4.dev # Verilator >= 5.04x compresses FST traces with lz4
 
           # yosys-slang dependencies:
           boost.dev
@@ -199,6 +186,11 @@
       lib.my_gurobi = my_gurobi;
 
       devShell = pkgs.mkShellNoCC {
+        # nixpkgs defaults SOURCE_DATE_EPOCH to 315532800 (1980-01-01T00:00:00Z), but
+        # maven-jar-plugin >= 3.5 rejects anything below 1980-01-01T00:00:02Z (the
+        # minimum a ZIP timestamp can represent), which breaks the SCAIE-V jar build.
+        SOURCE_DATE_EPOCH = "315532802";
+
         packages = env_packages ++ (with pkgs; [
           # Non essential packages
           gtkwave
