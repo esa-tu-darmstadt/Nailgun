@@ -52,7 +52,7 @@ class UartPrinterPeripheral(SimPeripheral):
 
     def _write(self, addr_begin, addr_end, word, wstrb):
         if word[0] != 0 and wstrb[0] != 0:
-            for i in range(len(wstrb.binstr)):
+            for i in range(len(wstrb)):
                 if wstrb[i] != 0:
                     self._uart_printer.write_byte(word[i])
             return True
@@ -61,7 +61,6 @@ class UartPrinterPeripheral(SimPeripheral):
     def _read(self, addr_begin, addr_end, big_endian):
         return bytes([0] * (addr_end - addr_begin))
 
-    @cocotb.coroutine
     async def _flush_on_completion(self, completion_event: Event):
         await completion_event.wait()
         self._uart_printer.flush()

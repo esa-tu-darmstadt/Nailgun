@@ -42,7 +42,6 @@ class _ISSDriver:
         public API."""
         self.core_interrupt_pending = True
 
-    @cocotb.coroutine
     async def _handle_iss(self):
         shutdown_trigger = self.shutdown_event.wait()
         core_trace_queue_delayed: deque = deque()
@@ -103,7 +102,6 @@ class ISSLockstepPeripheral(SimPeripheral):
         self._driver = None
         self._iss_trace_queue: Queue | None = None
 
-    @cocotb.coroutine
     async def _observe_traces(self, dut, rtl_trace: Queue, iss_trace: Queue, print_iss: bool):
         while True:
             core_trace_entry = await rtl_trace.get()

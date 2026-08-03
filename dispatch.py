@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import importlib
 import kconfiglib
 import shutil
 import re
@@ -29,10 +30,15 @@ def execute_plugins(entry_point_name):
             for file in files:
                 # Check if the file name matches the entry point
                 if file == f"{entry_point_name}.py":
-                    # Use the import statement to import the module by its name
-                    exec(f"import {plugin_folder}.{os.path.basename(root)}.{entry_point_name}")
+                    # Import the module by name. Note: `exec("import plugins.x.y")`
+                    # binds the name into this function's locals snapshot, where a
+                    # following `eval` cannot see it ("NameError: name 'plugins' is
+                    # not defined"), so import and call it directly instead.
+                    module = importlib.import_module(
+                        f"{plugin_folder}.{os.path.basename(root)}.{entry_point_name}")
                     print(f"INFO: Running {entry_point_name} from {root}")
-                    res = eval(f"{plugin_folder}.{os.path.basename(root)}.{entry_point_name}.main(globals())")
+                    # Plugins read their arguments out of dispatch's module-level state.
+                    res = module.main(globals())
                     if res:
                         results.append(res)
     return results

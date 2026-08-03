@@ -1,4 +1,5 @@
 import cocotb
+from cocotb.handle import Immediate
 
 class QueueBroadcast:
     """
@@ -11,7 +12,6 @@ class QueueBroadcast:
 
         cocotb.start_soon(self._observeIn())
 
-    @cocotb.coroutine
     async def _observeIn(self):
         while True:
             entry = await self.queueIn.get()
@@ -46,12 +46,12 @@ def gls_init_defaults(dut):
     Assumes dut._discover_all() has been called.
     """
     if 'VSS' in dut._sub_handles:
-        dut.VSS.setimmediatevalue(0)
-        dut.VDD.setimmediatevalue(1)
+        dut.VSS.value = Immediate(0)
+        dut.VDD.value = Immediate(1)
     if 'shift_enable' in dut._sub_handles:
-        dut.shift_enable.setimmediatevalue(0)
-        dut.test_mode.setimmediatevalue(0)
+        dut.shift_enable.value = Immediate(0)
+        dut.test_mode.value = Immediate(0)
     if 'DFT_sdi_1' in dut._sub_handles:
-        dut.DFT_sdi_1.setimmediatevalue(0)
+        dut.DFT_sdi_1.value = Immediate(0)
     if 'SI1' in dut._sub_handles:
-        dut.SI1.setimmediatevalue(0)
+        dut.SI1.value = Immediate(0)

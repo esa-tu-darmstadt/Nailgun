@@ -1,6 +1,6 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event
-from cocotb.binary import BinaryValue
+from cocotb.types import LogicArray
 from cocotb.queue import Queue
 from cocotb.handle import HierarchyObject
 
@@ -9,8 +9,20 @@ from testutil import test_envarg_true
 from instr_trace import TracedInstr
 
 
-def _revertBitOrder(val: BinaryValue) -> BinaryValue:
-    return BinaryValue(val.binstr[::-1])
+def _revertBitOrder(val: LogicArray) -> LogicArray:
+    return LogicArray(str(val)[::-1])
+
+def _msb_bits(val: LogicArray, start: int, end: int | None = None) -> LogicArray:
+    """Index/slice a packed struct MSB-first, counting from the left, end inclusive.
+
+    cocotb-1 presented packed structs as big-endian BinaryValues, where `val[0]` was
+    the leftmost (first-declared) field bit and slices ran low-to-high. cocotb-2
+    LogicArrays carry the HDL's own (typically `downto`) range, so ascending slices
+    raise IndexError. Slicing the string keeps the original field offsets - which
+    match the struct comments above each accessor - readable and correct.
+    """
+    binstr = str(val)
+    return LogicArray(binstr[start] if end is None else binstr[start:end + 1])
 
 class CVA5TracedInstr(TracedInstr):
     def __init__(self, pc : int, has_rd : bool, rd_regnum : int, rd_data : int, mtvec : int, is_exception_handler_entry: bool):
@@ -30,66 +42,66 @@ class CVA5TracePins:
     #    logic [31:0] data;
     #} commit_packet_t;
     @staticmethod
-    def commit_packet_id(commit_packet) -> BinaryValue:
+    def commit_packet_id(commit_packet) -> LogicArray:
         if isinstance(commit_packet, HierarchyObject):
             return commit_packet.id.value
         val = commit_packet.value
         assert(len(val) == 3+1+6+32)
         #note: packed structs are presented to cocotb as big-endian, so counting is reversed
-        return val[0:3-1]
+        return _msb_bits(val, 0, 3-1)
     @staticmethod
-    def commit_packet_valid(commit_packet) -> BinaryValue:
+    def commit_packet_valid(commit_packet) -> LogicArray:
         #valid -> writeback (preliminary, may still get rolled back until retire)
         if isinstance(commit_packet, HierarchyObject):
             return commit_packet.valid.value
         val = commit_packet.value
         assert(len(val) == 3+1+6+32)
-        return val[3]
+        return _msb_bits(val, 3)
     @staticmethod
-    def commit_packet_phys_addr(commit_packet) -> BinaryValue:
+    def commit_packet_phys_addr(commit_packet) -> LogicArray:
         if isinstance(commit_packet, HierarchyObject):
             return commit_packet.phys_addr.value
         val = commit_packet.value
         assert(len(val) == 3+1+6+32)
-        return val[3+1:3+1+6-1]
+        return _msb_bits(val, 3+1, 3+1+6-1)
     @staticmethod
-    def commit_packet_data(commit_packet) -> BinaryValue:
+    def commit_packet_data(commit_packet) -> LogicArray:
         if isinstance(commit_packet, HierarchyObject):
             return commit_packet.data.value
         val = commit_packet.value
         assert(len(val) == 3+1+6+32)
-        return val[3+1+6:3+1+6+32-1]
+        return _msb_bits(val, 3+1+6, 3+1+6+32-1)
 
     #typedef struct packed{
     #    logic valid;
     #    id_t phys_id;
     #    logic [LOG2_RETIRE_PORTS : 0] count;
     #} retire_packet_t;
-    def retire_next_valid(self) -> BinaryValue:
+    def retire_next_valid(self) -> LogicArray:
         if isinstance(self.retire_next, HierarchyObject):
             return self.retire_next.valid.value
         val = self.retire_next.value
         assert(len(val) == 1+3+2)
-        return val[0]
-    def retire_next_phys_id(self) -> BinaryValue:
+        return _msb_bits(val, 0)
+    def retire_next_phys_id(self) -> LogicArray:
         if isinstance(self.retire_next, HierarchyObject):
             return self.retire_next.phys_id.value
         val = self.retire_next.value
         assert(len(val) == 1+3+2)
-        return val[1:1+3-1]
-    def retire_next_count(self) -> BinaryValue:
+        return _msb_bits(val, 1, 1+3-1)
+    def retire_next_count(self) -> LogicArray:
         if isinstance(self.retire_next, HierarchyObject):
             return self.retire_next.count.value
         val = self.retire_next.value
         assert(len(val) == 1+3+2)
-        return val[1+3:1+3+2-1]
+        return _msb_bits(val, 1+3, 1+3+2-1)
 
     def csr_mip_meip(self) -> bool:
         if isinstance(self.csr_mip, HierarchyObject):
             return not (not self.csr_mip.meip.value)
         val = self.csr_mip.value
         assert(len(val) == 32)
-        return not (not val[20])
+        return not (not _msb_bits(val, 20))
 
     #typedef struct packed {
     #    logic [1:0] rw_bits;
@@ -111,10 +123,10 @@ class CVA5TracePins:
         else:
             csr_inputs_r_val = self.csr_inputs_r.value
             assert(len(csr_inputs_r_val) == 48)
-            csr_inputs_r_addr_val = csr_inputs_r_val[0:11]
-            csr_inputs_r_sub_addr_val = csr_inputs_r_addr_val[4:11]
-        return mwrite_val and csr_inputs_r_sub_addr_val.integer == (MIP_addr & 0xFF)
-    def csr_write_data(self) -> BinaryValue:
+            csr_inputs_r_addr_val = _msb_bits(csr_inputs_r_val, 0, 11)
+            csr_inputs_r_sub_addr_val = _msb_bits(csr_inputs_r_addr_val, 4, 11)
+        return mwrite_val and int(csr_inputs_r_sub_addr_val) == (MIP_addr & 0xFF)
+    def csr_write_data(self) -> LogicArray:
         return self.csr_updated_csr.value
 
     #typedef struct packed{
@@ -150,7 +162,7 @@ class CVA5TracePins:
             return not (not self.gc.writeback_supress.value)
         val = self.gc.value
         assert(len(val) == 116)
-        return not (not val[5])
+        return not (not _msb_bits(val, 5))
 
     #typedef struct packed {
     #    logic valid;
@@ -166,15 +178,15 @@ class CVA5TracePins:
             return not (not self.lsu_exception_fromunit.valid.value)
         val = self.lsu_exception_fromunit.value
         assert(len(val) == 41)
-        return not (not val[0])
-    def lsu_exception_id(self) -> BinaryValue:
+        return not (not _msb_bits(val, 0))
+    def lsu_exception_id(self) -> LogicArray:
         if self.lsu_exception is not None:
             return self.lsu_exception.id.value
         if isinstance(self.lsu_exception_fromunit, HierarchyObject):
             return self.lsu_exception_fromunit.valid.id
         val = self.lsu_exception_fromunit.value
         assert(len(val) == 41)
-        return val[6:6+3-1]
+        return _msb_bits(val, 6, 6+3-1)
 
 class CVA5TracePins_Standard(CVA5TracePins):
     def __init__(self, dut, cva5_wrapper):
@@ -322,10 +334,9 @@ class CVA5Tracer:
 
     async def _sample_delay(self):
         if self.SAMPLE_DELAY > 0:
-            await Timer(self.SAMPLE_DELAY, units='ps')
+            await Timer(self.SAMPLE_DELAY, unit='ps')
         await ReadOnly()
 
-    @cocotb.coroutine
     async def _produce_trace(self):
         clock_re = RisingEdge(self.clk)
         await clock_re
@@ -342,11 +353,11 @@ class CVA5Tracer:
                 entering_exception = True
             if self.trace_pins.issue_valid.value:
                 #Ignore stalling&flushing, as the register file writeback may still occur for ALU instructions
-                instr_id = self.trace_pins.issue_id.value.integer
-                pc = self.trace_pins.issue_PC.value.integer
+                instr_id = int(self.trace_pins.issue_id.value)
+                pc = int(self.trace_pins.issue_PC.value)
                 has_rd = not(not self.trace_pins.issue_RD_valid.value)
-                rd_id_logical = self.trace_pins.issue_RD_id.value.integer
-                mtvec = self.trace_pins.csr_mtvec.value.integer
+                rd_id_logical = int(self.trace_pins.issue_RD_id.value)
+                mtvec = int(self.trace_pins.csr_mtvec.value)
                 if self.print_events:
                     self.dut._log.info("(Issue ID %d PC 0x%08x, has_rd=%d, rd_id=%d)" % (instr_id,pc,has_rd,rd_id_logical if has_rd else 0))
                 self.pending_instrs_by_id[instr_id].onIssue(pc, has_rd, rd_id_logical, mtvec)
@@ -355,32 +366,32 @@ class CVA5Tracer:
                 if self.trace_pins.commit_packet_valid(commit_packet):
                     if i == 0 and self.trace_pins.pre_issue_exception_pending.value:
                         continue
-                    instr_id = self.trace_pins.commit_packet_id(commit_packet).integer
+                    instr_id = int(self.trace_pins.commit_packet_id(commit_packet))
                     rd_data = self.trace_pins.commit_packet_data(commit_packet)
                     is_decoupled = self.trace_pins.scaiev_wrReg_decoupled.value or False
                     idname = "decoupled [ignoring]" if (i == 1 and is_decoupled) else str(i)
-                    if 'x' in rd_data.binstr:
+                    if 'x' in str(rd_data):
                         rd_data = -1
                         if self.print_events:
                             self.dut._log.info("(Commit/Wb port %d: ID %s Data X)" % (i,idname))
                     else:
-                        rd_data = rd_data.integer
+                        rd_data = int(rd_data)
                         if self.print_events:
                             self.dut._log.info("(Commit/Wb port %d: ID %s Data 0x%08x)" % (i,idname,rd_data))
                     if not (i == 1 and is_decoupled):
                         self.pending_instrs_by_id[instr_id].onWriteback(rd_data)
             # CVA5: retire_next.valid and .phys_id indicate presence/ID of a retirement with a register writeback
             # Retirements in general are indicated by retire_next.count and retire_ids_next[0]
-            if self.trace_pins.retire_next_count().integer > 0 and not self.trace_pins.gc_writeback_supress():
-                num_retires = self.trace_pins.retire_next_count().integer
+            if int(self.trace_pins.retire_next_count()) > 0 and not self.trace_pins.gc_writeback_supress():
+                num_retires = int(self.trace_pins.retire_next_count())
                 assert(num_retires <= 2)
-                instr_id_first = self.trace_pins.retire_id_next.value.integer
+                instr_id_first = int(self.trace_pins.retire_id_next.value)
                 assert(instr_id_first < len(self.pending_instrs_by_id))
                 if self.print_events:
                     self.dut._log.info("(Retire First ID %d Count %d)" % (instr_id_first,num_retires))
                 for i in range(num_retires):
                     instr_id = (instr_id_first + i) % len(self.pending_instrs_by_id)
-                    if self.trace_pins.lsu_exception_valid() and (self.trace_pins.lsu_exception_id().integer == instr_id):
+                    if self.trace_pins.lsu_exception_valid() and (int(self.trace_pins.lsu_exception_id()) == instr_id):
                         # Early retire of store instructions
                         # Can happen in the same cycle where the LSU notices it should raise an exception instead
                         assert(i == num_retires-1) # No later instruction should retire

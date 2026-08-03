@@ -1,6 +1,6 @@
 import struct
 
-from mem.memutil import BytearrayMemView, MemView
+from mem.memutil import BytearrayMemView, MemView, word_to_bytes
 from testutil import dump_32bithex, get_envarg_or
 
 from .base import SimPeripheral, PeripheralCtx
@@ -132,7 +132,9 @@ class TestControlPeripheral(SimPeripheral):
         got_all = bytearray()
         mismatch_exception = None
         for i in range(0, len(self.expected_data), 4):
-            got = resdata_memview.read(resdata_location+i, resdata_location+i+4, 32).buff
+            # LogicArray.buff is always big-endian, but read() builds the word with
+            # big_endian=False (matching the '<L' unpack below), so convert explicitly.
+            got = word_to_bytes(resdata_memview.read(resdata_location+i, resdata_location+i+4, 32), False)
             got_all += got
             expected = self.expected_data[i:i+4]
             self._dut._log.info("got: 0x%s, expected: 0x%s%s" % (str(got.hex()), str(expected.hex()), " (ERR)" if (got != expected) else ""))

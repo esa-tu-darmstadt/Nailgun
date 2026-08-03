@@ -6,7 +6,7 @@ from .base import SimPeripheral, PeripheralCtx
 
 
 def _get_cycle_count(CLK_PERIOD):
-    return cocotb.utils.get_sim_time(units="ps") / CLK_PERIOD
+    return cocotb.utils.get_sim_time(unit="ps") / CLK_PERIOD
 
 
 def _read_defines(file_path):
@@ -120,10 +120,10 @@ class _NaxWhiteBox:
         if idx >= limit:
             return None
         if self.rf_uses_ffs:
-            return reg[idx].value.integer
+            return int(reg[idx].value)
         if idx == 0:
             return 0
-        return reg[idx - 1].value.integer
+        return int(reg[idx - 1].value)
 
     def traceT2s(self, time):
         return str(time) if time != 0 else ""
@@ -131,7 +131,7 @@ class _NaxWhiteBox:
     def trace(self, opId):
         op = self.opCtx[opId]
 
-        assembly = self.disasm(op['instruction'].buff[::-1])[0]
+        assembly = self.disasm(op['instruction'].to_bytes(byteorder="big")[::-1])[0]
         padding = max(4, 25 - len(assembly))
 
         detail = ""
@@ -148,7 +148,7 @@ class _NaxWhiteBox:
 
         fetch = self.fetchCtx[op['fetchId']]
         # Simulating gem5 trace output
-        self.gem5.write(f"O3PipeView:fetch:{self.traceT2s(fetch['fetchAt'])}:0x{op['pc'].integer:08x}:0:{op['counter']}:{assembly}{detail}\n")
+        self.gem5.write(f"O3PipeView:fetch:{self.traceT2s(fetch['fetchAt'])}:0x{int(op['pc']):08x}:0:{op['counter']}:{assembly}{detail}\n")
         self.gem5.write(f"O3PipeView:decode:{self.traceT2s(fetch['decodeAt'])}\n")
         self.gem5.write(f"O3PipeView:rename:{self.traceT2s(op['renameAt'])}\n")
         self.gem5.write(f"O3PipeView:dispatch:{self.traceT2s(op['dispatchAt'] if "dispatchAt" in op else 0)}\n")
@@ -170,37 +170,37 @@ class _NaxWhiteBox:
 
         if self.dut.robToPc_valid.value:
             for i, robToPc in enumerate(self.robToPc):
-                robId = self.dut.robToPc_robId.value + i
+                robId = int(self.dut.robToPc_robId.value) + i
                 self.robCtx[robId]['pc'] = robToPc.value
 
         try:
             for i, float_flags_mask in enumerate(self.float_flags_mask):
-                robId = self.float_flags_robId[i].value
-                self.robCtx[robId]['floatFlags'] |= float_flags_mask.value
+                robId = int(self.float_flags_robId[i].value)
+                self.robCtx[robId]['floatFlags'] |= int(float_flags_mask.value)
         except:
             pass
 
         for i, valid in enumerate(self.integer_write_valid):
             if valid.value:
-                robId = self.integer_write_robId[i].value
+                robId = int(self.integer_write_robId[i].value)
                 self.robCtx[robId]['integerWriteValid'] = True
                 self.robCtx[robId]['integerWriteData'] = self.integer_write_data[i].value
 
         try:
             for i, valid in enumerate(self.float_write_valid):
                 if valid.value:
-                    robId = self.float_write_robId[i].value
+                    robId = int(self.float_write_robId[i].value)
                     self.robCtx[robId]['floatWriteValid'] = True
                     self.robCtx[robId]['floatWriteData'] = self.float_write_data[i].value
         except:
             pass
 
         if self.dut.FetchPlugin_stages_1_isFirstCycle.value:
-            fetchId = self.dut.FetchPlugin_stages_1_FETCH_ID.value
+            fetchId = int(self.dut.FetchPlugin_stages_1_FETCH_ID.value)
             self.fetchCtx[fetchId]['fetchAt'] = _get_cycle_count(self.period) - self.period * 2
 
         if self.dut.fetchLastFire.value:
-            fetchId = self.dut.fetchLastId.value
+            fetchId = int(self.dut.fetchLastId.value)
             self.fetchCtx[fetchId]['decodeAt'] = _get_cycle_count(self.period)
 
         try:
@@ -210,8 +210,8 @@ class _NaxWhiteBox:
 
         for i, decoded_fetch_id in enumerate(self.decoded_fetch_id):
             if decoded_fire.value:
-                fetchId = decoded_fetch_id.value
-                opId = self.dut.FrontendPlugin_decoded_OP_ID.value + i
+                fetchId = int(decoded_fetch_id.value)
+                opId = int(self.dut.FrontendPlugin_decoded_OP_ID.value) + i
                 if self.decoded_mask[i].value:
                     self.opIdInFlight.append(opId)
                 self.opCtx[opId] = {
@@ -227,8 +227,8 @@ class _NaxWhiteBox:
                 allocated_fire = self.dut.FrontendPlugin_allocated_isFiring
 
             if allocated_fire.value:
-                robId = self.dut.FrontendPlugin_allocated_ROB_ID.value + i
-                opId = self.dut.FrontendPlugin_allocated_OP_ID.value + i
+                robId = int(self.dut.FrontendPlugin_allocated_ROB_ID.value) + i
+                opId = int(self.dut.FrontendPlugin_allocated_OP_ID.value) + i
                 self.robCtx[robId]['opId'] = opId
                 self.opCtx[opId]['robId'] = robId
         try:
@@ -239,10 +239,10 @@ class _NaxWhiteBox:
         if dispatch_fire.value:
             for i, dispatch_mask in enumerate(self.dispatch_mask):
                 if dispatch_mask.value:
-                    robId = self.dut.FrontendPlugin_dispatch_ROB_ID.value + i
+                    robId = int(self.dut.FrontendPlugin_dispatch_ROB_ID.value) + i
                     opId = self.robCtx[robId]['opId']
-                    self.robCtx[robId]['PHYS_RS0'] = self.rob_phy_rs0[i][int(robId / self.COMMIT_COUNT)].value.integer
-                    self.robCtx[robId]['PHYS_RS1'] = self.rob_phy_rs1[i][int(robId / self.COMMIT_COUNT)].value.integer
+                    self.robCtx[robId]['PHYS_RS0'] = int(self.rob_phy_rs0[i][int(robId / self.COMMIT_COUNT)].value)
+                    self.robCtx[robId]['PHYS_RS1'] = int(self.rob_phy_rs1[i][int(robId / self.COMMIT_COUNT)].value)
 
                     phys_rs0 = self.robCtx[robId]['PHYS_RS0']
                     phys_rs1 = self.robCtx[robId]['PHYS_RS1']
@@ -256,7 +256,7 @@ class _NaxWhiteBox:
                         if tmp is not None:
                             self.opCtx[opId]['RS1_VAL_1'] = tmp
 
-                    sqId = self.sq_alloc_id[i].value
+                    sqId = int(self.sq_alloc_id[i].value)
                     self.opCtx[opId]['dispatchAt'] = _get_cycle_count(self.period)
                     self.opCtx[opId]['sqAllocated'] = self.sq_alloc_valid[i].value
                     self.opCtx[opId]['sqId'] = sqId
@@ -265,7 +265,7 @@ class _NaxWhiteBox:
 
         for i, valid in enumerate(self.issue_valid):
             if valid.value:
-                robId = self.issue_robId[i].value
+                robId = int(self.issue_robId[i].value)
                 opId = self.robCtx[robId]['opId']
                 self.opCtx[opId]['issueAt'] = _get_cycle_count(self.period)
 
@@ -283,12 +283,12 @@ class _NaxWhiteBox:
 
         for i, valid in enumerate(self.rob_completions_valid):
             if valid.value:
-                opId = self.robCtx[self.rob_completions_payload[i].value]['opId']
+                opId = self.robCtx[int(self.rob_completions_payload[i].value)]['opId']
                 self.opCtx[opId]['completeAt'] = _get_cycle_count(self.period)
 
         for i in range(self.COMMIT_COUNT):
-            if (self.dut.commit_mask.value >> i) & 1:
-                robId = self.dut.commit_robId.value + i
+            if (int(self.dut.commit_mask.value) >> i) & 1:
+                robId = int(self.dut.commit_robId.value) + i
                 opId = self.robCtx[robId]['opId']
                 self.opCtx[opId]['commitAt'] = _get_cycle_count(self.period)
                 while True:
@@ -301,9 +301,9 @@ class _NaxWhiteBox:
 
         self.stats.cycles += 1
         for i in range(self.COMMIT_COUNT):
-            if (self.dut.commit_mask.value >> i) & 1:
-                robId = self.dut.commit_robId.value + i
-                pc = self.robCtx[robId]['pc'].integer
+            if (int(self.dut.commit_mask.value) >> i) & 1:
+                robId = int(self.dut.commit_robId.value) + i
+                pc = int(self.robCtx[robId]['pc'])
                 self.stats.commits += 1
                 if pc in self.stats.pcHist:
                     self.stats.pcHist[pc] += 1
@@ -318,10 +318,9 @@ class _NaxWhiteBox:
             elif reschedule_reason == "branch":
                 self.stats.reschedulesBranch += 1
 
-    @cocotb.coroutine
-    def run(self, clk):
+    async def run(self, clk):
         while True:
-            yield FallingEdge(clk)
+            await FallingEdge(clk)
             self.preCycle()
 
 

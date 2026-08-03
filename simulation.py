@@ -161,6 +161,14 @@ EXTRA_ARGS += --assert
 EXTRA_ARGS += --trace-fst --trace --trace-structs --trace-underscore
 # Use more than one core to compile the simulation models
 BUILD_ARGS += -j$(shell nproc)
+# Build the verilated model with clang. GCC's optimizer degrades superlinearly on
+# Verilator's symbol-table constructor (Vtop__Syms__ctor__*.cpp is a single function
+# instantiating the whole module hierarchy): >20 min for that one file, where clang
+# needs ~1.5 s. Verilator's verilated.mk hard-assigns CXX/LINK, so these have to be
+# passed on the sub-make command line (BUILD_ARGS) to take precedence.
+# Override with `make VERILATOR_CXX=g++ ...` to fall back to GCC.
+VERILATOR_CXX ?= clang++
+BUILD_ARGS += CXX=$(VERILATOR_CXX) LINK=$(VERILATOR_CXX)
 EXTRA_ARGS += --no-timing
 endif # SIM == verilator
 
@@ -232,7 +240,12 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
     results_xml_path = os.path.join(sim_dir, "results.xml")
     for elf_file, expected_path in zip(elf_files, copied_expected_paths):
         # We ALWAYS want colors, lol
-        run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
+        # cocotb 2.0 no longer writes the literal "Test failed" into results.xml (the
+        # xunit <failure> element carries error_type/error_msg instead), so the old
+        # grep could never match. Use cocotb's own checker, which also fails when the
+        # results file is missing entirely. Still needed on top of `make sim`: only
+        # cocotb's verilator makefile runs check_results itself, the questa one does not.
+        run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && python3 -m cocotb_tools.check_results {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
 def setup_renode(py_isax_file, tb_paths, tb_expected_paths, core_support, out_dir, yaml_file, kconf_syms):
     env_vars = core_support.get_tb_env_vars(kconf_syms)

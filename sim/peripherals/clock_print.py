@@ -21,7 +21,6 @@ class ClockPrintPeripheral(SimPeripheral):
     def attach(self, ctx: PeripheralCtx) -> None:
         cocotb.start_soon(self._print_clock(ctx.clk))
 
-    @cocotb.coroutine
     async def _print_clock(self, clk):
         while True:
             await RisingEdge(clk)

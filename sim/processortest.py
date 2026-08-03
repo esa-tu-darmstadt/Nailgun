@@ -2,6 +2,7 @@ import os
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event, with_timeout, First
+from cocotb.handle import Immediate
 from mem.amba import AXI4Slave
 from mem.bram import BRAMSlave
 from mem.simplebus import SimpleBusSlave
@@ -32,7 +33,7 @@ class ProcessorTest:
         self.completion_event = Event('processortest_completion')
         self.clk = dut.clk
         self.rst = dut.rst
-        self.rst.setimmediatevalue(1) # High active reset
+        self.rst.value = Immediate(1) # High active reset
         self.trap = dut.trap if ("HAS_TRAP_PIN" in env) else None
 
         self.PRINT_IMEM = test_envarg_true(env, "PRINT_IMEM")
@@ -176,27 +177,36 @@ class ProcessorTest:
         self.instr_mem += bytearray(min(self.IMEM_SIZE-len(self.instr_mem),4*32))
 
     async def run(self):
-        clkdriver = Clock(self.clk, self.CLK_PERIOD, units='ps')
+        clkdriver = Clock(self.clk, self.CLK_PERIOD, unit='ps')
         assert(self.RESET_CYCLES > self.RESET_CLKGATE_CYCLES_PRE)
 
-        # Reset the core
-        cocotb.start_soon(clkdriver.start(self.RESET_CYCLES - self.RESET_CLKGATE_CYCLES_PRE))
+        # Reset the core.
+        # cocotb 2.0 dropped Clock.start(cycles) (a positional int would silently bind
+        # to start_high and run the clock forever) and forbids re-starting a running
+        # clock. So drive the pre-gate window, then stop() for the clock-gated tail of
+        # reset. Sequencing this inline rather than from a concurrent task guarantees
+        # the clock is stopped before it gets restarted below.
+        clkdriver.start()
         self.dut._log.info("Setting rst")
 
         self.rst.value = 1
-        await Timer(self.CLK_PERIOD * self.RESET_CYCLES + self.ASSIGN_DELAY, units='ps')
+        await Timer(self.CLK_PERIOD * (self.RESET_CYCLES - self.RESET_CLKGATE_CYCLES_PRE), unit='ps')
+        clkdriver.stop()
+        gated_reset_ps = self.CLK_PERIOD * self.RESET_CLKGATE_CYCLES_PRE + self.ASSIGN_DELAY
+        if gated_reset_ps > 0:
+            await Timer(gated_reset_ps, unit='ps')
         self.rst.value = 0
         self.dut._log.info("Reset done")
 
         if self.ASSIGN_DELAY > 0:
-            await Timer(self.CLK_PERIOD - self.ASSIGN_DELAY, units='ps')
+            await Timer(self.CLK_PERIOD - self.ASSIGN_DELAY, unit='ps')
 
         if self.RESET_CLKGATE_CYCLES_POST > 0:
             self.dut._log.info("Waiting for %d ps" % (self.CLK_PERIOD * self.RESET_CLKGATE_CYCLES_POST))
-            await Timer(self.CLK_PERIOD * self.RESET_CLKGATE_CYCLES_POST, units='ps')
+            await Timer(self.CLK_PERIOD * self.RESET_CLKGATE_CYCLES_POST, unit='ps')
 
         # Start the simulation until completion / timeout
-        cocotb.start_soon(clkdriver.start())
+        clkdriver.start()
         self.dut._log.info("Driving clock again")
         self.testStarted = True
 
@@ -243,14 +253,14 @@ class ProcessorTest:
 
     async def _sample_delay(self):
         if self.SAMPLE_DELAY > 0:
-            await Timer(self.SAMPLE_DELAY, units='ps')
+            await Timer(self.SAMPLE_DELAY, unit='ps')
         await ReadOnly()
 
     async def _run_test(self):
         # Make sure the trap output stabilizes before sampling it.
         timeout_periods = self.TIMEOUT_PERIODS
         if self.trap is not None:
-            await Timer(self.CLK_PERIOD * 5, units='ps')
+            await Timer(self.CLK_PERIOD * 5, unit='ps')
             timeout_periods -= 5
         await self._sample_delay()
 
