@@ -2,6 +2,11 @@ diff --git a/build.sbt b/build.sbt
 index 0206cff..a2fdf24 100644
 --- a/build.sbt
 +++ b/build.sbt
+@@ -1,3 +1,3 @@
+-val spinalVersion = "1.7.0a"
++val spinalVersion = "1.8.1"
+ 
+ lazy val root = (project in file(".")).
 @@ -12,6 +12,7 @@ lazy val root = (project in file(".")).
        "com.github.spinalhdl" % "spinalhdl-lib_2.11" % spinalVersion,
        compilerPlugin("com.github.spinalhdl" % "spinalhdl-idsl-plugin_2.11" % spinalVersion),
@@ -38,3 +43,85 @@ index dc19d434..c11d2643 100644
          fetchRsp.pc := stages.last.output.payload
          fetchRsp.rsp := rspBuffer.output.payload
          fetchRsp.rsp.error.clearWhen(!rspBuffer.output.valid) //Avoid interference with instruction injection from the debug plugin
+diff --git a/src/main/scala/vexriscv/Stage.scala b/src/main/scala/vexriscv/Stage.scala
+--- a/src/main/scala/vexriscv/Stage.scala
++++ b/src/main/scala/vexriscv/Stage.scala
+@@ -79,3 +79,3 @@
+   }
+   def inputInit[T <: BaseType](stageable : Stageable[T],initValue : T) =
+-    Component.current.addPrePopTask(() => inputsDefault(stageable.asInstanceOf[Stageable[Data]]).asInstanceOf[T].getDrivingReg.init(initValue))
++    Component.current.addPrePopTask(() => inputsDefault(stageable.asInstanceOf[Stageable[Data]]).asInstanceOf[T].getDrivingReg().init(initValue))
+diff --git a/src/main/scala/vexriscv/plugin/Fetcher.scala b/src/main/scala/vexriscv/plugin/Fetcher.scala
+--- a/src/main/scala/vexriscv/plugin/Fetcher.scala
++++ b/src/main/scala/vexriscv/plugin/Fetcher.scala
+@@ -390,7 +390,7 @@
+ 
+           //Check if the decode instruction is driven by a register
+           val instructionDriver = try {
+-            decode.input(INSTRUCTION).getDrivingReg
++            decode.input(INSTRUCTION).getDrivingReg()
+           } catch {
+             case _: Throwable => null
+           }
+diff --git a/src/main/scala/vexriscv/plugin/DBusCachedPlugin.scala b/src/main/scala/vexriscv/plugin/DBusCachedPlugin.scala
+--- a/src/main/scala/vexriscv/plugin/DBusCachedPlugin.scala
++++ b/src/main/scala/vexriscv/plugin/DBusCachedPlugin.scala
+@@ -368,7 +368,7 @@
+         insert(MEMORY_VIRTUAL_ADDRESS) := cache.io.cpu.execute.address
+         memory.input(MEMORY_VIRTUAL_ADDRESS)
+         if(writeBack != null) addPrePopTask( () =>
+-          KeepAttribute(memory.input(MEMORY_VIRTUAL_ADDRESS).getDrivingReg)
++          KeepAttribute(memory.input(MEMORY_VIRTUAL_ADDRESS).getDrivingReg())
+         )
+       }
+     }
+@@ -525,14 +525,14 @@
+       dBusAccess.rsp.error := cache.io.cpu.writeBack.unalignedAccess || cache.io.cpu.writeBack.accessError
+       dBusAccess.rsp.redo := cache.io.cpu.redo
+       component.addPrePopTask{() =>
+-        managementStage.input(IS_DBUS_SHARING).getDrivingReg clearWhen(dBusAccess.rsp.fire)
++        managementStage.input(IS_DBUS_SHARING).getDrivingReg() clearWhen(dBusAccess.rsp.fire)
+         when(forceDatapath){
+           execute.output(REGFILE_WRITE_DATA) := dBusAccess.cmd.address.asBits
+         }
+         if(mmuAndBufferStage != execute) mmuAndBufferStage.input(IS_DBUS_SHARING) init(False)
+         managementStage.input(IS_DBUS_SHARING) init(False)
+         when(dBusAccess.rsp.valid){
+-          managementStage.input(IS_DBUS_SHARING).getDrivingReg := False
++          managementStage.input(IS_DBUS_SHARING).getDrivingReg() := False
+         }
+       }
+     }
+diff --git a/src/main/scala/vexriscv/ip/fpu/FpuCore.scala b/src/main/scala/vexriscv/ip/fpu/FpuCore.scala
+--- a/src/main/scala/vexriscv/ip/fpu/FpuCore.scala
++++ b/src/main/scala/vexriscv/ip/fpu/FpuCore.scala
+@@ -530,7 +530,7 @@
+           busy := True
+           when(boot){
+             when(input.i2f && !patched && input.value(31) && input.arg(0)){
+-              input.value.getDrivingReg(0, 32 bits) := B(input.value.asUInt.twoComplement(True).resize(32 bits))
++              input.value.getDrivingReg()(0, 32 bits) := B(input.value.asUInt.twoComplement(True).resize(32 bits))
+               patched := True
+             } otherwise {
+               shift.by := OHToUInt(OHMasking.first((ohInput).reversed))
+@@ -1318,7 +1318,7 @@
+       is(_15_XYY2){
+         when(mulBuffer.valid) {
+           state := Y_15_XYY2
+-          mulBuffer.payload.getDrivingReg := (U"11" << mulWidth-2) - (mulBuffer.payload)
++          mulBuffer.payload.getDrivingReg() := (U"11" << mulWidth-2) - (mulBuffer.payload)
+         }
+       }
+       is(Y_15_XYY2){
+diff --git a/src/main/scala/vexriscv/demo/smp/VexRiscvSmpLitexCluster.scala b/src/main/scala/vexriscv/demo/smp/VexRiscvSmpLitexCluster.scala
+--- a/src/main/scala/vexriscv/demo/smp/VexRiscvSmpLitexCluster.scala
++++ b/src/main/scala/vexriscv/demo/smp/VexRiscvSmpLitexCluster.scala
+@@ -141,7 +141,7 @@
+     opt[String]("rvc") action { (v, c) => rvc = v.toBoolean }
+     opt[String]("itlb-size") action { (v, c) => iTlbSize = v.toInt }
+     opt[String]("dtlb-size") action { (v, c) => dTlbSize = v.toInt }
+-  }.parse(args))
++  }.parse(args, ()).isDefined)
+ 
+   val coherency = coherentDma || cpuCount > 1
+   def parameter = VexRiscvLitexSmpClusterParameter(
