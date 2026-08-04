@@ -181,16 +181,23 @@
           gnutar
           gzip
       ];
-    in rec {
-      lib.envPackages = env_packages;
-      lib.my_gurobi = my_gurobi;
 
-      devShell = pkgs.mkShellNoCC {
+      # Environment that belongs to the toolchain in env_packages, shared with
+      # every consumer of it (our devShell, the isax-tools-integration devShell
+      # and its CI container image) so the two cannot drift apart.
+      env_vars = {
         # nixpkgs defaults SOURCE_DATE_EPOCH to 315532800 (1980-01-01T00:00:00Z), but
         # maven-jar-plugin >= 3.5 rejects anything below 1980-01-01T00:00:02Z (the
         # minimum a ZIP timestamp can represent), which breaks the SCAIE-V jar build.
         SOURCE_DATE_EPOCH = "315532802";
+      };
 
+    in rec {
+      lib.envPackages = env_packages;
+      lib.envVars = env_vars;
+      lib.my_gurobi = my_gurobi;
+
+      devShell = pkgs.mkShellNoCC (env_vars // {
         packages = env_packages ++ (with pkgs; [
           # Non essential packages
           gtkwave
@@ -199,5 +206,5 @@
           clang-tools # for clangd
           lldb
         ]);
-      };
+      });
     });}
