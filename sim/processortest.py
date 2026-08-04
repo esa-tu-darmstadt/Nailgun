@@ -30,7 +30,7 @@ class ProcessorTest:
         self.SAMPLE_DELAY = SAMPLE_DELAY
         self.ASSIGN_DELAY = ASSIGN_DELAY
         self.TIMEOUT_PERIODS = TIMEOUT_PERIODS
-        self.completion_event = Event('processortest_completion')
+        self.completion_event = Event()
         self.clk = dut.clk
         self.rst = dut.rst
         self.rst.value = Immediate(1) # High active reset

@@ -1,12 +1,13 @@
 import re
 import cocotb
+from cocotb.simtime import get_sim_time
 from cocotb.triggers import FallingEdge
 
 from .base import SimPeripheral, PeripheralCtx
 
 
 def _get_cycle_count(CLK_PERIOD):
-    return cocotb.utils.get_sim_time(unit="ps") / CLK_PERIOD
+    return get_sim_time(unit="ps") / CLK_PERIOD
 
 
 def _read_defines(file_path):
@@ -44,61 +45,61 @@ class _NaxWhiteBox:
         self.opIdInFlight = []
         self.sqToOp = [None] * 256
 
-        self.robToPc = [self.dut._id(f"robToPc_pc_{i}", extended=False) for i in range(DISPATCH_COUNT)]
-        self.integer_write_valid = [self.dut._id(f"integer_write_{i}_valid", extended=False) for i in range(INTEGER_WRITE_COUNT)]
-        self.integer_write_robId = [self.dut._id(f"integer_write_{i}_robId", extended=False) for i in range(INTEGER_WRITE_COUNT)]
-        self.integer_write_data = [self.dut._id(f"integer_write_{i}_data", extended=False) for i in range(INTEGER_WRITE_COUNT)]
+        self.robToPc = [self.dut[f"robToPc_pc_{i}"] for i in range(DISPATCH_COUNT)]
+        self.integer_write_valid = [self.dut[f"integer_write_{i}_valid"] for i in range(INTEGER_WRITE_COUNT)]
+        self.integer_write_robId = [self.dut[f"integer_write_{i}_robId"] for i in range(INTEGER_WRITE_COUNT)]
+        self.integer_write_data = [self.dut[f"integer_write_{i}_data"] for i in range(INTEGER_WRITE_COUNT)]
 
         try:
-            self.float_write_valid = [self.dut._id(f"float_write_{i}_valid", extended=False) for i in range(FLOAT_WRITE_COUNT)]
-            self.float_write_robId = [self.dut._id(f"float_write_{i}_robId", extended=False) for i in range(FLOAT_WRITE_COUNT)]
-            self.float_write_data = [self.dut._id(f"float_write_{i}_data", extended=False) for i in range(FLOAT_WRITE_COUNT)]
+            self.float_write_valid = [self.dut[f"float_write_{i}_valid"] for i in range(FLOAT_WRITE_COUNT)]
+            self.float_write_robId = [self.dut[f"float_write_{i}_robId"] for i in range(FLOAT_WRITE_COUNT)]
+            self.float_write_data = [self.dut[f"float_write_{i}_data"] for i in range(FLOAT_WRITE_COUNT)]
 
-            self.float_flags_robId = [self.dut._id(f"fpuRobToFlags_{i}_robId", extended=False) for i in range(FLOAT_WRITE_COUNT)]
-            self.float_flags_mask = [self.dut._id(f"fpuRobToFlags_{i}_mask", extended=False) for i in range(FLOAT_WRITE_COUNT)]
+            self.float_flags_robId = [self.dut[f"fpuRobToFlags_{i}_robId"] for i in range(FLOAT_WRITE_COUNT)]
+            self.float_flags_mask = [self.dut[f"fpuRobToFlags_{i}_mask"] for i in range(FLOAT_WRITE_COUNT)]
         except:
             pass
 
-        self.rob_completions_valid = [self.dut._id(f"RobPlugin_logic_whitebox_completionsPorts_{i}_valid", extended=False) for i in range(ROB_COMPLETIONS_PORTS)]
-        self.rob_completions_payload = [self.dut._id(f"RobPlugin_logic_whitebox_completionsPorts_{i}_payload_id", extended=False) for i in range(ROB_COMPLETIONS_PORTS)]
+        self.rob_completions_valid = [self.dut[f"RobPlugin_logic_whitebox_completionsPorts_{i}_valid"] for i in range(ROB_COMPLETIONS_PORTS)]
+        self.rob_completions_payload = [self.dut[f"RobPlugin_logic_whitebox_completionsPorts_{i}_payload_id"] for i in range(ROB_COMPLETIONS_PORTS)]
 
-        self.rob_phy_rs0 = [self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_0_banks_{i}", extended=False) for i in range(DISPATCH_COUNT)]
-        self.rob_phy_rs1 = [self.dut._id(f"RobPlugin_logic_storage_PHYS_RS_1_banks_{i}", extended=False) for i in range(DISPATCH_COUNT)]
+        self.rob_phy_rs0 = [self.dut[f"RobPlugin_logic_storage_PHYS_RS_0_banks_{i}"] for i in range(DISPATCH_COUNT)]
+        self.rob_phy_rs1 = [self.dut[f"RobPlugin_logic_storage_PHYS_RS_1_banks_{i}"] for i in range(DISPATCH_COUNT)]
 
         self.rf_uses_ffs = False
 
         try:
-            self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_0.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+            self.rf0 = [self.dut[f"integer_RegFilePlugin_logic_regfile_latchBanks_0.latches_{i}_storage"] for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
             try:
-                self.rf1 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage", extended=False) for i in range(ISR_INTEGER_PHYSICAL_DEPTH - 1)]
+                self.rf1 = [self.dut[f"integer_RegFilePlugin_logic_regfile_latchBanks_1.latches_{i}_storage"] for i in range(ISR_INTEGER_PHYSICAL_DEPTH - 1)]
             except:
                 self.rf1 = None
         except:
             try:
-                self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+                self.rf0 = [self.dut[f"integer_RegFilePlugin_logic_regfile_latches.latches_{i}_storage"] for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
                 self.rf1 = None
             except:
                 # RF is implemented using FFs
                 self.rf_uses_ffs = True
                 try:
-                    self.rf0 = self.dut._id(f"integer_RegFilePlugin_logic_regfile_fpgaBanks_0.banks_0_ram", extended=False)
+                    self.rf0 = self.dut[f"integer_RegFilePlugin_logic_regfile_fpgaBanks_0.banks_0_ram"]
                     try:
-                        self.rf1 = self.dut._id(f"integer_RegFilePlugin_logic_regfile_fpgaBanks_1.banks_0_ram", extended=False)
+                        self.rf1 = self.dut[f"integer_RegFilePlugin_logic_regfile_fpgaBanks_1.banks_0_ram"]
                     except:
                         self.rf1 = None
                 except:
-                    self.rf0 = [self.dut._id(f"integer_RegFilePlugin_logic_regfile_banks_0_ram", extended=False) for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
+                    self.rf0 = [self.dut[f"integer_RegFilePlugin_logic_regfile_banks_0_ram"] for i in range(INTEGER_PHYSICAL_DEPTH - 1)]
                     self.rf1 = None
 
-        self.issue_valid = [self.dut._id(f"DispatchPlugin_logic_whitebox_issuePorts_{i}_valid", extended=False) for i in range(ISSUE_PORTS)]
-        self.issue_robId = [self.dut._id(f"DispatchPlugin_logic_whitebox_issuePorts_{i}_payload_robId", extended=False) for i in range(ISSUE_PORTS)]
-        self.sq_alloc_valid = [self.dut._id(f"sqAlloc_{i}_valid", extended=False) for i in range(DISPATCH_COUNT)]
-        self.sq_alloc_id = [self.dut._id(f"sqAlloc_{i}_id", extended=False) for i in range(DISPATCH_COUNT)]
-        self.decoded_fetch_id = [self.dut._id(f"FrontendPlugin_decoded_FETCH_ID_{i}", extended=False) for i in range(DISPATCH_COUNT)]
-        self.decoded_mask = [self.dut._id(f"FrontendPlugin_decoded_Frontend_DECODED_MASK_{i}", extended=False) for i in range(DISPATCH_COUNT)]
-        self.decoded_instruction = [self.dut._id(f"FrontendPlugin_decoded_Frontend_INSTRUCTION_DECOMPRESSED_{i}", extended=False) for i in range(DISPATCH_COUNT)]
-        self.decoded_pc = [self.dut._id(f"FrontendPlugin_decoded_PC_{i}", extended=False) for i in range(DISPATCH_COUNT)]
-        self.dispatch_mask = [self.dut._id(f"FrontendPlugin_dispatch_Frontend_DISPATCH_MASK_{i}", extended=False) for i in range(DISPATCH_COUNT)]
+        self.issue_valid = [self.dut[f"DispatchPlugin_logic_whitebox_issuePorts_{i}_valid"] for i in range(ISSUE_PORTS)]
+        self.issue_robId = [self.dut[f"DispatchPlugin_logic_whitebox_issuePorts_{i}_payload_robId"] for i in range(ISSUE_PORTS)]
+        self.sq_alloc_valid = [self.dut[f"sqAlloc_{i}_valid"] for i in range(DISPATCH_COUNT)]
+        self.sq_alloc_id = [self.dut[f"sqAlloc_{i}_id"] for i in range(DISPATCH_COUNT)]
+        self.decoded_fetch_id = [self.dut[f"FrontendPlugin_decoded_FETCH_ID_{i}"] for i in range(DISPATCH_COUNT)]
+        self.decoded_mask = [self.dut[f"FrontendPlugin_decoded_Frontend_DECODED_MASK_{i}"] for i in range(DISPATCH_COUNT)]
+        self.decoded_instruction = [self.dut[f"FrontendPlugin_decoded_Frontend_INSTRUCTION_DECOMPRESSED_{i}"] for i in range(DISPATCH_COUNT)]
+        self.decoded_pc = [self.dut[f"FrontendPlugin_decoded_PC_{i}"] for i in range(DISPATCH_COUNT)]
+        self.dispatch_mask = [self.dut[f"FrontendPlugin_dispatch_Frontend_DISPATCH_MASK_{i}"] for i in range(DISPATCH_COUNT)]
 
         self.gem5 = open(gem5_output_path, 'w')
         self.disasm = disasm
@@ -350,7 +351,7 @@ class NaxWhiteBoxPeripheral(SimPeripheral):
         # gone. Use the first signal it would access as a canary so we bail
         # before constructing the tracer and crashing.
         try:
-            nax._id("robToPc_pc_0", extended=False)
+            nax["robToPc_pc_0"]
         except Exception:
             return False
         return True

@@ -137,8 +137,8 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         f.write(f"""
 VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
-TOPLEVEL = {tb_top_module}
-MODULE ?= test_default
+COCOTB_TOPLEVEL = {tb_top_module}
+COCOTB_TEST_MODULES ?= test_default
 SIM ?= verilator
 GLS ?= 0
 GUI ?= 0
@@ -175,7 +175,7 @@ endif # SIM == verilator
 # Questa specific flags
 ifeq ($(SIM), questa)
 ifeq ($(GLS), 1)
-# It is recommended that you create a new testbench (e.g., test_gls.py) to change the testbench to your chip design and pass it with MODULE=test_gls to your make invocation.
+# It is recommended that you create a new testbench (e.g., test_gls.py) to change the testbench to your chip design and pass it with COCOTB_TEST_MODULES=test_gls to your make invocation.
 NETLIST_FILE = {netlist_file}
 
 ifeq ($(NETLIST_FILE),)
@@ -211,28 +211,28 @@ endif
 {newline.join(extra_makefile_opts_strs)}
 
 # test_default.py configuration settings
-PLUSARGS = ""
-{newline.join([f'PLUSARGS += "+{var}"' for var in env_vars if len(var)>0])}
+COCOTB_PLUSARGS = ""
+{newline.join([f'COCOTB_PLUSARGS += "+{var}"' for var in env_vars if len(var)>0])}
 
 ifeq ($(GLS), 1)
-PLUSARGS += "+GLS=1"
+COCOTB_PLUSARGS += "+GLS=1"
 endif # GLS == 1
 
 # Additional arguments
 # - Simulated clock period (clk signal) in ps, default: 1000
-# PLUSARGS += "+CLK_PERIOD=1000"
+# COCOTB_PLUSARGS += "+CLK_PERIOD=1000"
 # - To fix removal violations on reset paths (timing-annotated GLS):
 #   Delay to hold the clk signal before the negedge of rst in CLK_PERIODs, default: 0
-# PLUSARGS += "+RESET_CLKGATE_CYCLES_PRE=10"
+# COCOTB_PLUSARGS += "+RESET_CLKGATE_CYCLES_PRE=10"
 # - To fix recovery violations on reset paths (timing-annotated GLS):
 #   Delay to hold the clk signal after the negedge of rst in CLK_PERIODs, default: 0
-# PLUSARGS += "+RESET_CLKGATE_CYCLES_POST=10"
+# COCOTB_PLUSARGS += "+RESET_CLKGATE_CYCLES_POST=10"
 # - To fix premature sampling by testbench (timing-annotated GLS):
 #   Delay to sampling output pins from the core after each posedge of clk in ps, default: 0
-# PLUSARGS += "+SAMPLE_DELAY=500"
+# COCOTB_PLUSARGS += "+SAMPLE_DELAY=500"
 # - To fix input hold violations inside the core (timing-annotated GLS):
 #   Delay to setting input pins towards the core after each posedge of clk in ps, default: 0
-# PLUSARGS += "+ASSIGN_DELAY=300"
+# COCOTB_PLUSARGS += "+ASSIGN_DELAY=300"
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 """)

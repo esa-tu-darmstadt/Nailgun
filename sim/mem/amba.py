@@ -97,9 +97,9 @@ class AXI4LiteMaster(BusDriver):
         self.bus.RREADY.value = Immediate(1)
 
         # Mutex for each channel that we master to prevent contention
-        self.write_address_busy = Lock("%s_wabusy" % name)
-        self.read_address_busy = Lock("%s_rabusy" % name)
-        self.write_data_busy = Lock("%s_wbusy" % name)
+        self.write_address_busy = Lock()
+        self.read_address_busy = Lock()
+        self.write_data_busy = Lock()
 
     async def _send_write_address(self, address, delay=0):
         """
@@ -351,9 +351,9 @@ class AXI4Slave(BusDriver):
 
         self.enable_prints = enable_prints
 
-        self.write_address_busy = Lock("%s_wabusy" % name)
-        self.read_address_busy = Lock("%s_rabusy" % name)
-        self.write_data_busy = Lock("%s_wbusy" % name)
+        self.write_address_busy = Lock()
+        self.read_address_busy = Lock()
+        self.write_data_busy = Lock()
 
         cocotb.start_soon(self._read_addr())
         cocotb.start_soon(self._read_data())
