@@ -48,6 +48,18 @@
               })
             ];
           });
+          cocotb = super.cocotb.overridePythonAttrs (oldAttrs: rec {
+            # Any $stop/$fatal (e.g. an RTL assertion under --assert) with FST
+            # tracing enabled deadlocks the sim process forever instead of
+            # exiting: cocotb's exit callback deletes the tracer, which relocks
+            # the mutex Verilated::runExitCallbacks() is holding. Backport of
+            # cocotb/cocotb#5423 + 555b88f3 (master-only, not in 2.0.1); see
+            # the patch header. Drop once the pinned cocotb release contains
+            # both commits.
+            patches = (oldAttrs.patches or []) ++ [
+              ./patches/cocotb-verilator-fatal-hang.patch
+            ];
+          });
         };
       # Pinned to 3.13: cocotb 2.0.1 does not support python 3.14 yet.
       in pkgs.python313.override {inherit packageOverrides; };
