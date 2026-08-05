@@ -2,7 +2,6 @@ from iss.iss_adapter import ISSTbAdapter, ISSISAXHandler, instr_opcode, instr_fu
 from pyriscvvp import RVVI_TRUE, RVVI_FALSE, RVVI_STEP_YIELD
 import cocotb
 from cocotb.queue import Queue
-from cocotb.binary import BinaryValue
 from collections import deque
 
 class ISSZOLHandler(ISSISAXHandler):

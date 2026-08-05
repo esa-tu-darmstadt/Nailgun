@@ -1,9 +1,9 @@
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Lock
+from cocotb.handle import Immediate
 from cocotb_bus.drivers import BusDriver
-from cocotb.binary import BinaryValue
 
-from .memutil import MemView
+from .memutil import MemView, rebase_word, word_to_bytes
 from .busutil import BusDelay
 
 import array
@@ -31,11 +31,10 @@ class BRAMSlave(BusDriver):
         self.big_endian = big_endian
         self.enable_prints = enable_prints
 
-        self.bus.dout.setimmediatevalue(0)
+        self.bus.dout.value = Immediate(0)
 
         cocotb.start_soon(self._process())
 
-    @cocotb.coroutine
     async def _process(self):
         clock_re = RisingEdge(self.clock)
         assign_delay_applied = False
@@ -50,14 +49,12 @@ class BRAMSlave(BusDriver):
 
             if self.bus.we.value != 0:
                 _st = int(self.bus.addr)
-                _end = _st + (self.bus.din.value.n_bits >> 3) #/ 8
-                word = self.bus.din.value
-                wstrb = self.bus.we.value
+                _end = _st + (len(self.bus.din.value) >> 3) #/ 8
+                # cocotb-1 handed out MSB-first BinaryValues, hence the binstr
+                # reversal; re-basing gives LSB-first byte-lane indexing directly.
+                wstrb = rebase_word(self.bus.we.value, self.big_endian)
 
-                wstrb.binstr= wstrb.binstr[::-1]
-
-                word.big_endian = self.big_endian
-                word = array.array('B', word.buff)
+                word = array.array('B', word_to_bytes(self.bus.din.value, self.big_endian))
 
                 await self.memview.awrite(_st,_end,word,wstrb)
 
@@ -66,14 +63,14 @@ class BRAMSlave(BusDriver):
 
 
             _st = int(self.bus.addr)
-            _end = _st + (self.bus.dout.value.n_bits >> 3) #/ 8
+            _end = _st + (len(self.bus.dout.value) >> 3) #/ 8
 
             await clock_re
             await self.busdelay.assign_delay()
             assign_delay_applied = True
 
-            read_val = await self.memview.aread(_st,_end, self.bus.dout.value.n_bits, self.big_endian)
+            read_val = await self.memview.aread(_st,_end, len(self.bus.dout.value), self.big_endian)
             self.bus.dout.value = read_val
 
             if self.enable_prints:
-                print("BRAM read - addr %08x, data %08x\n" % (_st, read_val.integer))
+                print("BRAM read - addr %08x, data %08x\n" % (_st, int(read_val)))

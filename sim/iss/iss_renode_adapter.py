@@ -4,7 +4,6 @@ from iss.iss_adapter import ISSTbAdapter, ISSISAXHandler, ISAX_DECOUPLED_FLAG
 from pyriscvvp import RVVI_TRUE, RVVI_FALSE, RVVI_STEP_YIELD
 import cocotb
 from cocotb.queue import Queue
-from cocotb.binary import BinaryValue
 from collections import deque
 import threading
 import importlib.util

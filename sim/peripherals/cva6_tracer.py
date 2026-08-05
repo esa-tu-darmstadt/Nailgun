@@ -1,6 +1,6 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, ReadOnly, Event
-from cocotb.binary import BinaryValue
+from cocotb.types import LogicArray
 from cocotb.queue import Queue
 
 from .base import SimPeripheral, PeripheralCtx
@@ -8,8 +8,8 @@ from testutil import test_envarg_true
 from instr_trace import TracedInstr
 
 
-def _revertBitOrder(val: BinaryValue) -> BinaryValue:
-    return BinaryValue(val.binstr[::-1])
+def _revertBitOrder(val: LogicArray) -> LogicArray:
+    return LogicArray(str(val)[::-1])
 
 class CVA6TracedInstr(TracedInstr):
     def __init__(self, pc : int, has_rd : bool, rd_regnum : int, rd_data : int, mtvec : int, is_exception_handler_entry: bool):
@@ -57,10 +57,9 @@ class CVA6Tracer:
 
     async def _sample_delay(self):
         if self.SAMPLE_DELAY > 0:
-            await Timer(self.SAMPLE_DELAY, units='ps')
+            await Timer(self.SAMPLE_DELAY, unit='ps')
         await ReadOnly()
 
-    @cocotb.coroutine
     async def _produce_trace(self):
         clock_re = RisingEdge(self.clk)
         await clock_re

@@ -30,10 +30,11 @@
 
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Lock, Timer
+from cocotb.handle import Immediate
 from cocotb_bus.drivers import BusDriver
-from cocotb.binary import BinaryValue
+from cocotb.types import LogicArray
 
-from .memutil import MemView
+from .memutil import MemView, rebase_word, word_to_bytes
 from .busutil import BusDelay
 
 import array
@@ -89,18 +90,17 @@ class AXI4LiteMaster(BusDriver):
         self._signals = axi4_lite_signals if signals is None else signals
         BusDriver.__init__(self, entity, name, clock, **kwargs)
         # Drive some sensible defaults (setimmediatevalue to avoid x asserts)
-        self.bus.AWVALID.setimmediatevalue(0)
-        self.bus.WVALID.setimmediatevalue(0)
-        self.bus.ARVALID.setimmediatevalue(0)
-        self.bus.BREADY.setimmediatevalue(1)
-        self.bus.RREADY.setimmediatevalue(1)
+        self.bus.AWVALID.value = Immediate(0)
+        self.bus.WVALID.value = Immediate(0)
+        self.bus.ARVALID.value = Immediate(0)
+        self.bus.BREADY.value = Immediate(1)
+        self.bus.RREADY.value = Immediate(1)
 
         # Mutex for each channel that we master to prevent contention
-        self.write_address_busy = Lock("%s_wabusy" % name)
-        self.read_address_busy = Lock("%s_rabusy" % name)
-        self.write_data_busy = Lock("%s_wbusy" % name)
+        self.write_address_busy = Lock()
+        self.read_address_busy = Lock()
+        self.write_data_busy = Lock()
 
-    @cocotb.coroutine
     async def _send_write_address(self, address, delay=0):
         """
         Send the write address, with optional delay (in clocks)
@@ -121,7 +121,6 @@ class AXI4LiteMaster(BusDriver):
         self.bus.AWVALID.value = 0
         self.write_address_busy.release()
 
-    @cocotb.coroutine
     async def _send_write_data(self, data, delay=0, byte_enable=0xF):
         """Send the write address, with optional delay (in clocks)."""
         await self.write_data_busy.acquire()
@@ -141,11 +140,10 @@ class AXI4LiteMaster(BusDriver):
         self.bus.WVALID.value = 0
         self.write_data_busy.release()
 
-    @cocotb.coroutine
     async def write(
         self, address: int, value: int, byte_enable: int = 0xf,
         address_latency: int = 0, data_latency: int = 0, sync: bool = True
-    ) -> BinaryValue:
+    ) -> LogicArray:
         """Write a value to an address.
 
         Args:
@@ -169,16 +167,16 @@ class AXI4LiteMaster(BusDriver):
         if sync:
             await RisingEdge(self.clock)
 
-        c_addr = cocotb.fork(self._send_write_address(address,
+        c_addr = cocotb.start_soon(self._send_write_address(address,
                                                       delay=address_latency))
-        c_data = cocotb.fork(self._send_write_data(value,
+        c_data = cocotb.start_soon(self._send_write_data(value,
                                                    byte_enable=byte_enable,
                                                    delay=data_latency))
 
         if c_addr:
-            await c_addr.join()
+            await c_addr
         if c_data:
-            await c_data.join()
+            await c_data
 
         # Wait for the response
         while True:
@@ -196,8 +194,7 @@ class AXI4LiteMaster(BusDriver):
 
         return result
 
-    @cocotb.coroutine
-    async def read(self, address: int, sync: bool = True) -> BinaryValue:
+    async def read(self, address: int, sync: bool = True) -> LogicArray:
         """Read from an address.
 
         Args:
@@ -261,22 +258,22 @@ class AXI4Master(AXI4LiteMaster):
         AXI4LiteMaster.__init__(self, entity, name, clock, signals=signals)
 
         # Drive some sensible defaults (setimmediatevalue to avoid x asserts)
-        self.bus.WLAST.setimmediatevalue(1)
-        self.bus.ARSIZE.setimmediatevalue(0b010) # 4 bytes
-        self.bus.AWSIZE.setimmediatevalue(0b010) # 4 bytes
-        self.bus.ARBURST.setimmediatevalue(1) # INCR
-        self.bus.AWBURST.setimmediatevalue(1) # INCR
-        self.bus.ARLEN.setimmediatevalue(0)
-        self.bus.AWLEN.setimmediatevalue(0)
-        self.bus.ARLOCK.setimmediatevalue(0)
-        self.bus.AWLOCK.setimmediatevalue(0)
-        self.bus.ARCACHE.setimmediatevalue(0)
-        self.bus.AWCACHE.setimmediatevalue(0)
-        self.bus.ARPROT.setimmediatevalue(0)
-        self.bus.AWPROT.setimmediatevalue(0)
+        self.bus.WLAST.value = Immediate(1)
+        self.bus.ARSIZE.value = Immediate(0b010) # 4 bytes
+        self.bus.AWSIZE.value = Immediate(0b010) # 4 bytes
+        self.bus.ARBURST.value = Immediate(1) # INCR
+        self.bus.AWBURST.value = Immediate(1) # INCR
+        self.bus.ARLEN.value = Immediate(0)
+        self.bus.AWLEN.value = Immediate(0)
+        self.bus.ARLOCK.value = Immediate(0)
+        self.bus.AWLOCK.value = Immediate(0)
+        self.bus.ARCACHE.value = Immediate(0)
+        self.bus.AWCACHE.value = Immediate(0)
+        self.bus.ARPROT.value = Immediate(0)
+        self.bus.AWPROT.value = Immediate(0)
         if self._has_id:
-            self.bus.ARID.setimmediatevalue(0)
-            self.bus.AWID.setimmediatevalue(0)
+            self.bus.ARID.value = Immediate(0)
+            self.bus.AWID.value = Immediate(0)
 
 class AXI4Slave(BusDriver):
     '''
@@ -336,27 +333,27 @@ class AXI4Slave(BusDriver):
         self.big_endian = big_endian
         self.artificial_write_delay=artificial_write_delay
         self.artificial_read_delay=artificial_read_delay
-        self.bus.ARREADY.setimmediatevalue(1)
-        self.bus.RVALID.setimmediatevalue(0)
+        self.bus.ARREADY.value = Immediate(1)
+        self.bus.RVALID.value = Immediate(0)
         if self._has_burst:
-            self.bus_rlast.setimmediatevalue(0)
-        self.bus.AWREADY.setimmediatevalue(0)
-        self.bus.BVALID.setimmediatevalue(0)
-        self.bus.BRESP.setimmediatevalue(0)
-        self.bus.RRESP.setimmediatevalue(0)
-        self.bus.RDATA.setimmediatevalue(0)
+            self.bus_rlast.value = Immediate(0)
+        self.bus.AWREADY.value = Immediate(0)
+        self.bus.BVALID.value = Immediate(0)
+        self.bus.BRESP.value = Immediate(0)
+        self.bus.RRESP.value = Immediate(0)
+        self.bus.RDATA.value = Immediate(0)
         if self._has_id:
-            self.bus_bid.setimmediatevalue(0)
-            self.bus_rid.setimmediatevalue(0)
+            self.bus_bid.value = Immediate(0)
+            self.bus_rid.value = Immediate(0)
         self._ar_requests = []
         self._aw_requests = []
         self._w_requests = []
 
         self.enable_prints = enable_prints
 
-        self.write_address_busy = Lock("%s_wabusy" % name)
-        self.read_address_busy = Lock("%s_rabusy" % name)
-        self.write_data_busy = Lock("%s_wbusy" % name)
+        self.write_address_busy = Lock()
+        self.read_address_busy = Lock()
+        self.write_data_busy = Lock()
 
         cocotb.start_soon(self._read_addr())
         cocotb.start_soon(self._read_data())
@@ -390,7 +387,6 @@ class AXI4Slave(BusDriver):
             return 2 ** AxSIZE
         return None
 
-    @cocotb.coroutine
     async def _write_process(self):
         clock_re = RisingEdge(self.clock)
         self.bus.BVALID.value = 0
@@ -420,7 +416,8 @@ class AXI4Slave(BusDriver):
                 #Note: Big endian is untested
                 _st_wordoffs = _st & (len(word) - 1)
                 word = word[_st_wordoffs:_end-_st+_st_wordoffs]
-                wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if wstrb.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
+                wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if self.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
+                wstrb = rebase_word(wstrb, self.big_endian)
             await self.memview.awrite(_st,_end,word,wstrb)
 
             if wlast:
@@ -441,7 +438,6 @@ class AXI4Slave(BusDriver):
 
 
 
-    @cocotb.coroutine
     async def _write_data(self):
         clock_re = RisingEdge(self.clock)
         self.bus.WREADY.value = 0
@@ -457,12 +453,12 @@ class AXI4Slave(BusDriver):
 
             _awaddr, _awlen, _awsize, _awburst, _awprot, _awid = self._aw_requests[0]
 
-            word = self.bus.WDATA.value
-            word.big_endian = self.big_endian
-            word = array.array('B', word.buff)
+            word = array.array('B', word_to_bytes(self.bus.WDATA.value, self.big_endian))
             wlast = self.bus_wlast.value if self._has_burst else 1
-            wstrb = self.bus.WSTRB.value
-            wstrb.big_endian = self.big_endian
+            # cocotb-1 handed out MSB-first BinaryValues, so this used to flip the
+            # strobe to LSB-first explicitly. Re-base to keep byte-lane indexing
+            # independent of how WSTRB is declared in the HDL.
+            wstrb = rebase_word(self.bus.WSTRB.value, self.big_endian)
 
             bytes_in_beat = self._size_to_bytes_in_beat(_awsize)
             _st = _awaddr  # start
@@ -486,7 +482,6 @@ class AXI4Slave(BusDriver):
 
 
 
-    @cocotb.coroutine
     async def _write_addr(self):
         self.bus.AWREADY.value = 0
         clock_re = RisingEdge(self.clock)
@@ -523,7 +518,6 @@ class AXI4Slave(BusDriver):
                     "BURST_LENGTH %d\n" % burst_length +
                     "Bytes in beat %d\n" % bytes_in_beat)
 
-    @cocotb.coroutine
     async def _read_data(self):
         clock_re = RisingEdge(self.clock)
         self.bus.RVALID.value = 0
@@ -540,7 +534,6 @@ class AXI4Slave(BusDriver):
 
             burst_length = _arlen + 1
             bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
-            word = BinaryValue(n_bits=bytes_in_beat*8, bigEndian=self.big_endian)
 
             burst_count = burst_length
 
@@ -561,7 +554,7 @@ class AXI4Slave(BusDriver):
                 _st = self.burst_nextaddr(_araddr, _arburst, _arlen, bytes_in_beat, diff_beats=_burst_diff)
                 _end = _st + bytes_in_beat
 
-                rdata = await self.memview.aread(_st,_end, self.bus.RDATA.value.n_bits, self.big_endian)
+                rdata = await self.memview.aread(_st,_end, len(self.bus.RDATA.value), self.big_endian)
                 rlast = 1 if (burst_count == 1) else 0
 
                 self.bus.RDATA.value = rdata
@@ -571,7 +564,7 @@ class AXI4Slave(BusDriver):
                     self.bus_rlast.value = rlast
                 if self.enable_prints:
                     print(
-                        "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in rdata.buff]) +
+                        "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in word_to_bytes(rdata, self.big_endian)]) +
                         "RID    %d\n" % _arid +
                         "RLAST  %d\n" % rlast)
 
@@ -593,7 +586,6 @@ class AXI4Slave(BusDriver):
                     break
 
 
-    @cocotb.coroutine
     async def _read_addr(self):
         self.bus.ARREADY.value = 0
         clock_re = RisingEdge(self.clock)

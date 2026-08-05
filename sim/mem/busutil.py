@@ -13,11 +13,11 @@ class BusDelay():
         if assign_delay_applied:
             actual_delay -= self.ASSIGN_DELAY
         if actual_delay > 0:
-            await Timer(actual_delay, units='ps')
+            await Timer(actual_delay, unit='ps')
         await ReadOnly()
 
     async def assign_delay(self):
         actual_delay = self.ASSIGN_DELAY
         if actual_delay <= 0:
             return
-        await Timer(actual_delay, units='ps')
+        await Timer(actual_delay, unit='ps')

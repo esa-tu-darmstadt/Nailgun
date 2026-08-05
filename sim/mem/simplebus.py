@@ -7,9 +7,9 @@ Intended for easy integration into any core, or as an example to implement other
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Lock
 from cocotb_bus.drivers import BusDriver
-from cocotb.binary import BinaryValue
+from cocotb.types import LogicArray
 
-from .memutil import MemView
+from .memutil import MemView, rebase_word, word_from_bytes, word_to_bytes
 from .busutil import BusDelay
 
 import array
@@ -64,12 +64,11 @@ class SimpleBusSlave(BusDriver):
         cocotb.start_soon(self._process())
 
     def _invalidate_dout(self):
-        dout_val = BinaryValue(n_bits=self.resp_data.value.n_bits, bigEndian=self.big_endian)
-        dout_val.buff = b'\xAA' * (self.resp_data.value.n_bits >> 3) #>>3 -> uint div by 8
+        n_bits = len(self.resp_data.value)
+        dout_val = word_from_bytes(b'\xAA' * (n_bits >> 3), n_bits, self.big_endian) #>>3 -> uint div by 8
         self.resp_data.value = dout_val
         self.resp_valid.value = 0
 
-    @cocotb.coroutine
     async def _process(self):
         clock_re = RisingEdge(self.clock)
 
@@ -109,15 +108,14 @@ class SimpleBusSlave(BusDriver):
 
             if is_writing:
                 _st = int(self.req_addr)
-                _end = _st + (self.req_write_data.value.n_bits >> 3) #/ 8
-                word = self.req_write_data.value
+                _end = _st + (len(self.req_write_data.value) >> 3) #/ 8
                 if self.req_write_be is not None:
-                    wstrb = self.req_write_be.value
+                    # Re-base so byte-lane indexing is LSB-first regardless of HDL declaration.
+                    wstrb = rebase_word(self.req_write_be.value, self.big_endian)
                 else:
-                    wstrb = BinaryValue(("1" if (self.req_write_en.value != 0) else "0") * (_end-_st))
+                    wstrb = LogicArray(("1" if (self.req_write_en.value != 0) else "0") * (_end-_st))
 
-                word.big_endian = self.big_endian
-                word = array.array('B', word.buff)
+                word = array.array('B', word_to_bytes(self.req_write_data.value, self.big_endian))
 
                 await self.memview.awrite(_st,_end,word,wstrb)
 
@@ -125,7 +123,7 @@ class SimpleBusSlave(BusDriver):
                     print("simble bus write - addr %08x, data %08x, wstrb %s" % (_st, int(self.req_write_data), str(wstrb)))
 
             _st = int(self.req_addr)
-            _end = _st + (self.resp_data.value.n_bits >> 3) #/ 8
+            _end = _st + (len(self.resp_data.value) >> 3) #/ 8
 
             await clock_re
             self.busdelay.assign_delay()
@@ -136,12 +134,12 @@ class SimpleBusSlave(BusDriver):
                 self.busdelay.assign_delay()
 
             if is_reading:
-                read_val = await self.memview.aread(_st,_end, self.resp_data.value.n_bits, self.big_endian)
+                read_val = await self.memview.aread(_st,_end, len(self.resp_data.value), self.big_endian)
                 self.resp_data.value = read_val
                 self.resp_valid.value = 1
 
             if self.enable_prints:
-                print("simple bus read - addr %08x, data %08x\n" % (_st, read_val.integer))
+                print("simple bus read - addr %08x, data %08x\n" % (_st, int(read_val)))
 
 cva5_mem_signals = [
     "new_request",

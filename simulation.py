@@ -137,8 +137,8 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
         f.write(f"""
 VERILOG_SOURCES = {functools.reduce(lambda a, b: a + " " + b, verilog_srcs)}
 TOPLEVEL_LANG = verilog
-TOPLEVEL = {tb_top_module}
-MODULE ?= test_default
+COCOTB_TOPLEVEL = {tb_top_module}
+COCOTB_TEST_MODULES ?= test_default
 SIM ?= verilator
 GLS ?= 0
 GUI ?= 0
@@ -161,13 +161,21 @@ EXTRA_ARGS += --assert
 EXTRA_ARGS += --trace-fst --trace --trace-structs --trace-underscore
 # Use more than one core to compile the simulation models
 BUILD_ARGS += -j$(shell nproc)
+# Build the verilated model with clang. GCC's optimizer degrades superlinearly on
+# Verilator's symbol-table constructor (Vtop__Syms__ctor__*.cpp is a single function
+# instantiating the whole module hierarchy): >20 min for that one file, where clang
+# needs ~1.5 s. Verilator's verilated.mk hard-assigns CXX/LINK, so these have to be
+# passed on the sub-make command line (BUILD_ARGS) to take precedence.
+# Override with `make VERILATOR_CXX=g++ ...` to fall back to GCC.
+VERILATOR_CXX ?= clang++
+BUILD_ARGS += CXX=$(VERILATOR_CXX) LINK=$(VERILATOR_CXX)
 EXTRA_ARGS += --no-timing
 endif # SIM == verilator
 
 # Questa specific flags
 ifeq ($(SIM), questa)
 ifeq ($(GLS), 1)
-# It is recommended that you create a new testbench (e.g., test_gls.py) to change the testbench to your chip design and pass it with MODULE=test_gls to your make invocation.
+# It is recommended that you create a new testbench (e.g., test_gls.py) to change the testbench to your chip design and pass it with COCOTB_TEST_MODULES=test_gls to your make invocation.
 NETLIST_FILE = {netlist_file}
 
 ifeq ($(NETLIST_FILE),)
@@ -203,28 +211,28 @@ endif
 {newline.join(extra_makefile_opts_strs)}
 
 # test_default.py configuration settings
-PLUSARGS = ""
-{newline.join([f'PLUSARGS += "+{var}"' for var in env_vars if len(var)>0])}
+COCOTB_PLUSARGS = ""
+{newline.join([f'COCOTB_PLUSARGS += "+{var}"' for var in env_vars if len(var)>0])}
 
 ifeq ($(GLS), 1)
-PLUSARGS += "+GLS=1"
+COCOTB_PLUSARGS += "+GLS=1"
 endif # GLS == 1
 
 # Additional arguments
 # - Simulated clock period (clk signal) in ps, default: 1000
-# PLUSARGS += "+CLK_PERIOD=1000"
+# COCOTB_PLUSARGS += "+CLK_PERIOD=1000"
 # - To fix removal violations on reset paths (timing-annotated GLS):
 #   Delay to hold the clk signal before the negedge of rst in CLK_PERIODs, default: 0
-# PLUSARGS += "+RESET_CLKGATE_CYCLES_PRE=10"
+# COCOTB_PLUSARGS += "+RESET_CLKGATE_CYCLES_PRE=10"
 # - To fix recovery violations on reset paths (timing-annotated GLS):
 #   Delay to hold the clk signal after the negedge of rst in CLK_PERIODs, default: 0
-# PLUSARGS += "+RESET_CLKGATE_CYCLES_POST=10"
+# COCOTB_PLUSARGS += "+RESET_CLKGATE_CYCLES_POST=10"
 # - To fix premature sampling by testbench (timing-annotated GLS):
 #   Delay to sampling output pins from the core after each posedge of clk in ps, default: 0
-# PLUSARGS += "+SAMPLE_DELAY=500"
+# COCOTB_PLUSARGS += "+SAMPLE_DELAY=500"
 # - To fix input hold violations inside the core (timing-annotated GLS):
 #   Delay to setting input pins towards the core after each posedge of clk in ps, default: 0
-# PLUSARGS += "+ASSIGN_DELAY=300"
+# COCOTB_PLUSARGS += "+ASSIGN_DELAY=300"
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 """)
@@ -232,7 +240,12 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
     results_xml_path = os.path.join(sim_dir, "results.xml")
     for elf_file, expected_path in zip(elf_files, copied_expected_paths):
         # We ALWAYS want colors, lol
-        run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && ! grep -nri 'Test failed' {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
+        # cocotb 2.0 no longer writes the literal "Test failed" into results.xml (the
+        # xunit <failure> element carries error_type/error_msg instead), so the old
+        # grep could never match. Use cocotb's own checker, which also fails when the
+        # results file is missing entirely. Still needed on top of `make sim`: only
+        # cocotb's verilator makefile runs check_results itself, the questa one does not.
+        run_cmd.run(sim_dir, f"{gen_testprog_arg(elf_file)} {gen_expected_res_arg(expected_path)} OBJCACHE=ccache COCOTB_ANSI_OUTPUT=1 make sim && python3 -m cocotb_tools.check_results {results_xml_path}", f"The simulation of '{elf_file}' failed!", error.SIM_BASE + 1)
 
 def setup_renode(py_isax_file, tb_paths, tb_expected_paths, core_support, out_dir, yaml_file, kconf_syms):
     env_vars = core_support.get_tb_env_vars(kconf_syms)

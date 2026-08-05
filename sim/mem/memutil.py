@@ -1,12 +1,50 @@
 import cocotb
 import inspect
-from cocotb.binary import BinaryValue
+from cocotb.types import LogicArray, Range
 from typing import Optional
 
 # Error handling is not optimal (MemViewErrors aren't passed through HierarchicalMemView)
 
 class MemViewError(Exception):
     pass
+
+
+# cocotb 2.0 replaced BinaryValue with LogicArray. The helpers below reproduce the
+# BinaryValue(n_bits=..., bigEndian=...) semantics the bus models rely on:
+#   * bigEndian=False indexes/slices LSB-first, i.e. Range(n-1, "downto", 0),
+#     and its .buff is little-endian byte order.
+#   * bigEndian=True indexes MSB-first, i.e. Range(0, "to", n-1), .buff big-endian.
+# Everything in nailgun instantiates the bus models with big_endian=False, but the
+# parameter is threaded through so the (untested) big-endian path keeps working.
+
+def word_range(n_bits: int, big_endian: bool) -> Range:
+    """Index scheme equivalent to BinaryValue(n_bits=n_bits, bigEndian=big_endian)."""
+    return Range(0, "to", n_bits - 1) if big_endian else Range(n_bits - 1, "downto", 0)
+
+def _byteorder(big_endian: bool) -> str:
+    return "big" if big_endian else "little"
+
+def make_word(n_bits: int, big_endian: bool) -> LogicArray:
+    """Zero-initialized word, replacing BinaryValue(n_bits=..., bigEndian=...)."""
+    return LogicArray(0, word_range(n_bits, big_endian))
+
+def word_from_bytes(data, n_bits: int, big_endian: bool) -> LogicArray:
+    """Replaces `bv = BinaryValue(n_bits=...); bv.buff = data`."""
+    return LogicArray.from_bytes(bytes(data), word_range(n_bits, big_endian),
+                                 byteorder=_byteorder(big_endian))
+
+def word_to_bytes(word: LogicArray, big_endian: bool) -> bytes:
+    """Replaces `bv.buff`."""
+    return word.to_bytes(byteorder=_byteorder(big_endian))
+
+def rebase_word(word: LogicArray, big_endian: bool) -> LogicArray:
+    """Re-label a slice to 0-based indices.
+
+    cocotb-1 slices produced a fresh 0-based BinaryValue; cocotb-2 slices keep the
+    parent's index labels (`la[5:2].range == Range(5, 'downto', 2)`), so consumers
+    that index from 0 need the result re-based.
+    """
+    return LogicArray(str(word), word_range(len(word), big_endian))
 
 async def _maybe_await(value):
     if inspect.iscoroutine(value):
@@ -41,23 +79,21 @@ def rotate_right(data: bytes, n: int) -> bytes:
     rotated = ((as_int >> n) | (as_int << (total_bits - n))) & ((1 << total_bits) - 1)
     return rotated.to_bytes(len(data), byteorder='big')
 
-def _extend_word(_st, word : BinaryValue, n_word_bits, big_endian) -> BinaryValue:
-    if word.n_bits < n_word_bits:
-        if (n_word_bits & 7) != 0 or (word.n_bits & 7) != 0:
+def _extend_word(_st, word : LogicArray, n_word_bits, big_endian) -> LogicArray:
+    if len(word) < n_word_bits:
+        if (n_word_bits & 7) != 0 or (len(word) & 7) != 0:
             raise MemViewError("Word length is not in full bytes")
         # Note: Not tested for big endian
-        word_new = BinaryValue(n_bits=n_word_bits, bigEndian=big_endian)
         in_word_byte_rotate_amount = _st & ((n_word_bits>>3) - 1) #>>3 -> uint div by 8
-        word_new_buff = word.buff + (b'\x00' * ((n_word_bits - word.n_bits) >> 3))
+        word_new_buff = word_to_bytes(word, big_endian) + (b'\x00' * ((n_word_bits - len(word)) >> 3))
         word_new_buff = rotate_right(word_new_buff, in_word_byte_rotate_amount * 8) #Rotate depending on misalignment of _st by the word byte width
-        word_new.buff = word_new_buff
-        return word_new
+        return word_from_bytes(word_new_buff, n_word_bits, big_endian)
     return word
 
 # MemView base class, can be instantiated with callbacks that handle reads and writes.
 class MemView():
     # read_cb: (start byte position, one-beyond-last byte position, is big endian: bool)
-    # write_cb: (start byte position, one-beyond-last byte position, word: bytes, wstrb: BinaryValue)
+    # write_cb: (start byte position, one-beyond-last byte position, word: bytes, wstrb: LogicArray)
     # base_addr/length: optional declared address range. If set, HierarchicalMemView
     #   uses it to dispatch most-specific-first (smaller declared region wins over a
     #   larger one that contains it). Leave as None for callback-only views that
@@ -78,22 +114,20 @@ class MemView():
             return None
         return self.base_addr <= _st and _end <= self.base_addr + self.length
 
-    def _write(self, _st, _end, word : BinaryValue, wstrb : BinaryValue) -> bool | MemViewError:
+    def _write(self, _st, _end, word : LogicArray, wstrb : LogicArray) -> bool | MemViewError:
         return (self._write_cb is not None) and self._write_cb(_st,_end,word,wstrb)
 
-    def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
+    def _read(self, _st, _end, n_word_bits, big_endian) -> LogicArray | None | MemViewError:
         if self._read_cb is None:
             return None
         word_data = self._read_cb(_st,_end,big_endian)
         if word_data is None:
             return None
-        word = BinaryValue(n_bits=(_end-_st)*8, bigEndian=big_endian)
-        word.buff = bytes(word_data)
-        return word
+        return word_from_bytes(word_data, (_end-_st)*8, big_endian)
 
     # Public: Writes a word into the memory view in range [_st,_end). Can raise a MemViewError.
     # wstrb: For each byte in word, wstrb[i] indicates whether the new byte should be written.
-    def write(self, _st, _end, word : bytes, wstrb : BinaryValue):
+    def write(self, _st, _end, word : bytes, wstrb : LogicArray):
         res = self._write(_st, _end, word, wstrb)
         if res == False:
             raise MemViewError("Write to address 0x%08x failed: No matching handler" % _st)
@@ -102,7 +136,7 @@ class MemView():
 
     # Public: Reads a word from the memory view. Can raise a MemViewError.
     # n_word_bits: The number of bits the output word has (must be a multiple of 8).
-    def read(self, _st, _end, n_word_bits, big_endian : bool = False) -> BinaryValue:
+    def read(self, _st, _end, n_word_bits, big_endian : bool = False) -> LogicArray:
         res = self._read(_st, _end, n_word_bits, big_endian)
         if res is None:
             raise MemViewError("Read from address 0x%08x failed: No matching handler" % _st)
@@ -124,18 +158,16 @@ class MemView():
         word_data = await _maybe_await(self._read_cb(_st, _end, big_endian))
         if word_data is None:
             return None
-        word = BinaryValue(n_bits=(_end-_st)*8, bigEndian=big_endian)
-        word.buff = bytes(word_data)
-        return word
+        return word_from_bytes(word_data, (_end-_st)*8, big_endian)
 
-    async def awrite(self, _st, _end, word : bytes, wstrb : BinaryValue):
+    async def awrite(self, _st, _end, word : bytes, wstrb : LogicArray):
         res = await self._write_a(_st, _end, word, wstrb)
         if res == False:
             raise MemViewError("Write to address 0x%08x failed: No matching handler" % _st)
         if isinstance(res, MemViewError):
             raise res
 
-    async def aread(self, _st, _end, n_word_bits, big_endian : bool = False) -> BinaryValue:
+    async def aread(self, _st, _end, n_word_bits, big_endian : bool = False) -> LogicArray:
         res = await self._read_a(_st, _end, n_word_bits, big_endian)
         if res is None:
             raise MemViewError("Read from address 0x%08x failed: No matching handler" % _st)
@@ -174,12 +206,11 @@ class BytearrayMemView(MemView):
         self.memory[memoryarr_startoffs : memoryarr_endoffs] = word
         return True
 
-    def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
+    def _read(self, _st, _end, n_word_bits, big_endian) -> LogicArray | None | MemViewError:
         base_res = MemView._read(self,_st,_end,n_word_bits,big_endian)
-        if isinstance(base_res, BinaryValue):
-            print("Read from address 0x%08x -> %s (callback)" % (_st, str(base_res.buff)))
+        if isinstance(base_res, LogicArray):
+            print("Read from address 0x%08x -> %s (callback)" % (_st, str(word_to_bytes(base_res, big_endian))))
             return base_res
-        word = BinaryValue(n_bits=(_end-_st)*8, bigEndian=big_endian)
         if _st < self.memory_baseaddr or _end > self.memory_baseaddr + self.memory_section_len:
             return MemViewError("Read from address 0x%08x: Out of range [%08x,%08x)" % (_st, self.memory_baseaddr, self.memory_baseaddr + self.memory_section_len))
         memoryarr_startoffs = _st - self.memory_baseaddr + self.memory_section_offs
@@ -188,8 +219,8 @@ class BytearrayMemView(MemView):
             if not self.auto_resize:
                 return MemViewError("Read from address 0x%08x: Out of bounds of backing array (%08x > %08x)" % (_st, memoryarr_endoffs, len(self.memory)))
             self.memory += bytearray(memoryarr_endoffs - len(self.memory))
-        word.buff = bytes(self.memory[memoryarr_startoffs : memoryarr_endoffs])
-        return word
+        return word_from_bytes(self.memory[memoryarr_startoffs : memoryarr_endoffs],
+                               (_end-_st)*8, big_endian)
 
     async def _write_a(self, _st, _end, word, wstrb):
         base_res = await MemView._write_a(self, _st, _end, word, wstrb)
@@ -200,7 +231,7 @@ class BytearrayMemView(MemView):
 
     async def _read_a(self, _st, _end, n_word_bits, big_endian):
         base_res = await MemView._read_a(self, _st, _end, n_word_bits, big_endian)
-        if isinstance(base_res, BinaryValue):
+        if isinstance(base_res, LogicArray):
             return base_res
         # Fall through to bytearray-backed read (sync semantics)
         return self._read(_st, _end, n_word_bits, big_endian)
@@ -242,13 +273,13 @@ class HierarchicalMemView(MemView):
                 return True
         return False
 
-    def _read(self, _st, _end, n_word_bits, big_endian) -> BinaryValue | None | MemViewError:
+    def _read(self, _st, _end, n_word_bits, big_endian) -> LogicArray | None | MemViewError:
         base_res = MemView._read(self,_st,_end,n_word_bits,big_endian)
-        if isinstance(base_res, BinaryValue):
+        if isinstance(base_res, LogicArray):
             return base_res
         for child in self._ordered(_st, _end):
             child_res = child._read(_st,_end,n_word_bits,big_endian)
-            if isinstance(child_res, BinaryValue):
+            if isinstance(child_res, LogicArray):
                 return child_res
         return None
 
@@ -264,11 +295,11 @@ class HierarchicalMemView(MemView):
 
     async def _read_a(self, _st, _end, n_word_bits, big_endian):
         base_res = await MemView._read_a(self, _st, _end, n_word_bits, big_endian)
-        if isinstance(base_res, BinaryValue):
+        if isinstance(base_res, LogicArray):
             return base_res
         for child in self._ordered(_st, _end):
             child_res = await child._read_a(_st, _end, n_word_bits, big_endian)
-            if isinstance(child_res, BinaryValue):
+            if isinstance(child_res, LogicArray):
                 return child_res
         return None
 

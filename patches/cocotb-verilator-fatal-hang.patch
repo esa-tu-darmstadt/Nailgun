@@ -1,0 +1,52 @@
+Backport of two upstream cocotb fixes onto v2.0.1 (both master-only as of
+2026-08-04, latest release v2.0.1):
+
+* cocotb/cocotb#5423 (commit 709a75c99f74fa2fef948cd6325e63a854bf97ec):
+  "Resolved Verilator hanging when st:fatal is triggered in waves enabled
+  simulations". wrap_up() runs as a Verilated exit callback; deleting the
+  trace object there re-enters Verilated::removeExitCb(), which relocks the
+  s_exitMutex that runExitCallbacks() is still holding -> self-deadlock.
+  Any $stop/$error/$fatal (e.g. an RTL assertion under --assert) with
+  --trace/--trace-fst then hangs the simulation process forever at 100% CPU
+  instead of exiting. Close the trace in the callback, delete it on the
+  normal main() exit path.
+
+* cocotb/cocotb commit 555b88f3b91bb031bf090aa2c2b816c34a8fc575:
+  "[Verilator] Updated verilator to exit with non-zero status code if any
+  asserts were triggered". Without this, a $error that does not $stop would
+  end the sim with exit code 0.
+
+Drop this patch when the flake's nixpkgs pin ships a cocotb release
+containing both commits (> 2.0.1).
+
+--- a/src/cocotb/share/lib/verilator/verilator.cpp
++++ b/src/cocotb/share/lib/verilator/verilator.cpp
+@@ -58,8 +58,8 @@
+ 
+ #if VM_TRACE
+     if (tfp) {
+-        delete tfp;
+-        tfp = nullptr;
++        // We don't delete the trace object to avoid deadlock in verilator sims.
++        tfp->close();
+     }
+ #endif
+ 
+@@ -205,5 +205,17 @@
+ 
+     wrap_up();
+ 
++#if VM_TRACE
++    if (tfp) {
++        delete tfp;
++        tfp = nullptr;
++    }
++#endif
++
++    // Fail the sim if any assertion/error fired during the run.
++    if (Verilated::threadContextp()->errorCount() > 0) {
++        return 1;
++    }
++
+     return 0;
+ }

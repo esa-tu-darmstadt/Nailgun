@@ -27,16 +27,16 @@ class _ClintImpl:
         self.clint_mtimecmp_h = 0
         self.clint_software_irq = 0
 
-    @cocotb.coroutine
-    def run(self, dut, clk):
+    async def run(self, dut, clk):
         while True:
-            yield FallingEdge(clk)
+            await FallingEdge(clk)
             if ((self.clint_mtime_h << 32) + self.clint_mtime) >= ((self.clint_mtimecmp_h << 32) + self.clint_mtimecmp):
                 dut.irq_i.value = (1 << 7)
             else:
                 dut.irq_i.value = 0
             if self.clint_software_irq != 0:
-                dut.irq_i.value += (1 << 3)
+                # LogicArray has no arithmetic operators; read back as int like BinaryValue did.
+                dut.irq_i.value = int(dut.irq_i.value) + (1 << 3)
             new_mtime = ((self.clint_mtime_h << 32) + self.clint_mtime) + 1
             self.clint_mtime = new_mtime & 0xffffffff
             self.clint_mtime_h = (new_mtime >> 32) & 0xffffffff

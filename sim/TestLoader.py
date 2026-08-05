@@ -2,7 +2,7 @@
 # Authors: Yannick Lavan (original author)
 #          Florian Meisel
 from elftools.elf.elffile import ELFFile, Section
-from cocotb.binary import BinaryValue
+from cocotb.types import LogicArray
 from logging import Logger
 from mem.memutil import MemView
 from typing import List, Tuple
@@ -46,7 +46,7 @@ class TestLoader:
                 step_size *= 2
             step_size //= 2
             for i in range(0, sec_size, step_size): #TODO: configurable for big-endian?
-                strb = BinaryValue("1" * step_size, n_bits=step_size, bigEndian=False)
+                strb = LogicArray("1" * step_size)  # all-ones write strobe, one bit per byte
                 memview.write(start_addr + i, start_addr + i + step_size, section_data[i:i + step_size], strb)
 
     def load_test_case(self, path: str) -> int|None:
