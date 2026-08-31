@@ -1,6 +1,30 @@
+--- ip/orca/hdl/constants_pkg.vhd
++++ ip/orca/hdl/constants_pkg.vhd
+@@ -107,5 +107,13 @@
+   constant CSR_UTIME     : std_logic_vector(11 downto 0)  := x"C01";
+   constant CSR_UTIMEH    : std_logic_vector(11 downto 0)  := x"C81";
++
++  -- ORCA carries its cycle counter at the PRE-1.9 privileged-spec addresses
++  -- (mcycle = 0xF00 below), which no current toolchain emits: `rdcycle` is
++  -- 0xC00, and reading it here returned zero rather than trapping, since the
++  -- CSR read mux ends in `others => '0'`. Mapped so the counter is reachable
++  -- by the name the ISA actually gives it.
++  constant CSR_CYCLE     : std_logic_vector(11 downto 0)  := x"C00";
++  constant CSR_CYCLEH    : std_logic_vector(11 downto 0)  := x"C80";
+   constant CSR_MCYCLE    : std_logic_vector(11 downto 0)  := x"F00";
+   constant CSR_MTIME     : std_logic_vector(11 downto 0)  := x"F01";
+   constant CSR_MINSTRET  : std_logic_vector(11 downto 0)  := x"F02";
 --- ip/orca/hdl/sys_call.vhd	2023-10-16 18:45:17.279963411 +0200
 +++ ip/orca/hdl/sys_call.vhd	2023-10-16 18:45:57.551629376 +0200
-@@ -420,7 +420,7 @@
+@@ -278,5 +278,7 @@
+     mtime           when CSR_UTIME,
+     mtimeh          when CSR_UTIMEH,
++    mcycle          when CSR_CYCLE,
++    mcycleh         when CSR_CYCLEH,
+     mcycle          when CSR_MCYCLE,
+     mcycleh         when CSR_MCYCLEH,
+     minstret        when CSR_MINSTRET,
+@@ -420,7 +422,7 @@
            mstatus(CSR_MSTATUS_MPIE)       <= '0';
            mepc                            <= (others => '0');
            mcause(mcause'left)             <= '0';

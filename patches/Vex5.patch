@@ -125,3 +125,18 @@ diff --git a/src/main/scala/vexriscv/demo/smp/VexRiscvSmpLitexCluster.scala b/sr
  
    val coherency = coherentDma || cpuCount > 1
    def parameter = VexRiscvLitexSmpClusterParameter(
+diff --git a/src/main/scala/vexriscv/demo/VexRiscvAhbLite3.scala b/src/main/scala/vexriscv/demo/VexRiscvAhbLite3.scala
+--- a/src/main/scala/vexriscv/demo/VexRiscvAhbLite3.scala
++++ b/src/main/scala/vexriscv/demo/VexRiscvAhbLite3.scala
+@@ -126,5 +126,10 @@
+               minstretAccess = CsrAccess.NONE,
+               ecallGen       = false,
+               wfiGenAsWait         = false,
+-              ucycleAccess   = CsrAccess.NONE,
++              // `rdcycle` (CSR 0xC00) read-only. CsrPlugin instantiates the
++              // mcycle register unconditionally -- it increments in the
++              // generated Verilog either way -- but maps a read path only for
++              // the accesses enabled here, so with NONE the counter existed and
++              // nothing could read it: reads returned zero rather than trapping.
++              ucycleAccess   = CsrAccess.READ_ONLY,
+               uinstretAccess = CsrAccess.NONE
