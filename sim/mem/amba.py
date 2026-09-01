@@ -391,50 +391,49 @@ class AXI4Slave(BusDriver):
         clock_re = RisingEdge(self.clock)
         self.bus.BVALID.value = 0
 
+        # Same shape as _read_data, for the same reason: writes must overlap.
+        # The memory update is not a bus event, so accepted beats are retired
+        # without spending a cycle, and B responses are driven one per cycle
+        # with BVALID held across consecutive ones.
+        b_pending = []            # (bid, delay)
         while True:
-            while True:
-                if len(self._w_requests) > 0:
-                    break
-                await clock_re
+            while self._w_requests and len(b_pending) < self.MAX_PENDING_BEATS:
+                (_st, _end, word, wstrb,
+                 wlast, aw_request) = self._w_requests.pop(0)
+                (_awaddr, _awlen, _awsize,
+                 _awburst, _awprot, _awid) = aw_request
 
-            await self.busdelay.sample_delay()
+                # Assert the word byte length is a power of two
+                assert(len(word) == len(word) & ~(len(word) - 1))
+                if (len(word) > _end - _st):
+                    # Select the active byte lanes for a narrow transfer
+                    #Note: Big endian is untested
+                    _st_wordoffs = _st & (len(word) - 1)
+                    word = word[_st_wordoffs:_end-_st+_st_wordoffs]
+                    wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if self.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
+                    wstrb = rebase_word(wstrb, self.big_endian)
+                await self.memview.awrite(_st, _end, word, wstrb)
 
-            _st, _end, word, wstrb, wlast, aw_request = self._w_requests[0]
-            _awaddr, _awlen, _awsize, _awburst, _awprot, _awid = aw_request
-            self._w_requests = self._w_requests[1:]
+                if wlast:
+                    b_pending.append((_awid, self.artificial_write_delay))
 
-            await clock_re
-            if self.artificial_write_delay > 0:
-                # Artificial delay
-                for _ in range(self.artificial_write_delay):
-                    await clock_re
-
-            # Assert the word byte length is a power of two
-            assert(len(word) == len(word) & ~(len(word) - 1))
-            if (len(word) > _end - _st):
-                # Select the active byte lanes for a narrow transfer
-                #Note: Big endian is untested
-                _st_wordoffs = _st & (len(word) - 1)
-                word = word[_st_wordoffs:_end-_st+_st_wordoffs]
-                wstrb = wstrb[_st_wordoffs:_end-_st+_st_wordoffs-1] if self.big_endian else wstrb[_end-_st+_st_wordoffs-1:_st_wordoffs]
-                wstrb = rebase_word(wstrb, self.big_endian)
-            await self.memview.awrite(_st,_end,word,wstrb)
-
-            if wlast:
-                await self.busdelay.assign_delay()
-                assign_delay_applied = True
+            await self.busdelay.assign_delay()
+            drive = bool(b_pending) and b_pending[0][1] == 0
+            if drive:
                 self.bus.BVALID.value = 1
                 if self._has_id:
-                    self.bus_bid.value = _awid
-                while True:
-                    await self.busdelay.sample_delay(assign_delay_applied)
-                    if self.bus.BREADY.value:
-                        break
-                    await clock_re
-                    assign_delay_applied = False
-                await clock_re
-                await self.busdelay.assign_delay()
+                    self.bus_bid.value = b_pending[0][0]
+            else:
                 self.bus.BVALID.value = 0
+
+            await self.busdelay.sample_delay(assign_delay_applied=True)
+            accepted = drive and bool(self.bus.BREADY.value)
+            await clock_re
+            if accepted:
+                b_pending.pop(0)
+            elif b_pending and b_pending[0][1] > 0:
+                head = b_pending[0]
+                b_pending[0] = (head[0], head[1] - 1)
 
 
 
@@ -518,72 +517,82 @@ class AXI4Slave(BusDriver):
                     "BURST_LENGTH %d\n" % burst_length +
                     "Bytes in beat %d\n" % bytes_in_beat)
 
+    # Outstanding beats (read or write) this slave will hold before it stops
+    # accepting more. Only a bound against unbounded growth -- masters here
+    # limit themselves well below it.
+    MAX_PENDING_BEATS = 32
+
     async def _read_data(self):
+        """Read data channel: one beat per cycle, RVALID held across beats.
+
+        Reads must overlap. A slave that finishes one transaction before
+        looking at the next has a throughput of one read per several cycles no
+        matter how low its latency is, and that ceiling propagates into the
+        master: a CPU frontend that can only advance once a response is
+        buffered will never have one buffered, so it fetches at the slave's
+        transaction rate rather than one instruction per cycle. Per-transaction
+        latency does not reveal this -- AR-to-R can be 0 cycles while the
+        transaction-to-transaction period is 3.
+
+        Accepted addresses are therefore expanded into a beat queue up front,
+        and a beat is presented every cycle for as long as the queue is
+        non-empty.
+        """
         clock_re = RisingEdge(self.clock)
         self.bus.RVALID.value = 0
-        bus_bytelen=(len(self.bus.RDATA.value)>>3)
+        if self._has_burst:
+            self.bus_rlast.value = 0
 
+        pending = []          # (addr, bytes_in_beat, rid, rlast, delay)
         while True:
-            while True:
-                await clock_re
-                if len(self._ar_requests) > 0:
-                    break
+            # Expand accepted addresses into beats, so several reads are in
+            # flight at once rather than strictly one after another.
+            while self._ar_requests and len(pending) < self.MAX_PENDING_BEATS:
+                (_araddr, _arlen, _arsize,
+                 _arburst, _arprot, _arid) = self._ar_requests.pop(0)
+                burst_length = _arlen + 1
+                bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
+                if self.enable_prints:
+                    print("ARADDR %08x BURST_LENGTH %d Bytes in beat %d\n"
+                          % (_araddr, burst_length, bytes_in_beat))
+                for _beat in range(burst_length):
+                    _st = self.burst_nextaddr(_araddr, _arburst, _arlen,
+                                              bytes_in_beat, diff_beats=_beat)
+                    pending.append((_st, bytes_in_beat, _arid,
+                                    1 if _beat == burst_length - 1 else 0,
+                                    self.artificial_read_delay if _beat == 0 else 0))
 
-            _araddr, _arlen, _arsize, _arburst, _arprot, _arid = self._ar_requests[0]
-            self._ar_requests = self._ar_requests[1:]
-
-            burst_length = _arlen + 1
-            bytes_in_beat = self._size_to_bytes_in_beat(_arsize)
-
-            burst_count = burst_length
-
-            await clock_re
-            if self.artificial_read_delay > 0:
-                # Artificial delay
-                for _ in range(self.artificial_read_delay):
-                    await clock_re
-            _st = _araddr
-            assign_delay_applied = False
-            while True:
-                if not assign_delay_applied:
-                    await self.busdelay.assign_delay()
-                    assign_delay_applied = True
+            await self.busdelay.assign_delay()
+            drive = bool(pending) and pending[0][4] == 0
+            if drive:
+                _st, bytes_in_beat, _arid, rlast, _ = pending[0]
+                rdata = await self.memview.aread(_st, _st + bytes_in_beat,
+                                                 len(self.bus.RDATA.value),
+                                                 self.big_endian)
                 self.bus.RVALID.value = 1
-                _burst_diff = burst_length - burst_count
-
-                _st = self.burst_nextaddr(_araddr, _arburst, _arlen, bytes_in_beat, diff_beats=_burst_diff)
-                _end = _st + bytes_in_beat
-
-                rdata = await self.memview.aread(_st,_end, len(self.bus.RDATA.value), self.big_endian)
-                rlast = 1 if (burst_count == 1) else 0
-
                 self.bus.RDATA.value = rdata
                 if self._has_id:
                     self.bus_rid.value = _arid
                 if self._has_burst:
                     self.bus_rlast.value = rlast
                 if self.enable_prints:
-                    print(
-                        "RDATA  %s\n" % ' '.join([('%02x' % _byte) for _byte in word_to_bytes(rdata, self.big_endian)]) +
-                        "RID    %d\n" % _arid +
-                        "RLAST  %d\n" % rlast)
-
-                while True:
-                    await self.busdelay.sample_delay(assign_delay_applied)
-                    if self.bus.RREADY.value:
-                        break
-                    await clock_re
-                    assign_delay_applied = False
-                await clock_re
-                await self.busdelay.assign_delay()
-                assign_delay_applied = True
+                    print("RDATA  %s\nRID    %d\nRLAST  %d\n"
+                          % (' '.join('%02x' % b for b in
+                                      word_to_bytes(rdata, self.big_endian)),
+                             _arid, rlast))
+            else:
                 self.bus.RVALID.value = 0
-
-                burst_count -= 1
                 if self._has_burst:
                     self.bus_rlast.value = 0
-                if burst_count == 0:
-                    break
+
+            await self.busdelay.sample_delay(assign_delay_applied=True)
+            accepted = drive and bool(self.bus.RREADY.value)
+            await clock_re
+            if accepted:
+                pending.pop(0)
+            elif pending and pending[0][4] > 0:
+                head = pending[0]
+                pending[0] = head[:4] + (head[4] - 1,)
 
 
     async def _read_addr(self):
