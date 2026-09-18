@@ -32,7 +32,6 @@ if args.jobs < 1:
     print(f"--jobs must be >= 1 (got {args.jobs})", file=sys.stderr)
     exit(2)
 
-MAX_SCALA_JOBS=8 #limit of parallel jobs on Scala/Spinal cores (try to avoid IOException on ionotify / open files limit)
 
 # Add the parent directory to the sys.path (needed for error module)
 parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -214,9 +213,8 @@ import longnail
 sys.path.remove(parent_folder)
 
 class CommandJob:
-    def __init__(self, env_str: str, is_scala: bool):
+    def __init__(self, env_str: str):
         self.env_str = env_str
-        self.is_scala = is_scala
 
 isax_mlir_files = [
     os.path.join(parent_folder, "deps/longnail/sim/complex/complex.mlir"),
@@ -225,17 +223,17 @@ isax_mlir_files = [
 core_isaxes_merge_file = os.path.join(integration_test_working_dir, "ALL_ISAXES.mlir")
 
 init_commands = [
-    CommandJob('make gen_config', False),
+    CommandJob('make gen_config'),
     # Generate all core MLIR files
-    CommandJob('CORE="CVA5" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,SQRT_STALL,TABLEJUMP,ZOL" make ci', False),
+    CommandJob('CORE="CVA5" ISAXES="AUTOINC,BRIMM,DOTPROD,INDIRECTJMP,SBOX,SPARKLE,SQRT,SQRT_STALL,TABLEJUMP,ZOL" make ci'),
 ]
 
 patch_compiler_commands = [
     # Prepare clang
-    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"', False),
+    CommandJob(f'ONLY_PATCH_CC="y" CORE="CVA5" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"'),
 ]
 
-# Lists of integration tests to run, tuples of (command_env: str, apply_scala_tasklimit: bool)
+# Lists of integration tests to run
 # Tests that must be executed sequentially without any other tests running simultaneously
 sequential_commands: list[CommandJob] = [
 ]
@@ -342,17 +340,19 @@ command_templates = [
                     [CoreFeature.NONE], CommandFlags.NONE),
 ]
 
-# (core:str, core_features:CoreFeature, is_scala: bool, timeout_scale:float)
+# (core:str, core_features:CoreFeature, timeout_scale:float)
+# Concurrent sbt runs of the Scala cores (VEX_*) are bounded where sbt is invoked, host-wide,
+# by run_cmd.sbt_semaphore() -- not here.
 cores = [
-    ("CVA6",      CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            False, 1.0),
-    ("CVA6_DUAL", CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            False, 1.0),
-    ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD | CoreFeature.ISSLockstep,                                         False, 1.0),
-    ("PICORV32",  CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           False, 3.0),
-    ("PICCOLO",   CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           False, 1.5),
-    ("ORCA",      CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           False, 2.0),
-    ("VEX_4S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, True,  2.5),
-    ("VEX_5S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, True,  2.0),
-    ("CV32E40X",  CoreFeature.NONE,                                                                                          False, 2.0),
+    ("CVA6",      CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            1.0),
+    ("CVA6_DUAL", CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            1.0),
+    ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD | CoreFeature.ISSLockstep,                                         1.0),
+    ("PICORV32",  CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           3.0),
+    ("PICCOLO",   CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           1.5),
+    ("ORCA",      CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           2.0),
+    ("VEX_4S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, 2.5),
+    ("VEX_5S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, 2.0),
+    ("CV32E40X",  CoreFeature.NONE,                                                                                          2.0),
 ]
 
 if args.cores is not None:
@@ -365,7 +365,7 @@ if args.cores is not None:
     cores = [entry for entry in cores if entry[0].upper() in requested]
     print(f"Filtering to core(s): {[entry[0] for entry in cores]}", flush=True)
 
-for core, core_features, is_scala, timeout_scale in cores:
+for core, core_features, timeout_scale in cores:
     for template in command_templates:
         compatible = False
         for required_features in template.required_features:
@@ -385,7 +385,7 @@ for core, core_features, is_scala, timeout_scale in cores:
             cmd = cmd + ' SIM_ENABLE_ISS_LOCKSTEP="y"'
 
         # Run test in the parallel section once the all-ISAX compilers are built
-        parallelizable_commands.append(CommandJob(f'SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}', is_scala))
+        parallelizable_commands.append(CommandJob(f'SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}'))
 
 def get_job_output_folder(id: int):
     return os.path.join(integration_test_working_dir, f"output_test_{id:03}")
@@ -436,20 +436,10 @@ def run_tests(jobs: list[CommandJob], parallel: bool, id_offset: int = 0, run_ma
 
     results = []
     print_lock = threading.Lock()
-    scala_jobs_sem = threading.Semaphore(MAX_SCALA_JOBS)
-
-    def run_test_sem(id, job_entry: CommandJob):
-        """ Runs a job, acquiring scala_jobs_sem as required """
-        if job_entry.is_scala:
-            with scala_jobs_sem:
-                return run_test(job_entry.env_str, id + id_offset, run_make_ci, print_lock)
-        else:
-            return run_test(job_entry.env_str, id + id_offset, run_make_ci, print_lock)
-
     # Create a ThreadPoolExecutor with the desired number of threads
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         # Submit tasks to the executor and store the Future objects
-        futures = [executor.submit(run_test_sem, id + id_offset, job_entry) for id, job_entry in enumerate(jobs)]
+        futures = [executor.submit(run_test, job_entry.env_str, id + id_offset, run_make_ci, print_lock) for id, job_entry in enumerate(jobs)]
 
         # Wait for all jobs to complete
         for future in concurrent.futures.as_completed(futures):

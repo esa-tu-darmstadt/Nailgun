@@ -34,7 +34,8 @@ class NaxSupport(CoreSupport):
         run_cmd.run(target_dir, f"patch -p1 < {patch_file}", "Could not patch the NaxRiscv sources", error.SCAIEV_BASE + 4, False)
         # Build NaxRiscv
         # Custom available option:  --with-hw-ctx-switch --with-hw-scheduling --baseline-with-switch-tracing --with-dirty-bits
-        run_cmd.run(target_dir, f'sbt "runMain naxriscv.platform.asic.NaxAsicGen {spinal_gen_args} --memory-region=0x{self.CLINT_BASE},0x{self.CLINT_SIZE},io,p --memory-region=0x{self.CTRL_BASE},0x{self.CTRL_SIZE},io,p --memory-region=0x{self.IMEM_BASE},0x{self.IMEM_SIZE},xc,m --memory-region=0x{self.DMEM_BASE},0x{self.DMEM_SIZE},rwc,m --reset-vector=0x{self.IMEM_BASE}"', "Could not generate nax.v", error.SCAIEV_BASE + 5, True, 100)
+        with run_cmd.sbt_semaphore():
+            run_cmd.run(target_dir, f'sbt "runMain naxriscv.platform.asic.NaxAsicGen {spinal_gen_args} --memory-region=0x{self.CLINT_BASE},0x{self.CLINT_SIZE},io,p --memory-region=0x{self.CTRL_BASE},0x{self.CTRL_SIZE},io,p --memory-region=0x{self.IMEM_BASE},0x{self.IMEM_SIZE},xc,m --memory-region=0x{self.DMEM_BASE},0x{self.DMEM_SIZE},rwc,m --reset-vector=0x{self.IMEM_BASE}"', "Could not generate nax.v", error.SCAIEV_BASE + 5, True, 100)
 
     def get_srcs_folder_name(self) -> str:
         return "NaxRiscv"

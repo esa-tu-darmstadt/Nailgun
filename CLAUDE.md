@@ -87,7 +87,7 @@ Runs the full test matrix across cores and ISAXes:
 2. **Sequential tests**: Tests that cannot be parallelized
 3. **Merge MLIR**: Collects all `.mlir` files → merges into `ALL_ISAXES.mlir`
 4. **Patch compilers**: Prepares clang with merged ISAX support
-5. **Parallel tests**: Runs remaining tests concurrently (up to `cpu_count` threads, Scala cores capped at 8)
+5. **Parallel tests**: Runs remaining tests concurrently (up to `cpu_count` threads; no per-core job cap — concurrent sbt runs of the Scala cores are bounded host-wide by `run_cmd.sbt_semaphore()`, see Environment)
 
 Per-core feature gating (`CoreFeature` flags: Memory, Decoupled, Control, RdRD, MultiContext, ISSLockstep) filters out unsupported test/core combinations. Supported cores: CVA5, CVA6, CVA6_DUAL, PICORV32, PICCOLO, ORCA, VEX_4S, VEX_5S, CV32E40X.
 
@@ -318,3 +318,5 @@ Results go to numbered directories under `outputs/` (e.g., `outputs/run_0/`). Ea
 ### Environment
 
 Development runs inside a Debian-based Docker container. Additional tools (e.g., waveform viewers like GTKWave for VCD analysis) can be installed via `apt install`.
+
+The Scala cores (VexRiscv, NaxRiscv) generate their RTL with sbt, and each sbt run holds ~5 inotify instances for its whole lifetime. `fs.inotify.max_user_instances` is 128 per user and a desktop session typically holds most of that, so a wide fan-out (e.g. `LN_SHARING_EVAL.py`, whose `MAX_PARALLEL` is `os.cpu_count()`) will otherwise make sbt abort at project load with "User limit of inotify instances reached". `run_cmd.sbt_semaphore()` caps concurrent sbt runs at 8 via flock'd slot files in `$TMPDIR`; override with `NG_SBT_MAX_PARALLEL` (`0` disables the cap). Raising the sysctl is the better fix where root is available.
