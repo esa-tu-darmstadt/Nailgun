@@ -54,6 +54,7 @@ For CI, configuration is driven by environment variables mapped to Kconfig symbo
 | `SCAIEV_DO_NOT_REBUILD` | Skip rebuilding SCAIE-V |
 | `SIM_TB_COMPILE_FLAGS` | Extra compiler flags for testbench compilation |
 | `SCV_INTERNAL_CONTEXTS_AMOUNT` | SCAIE-V multi-context register banking |
+| `CVXIF_SPECULATIVE` / `CVXIF_ALLOW_CUSTOM_REGS` / `CVXIF_GEN_PROTOCOL_TB` | CV-X-IF glue options (CV-X-IF cores only; see the CV-X-IF flow section) |
 | `SIM_ISS_PREDEFINED_ISAXES` | Predefined ISS ISAX definitions (e.g. `zol`) |
 
 Minimal single-test example:
@@ -266,6 +267,7 @@ Six mutually exclusive entry points control where the pipeline starts:
 | `treenail.py` | CoreDSL → MLIR translation (parallelized via ThreadPoolExecutor) |
 | `longnail.py` | HLS scheduling (MLIR → SystemVerilog), supports multiple ILP solvers |
 | `scaiev.py` | Integrates custom functional units into RISC-V cores |
+| `cvxif.py` | CV-X-IF alternative to `scaiev.py`: copies the pristine core, generates glue via `tools/cvxif_glue_gen.py`, emits `filelist.f` (see the CV-X-IF flow section) |
 | `simulation.py` | Runs cocotb testbenches with ELF→HEX, optional Renode ISS lockstep |
 | `toolchain.py` | Builds the dynamic-ISAX LLVM fork (`deps/llvm_dynamic_isax`) and drives testbench compilation/disassembly with `-misax-desc=<analysis.yaml>` |
 | `picolibc.py` | Compiles minimal C library for baremetal targets |
@@ -274,6 +276,35 @@ Six mutually exclusive entry points control where the pipeline starts:
 ### Core Support Framework (`cores/`)
 
 Each supported RISC-V core (CVA5, CVA6, VexRiscv, NaxRiscv, Orca, Piccolo, PicoRV32) has a Python module implementing the `CoreSupport` interface registered via `scaiev.py`. Core selection happens through Kconfig.
+
+### CV-X-IF flow (alternative to SCAIE-V)
+
+An ISAX can also be attached to an **unmodified** CV32E40X, CV32E40PX *or* CVA6 through the standard CORE-V-XIF eXtension interface, bypassing SCAIE-V entirely. This is a first-class pipeline path: `dispatch.py` branches on `CoreSupport.uses_cvxif()` and runs `cvxif.run_cvxif()` (the sibling of `scaiev.run_scaiev()`) instead of SCAIE-V. It populates `out_dir/<core>/` with a copy of the pristine upstream core (required patches applied to the copy — `deps/` stays clean; `SCV_POST_PATCH` is honored too, e.g. for the no-mul patches below), the generated glue + per-core coprocessor wrapper, the `cvxif_*_top` top and a `filelist.f`. The three CV-X-IF cores extend `cvxif.CVXIFCoreSupport`, whose `get_core_srcs()` serves that filelist to the synthesis plugins. Each `tools/cvxif_sim/cvxif_*_top.sv` presents the interface of the corresponding SCAIE-V top, module name included: `top` with `clk`/`rst` and the full CV32E40X pin list for the two OBI cores, `cva6_ariane_wrapper` with flat AXI4 for CVA6. `SIM_ENABLE=y` runs the regular cocotb flow: because of that, SCAIE-V's own `testbench` wrappers drive them (`CVXIFCoreSupport.get_tb_wrapper_files()`: `cv32e40x_tb_wrapper.v` + `obi_axi_adapter.sv`, `CVA6_tb_wrapper.v`), with the memory map and linker script of the corresponding SCAIE-V core. In `tools/run_integration_tests.py` none of the three has `PC`, `Always`, `Memory`, `Control` or `Decoupled`; the two CV32E40 cores declare `CustomRegs` (ANTDOTP passes), `CVA6_UPSTREAM` stays at `NONE` (`commit_kill=0`). They pass its 7 basic templates (21/21). `NO_ISAX=y` works too: no coprocessor is generated and the top ties the interface off itself (`CVXIF_COPROC` undefined) — a CPU-only baseline. Kconfig knobs in `configs/CVXIF_Kconfig`: `CVXIF_SPECULATIVE`, `CVXIF_ALLOW_CUSTOM_REGS` (CVA6), `CVXIF_GEN_PROTOCOL_TB` (all usable as `make ci` env vars). The pieces:
+
+- `deps/longnail/datasheets/CVXIF.yaml` — virtual datasheet describing the *interface*, not a core pipeline: its stages are the glue's own shadow pipeline. The three CV-X-IF cores select it through `CVXIFCoreSupport.get_longnail_datasheet_name()`.
+- `tools/cvxif_glue_gen.py` — generates the glue (decode → issue/commit/result handshakes → `RdIValid`/`RdStall` shadow pipeline → custom-register files + admission interlock), plus a `cv32e40x_if_xif` wrapper and an optional self-checking protocol testbench (`--testbench`). Invoked by `cvxif.run_cvxif()` during `make ci` (and standalone by the runners; both produce byte-identical glue).
+
+- `CORE=CV32E40X_UPSTREAM` — **pristine upstream `openhwgroup/cv32e40x`** (`deps/cv32e40x`, master HEAD d952cd63 — *not* the SCAIE-V fork, which only adds hooks this flow does not use) with the coprocessor on `cv32e40x_if_xif`. Registered as a core by `cores/CV32E40X_upstream.py` (`CORE_CV32E40X_UPSTREAM`, `has_isax_support() = False`, datasheet `CVXIF.yaml`), so `CORE=CV32E40X_UPSTREAM ... make ci` schedules against the interface. Verified with sparkle, ANTDOTP (4 custom registers) and XCoreVSimd (all 21 CORE-V SIMD instructions — which CV32E40X has no hardware for, since it ships only RV32I/E+M+A+B and leaves the PULP/SIMD extensions to CV-X-IF).
+
+- `CORE=CVA6_UPSTREAM` — the same, on **pristine upstream `openhwgroup/cva6`** (`deps/cva6_upstream`, a worktree of the SCAIE-V fork's base commit `bcb0f7de`), config `cv32a60x`. Needs **no core patch and no config edit**: `CvxifEn` is already 1 upstream. Registered as a core by `cores/CVA6_upstream.py` (`CORE_CVA6_UPSTREAM`, `has_isax_support() = False`, datasheet `CVXIF.yaml`). Sources come from CVA6's own `core/Flist.cva6` (expanded for `CVA6_REPO_DIR`/`HPDCACHE_DIR`/`TARGET_CFG`), the top is `cvxif_cva6_top.sv` (upstream `ariane.sv` with the example coprocessor swapped out).
+
+  CVA6 speaks CV-X-IF **v1.0**, not rev 458c8a73: one `cvxif_req_t`/`cvxif_resp_t` struct pair, operands on a separate `register` channel, plus `issue_resp.register_read`; no memory interface and no result side-band. `cvxif_glue_gen.py --cva6-wrapper` emits the translation (`cvxif_coproc_cva6_<name>.sv`). It works out because CVA6 sets `X_ISSUE_REGISTER_SPLIT = 0`, so operands still arrive in the issue cycle.
+
+  Verified with sparkle and XCoreVSimd (`XCOREV_SIMD_ADD_SUB_AVG`, 30 instructions).
+
+  **CVA6 hardwires `commit.commit_kill = 0`**, so an ISAX instruction offloaded in the shadow of a trapping instruction executes twice (once before the flush, once after the handler returns). Stateless ISAXes are unaffected — sparkle passes 35/35. ISAXes with custom registers are corrupted (ANTDOTP: 80 offloads for 79 architectural instructions, accumulator one MAC too far), so `--cva6-wrapper` refuses them unless `--allow-custom-regs` / `ALLOW_CUSTOM_REGS=1`. See `docs/cvxif.md`.
+
+- `CORE=CV32E40PX` — the same, on **pristine upstream `x-heep/cv32e40px`** (`deps/cv32e40px`; transferred from esl-epfl, old URL redirects). Note which core: **not** CV32E40P (no X-interface) and **not** CV32E40X (a different core) — CV32E40PX is the CV32E40P derivative that adds CV-X-IF, used by X-HEEP. Same interface revision as CV32E40X, packaged as structs in `cv32e40px_core_v_xif_pkg`, so `--e40px-wrapper` is a field-for-field unpack. Registered by `cores/CV32E40PX.py` (`CORE_CV32E40PX`). `X_NUM_RS = 3` there; both repo manifests are stale so `get_cvxif_core_filelist()` globs `rtl/`, skipping the latch regfile and the FPU wrapper.
+
+  Bringing it up changed the glue for **all** cores: `cv32e40px_x_disp.sv` suppresses its RAW interlock with `(x_result_rd_i != rs)` and no `& x_result_valid_i`, so a stale held `rd` cancelled the stall and every result came out shifted by one. The generator now gates `x_result_rd_o`/`x_result_we_o` with `result_valid` (5 gates; the spec leaves those fields undefined when invalid anyway). CV32E40X and CVA6 are unaffected.
+
+Because both ends of CV-X-IF are handshakes, there is no need for decoupled/spawn writeback — the datasheet is open-ended (no `latest` on its entries = any stage; `WrRD`/`WrCustReg.data` are `spawn: false`, i.e. always coupled), at zero hardware cost. Not expressible over CV-X-IF and rejected with a diagnostic: `RdPC`/`WrPC`, `RdRD`, `RdMem`/`WrMem`, `RdX`/`WrX`, `Multi*Mem`, `always` blocks, conditional `WrRD`.
+
+Concurrency: the default **commit-gated** admission serialises ISAX execution (max 1 in the datapath, +1 cycle of throughput per ISAX stage). `cvxif_glue_gen.py --speculative` admits at the issue handshake and holds results until commit, restoring pipelining: **2.4-2.5x** throughput on the core (5.62→2.33 and 6.62→2.67 cycles/offload), datapath filled to full depth, and throughput no longer scaling with depth. Requires an ISAX with no custom registers (a killed entry is dropped, there is no rollback) — the generator refuses otherwise. Note the coverage split: killing an entry mid-datapath and the `result.rd`/`result.we` fields are exercised only by the generated protocol testbench, never by the CV32E40X runs (the core kills within one cycle of issue, and derives rd itself). See `docs/cvxif.md`.
+
+Two CV32E40X behaviours the glue depends on: CSR instructions are offered on the issue interface too (`issue_valid = instr_valid && (illegal_insn || csr_en)`), and **every rejected instruction gets `commit_kill=1` without a pipeline flush** — so a kill must be honoured only for the buffered instruction's own id, never for "all newer".
+
+Three CV32E40X issues the simulation surfaced, all core-side and all present in pristine upstream master HEAD: (1) the `issue_resp` flags are not sticky, so an offloaded instruction lingering in ID loses its register writeback — a real bug, known upstream as open issue #941 with open PR #891 proposing the same fix, applied here as `core_patches/cv32e40x_xif_sticky_issue_resp.patch` (inert when `X_EXT=0`); (2) a store parked in EX re-issues its OBI transaction while a slow coprocessor blocks WB (124 write transactions for 54 stores) — not fixed, harmless by itself, but avoid non-idempotent MMIO write ports in test programs; (3) with such transfers outstanding `wb_ready` follows the bus response while `result_ready` ignored it, so an offloaded instruction consumed its result in a cycle where it could not leave WB and then waited forever — a deadlock with any memory slower than one cycle (the cocotb OBI->AXI4 adapter; the standalone testbench's one-cycle memory hid it), fixed by `core_patches/cv32e40x_xif_result_ready_wb.patch` (inert when `X_EXT=0`). See `docs/cvxif.md`.
 
 ### Configuration System
 
@@ -293,7 +324,7 @@ Rudimentary plugin architecture. `dispatch.py` walks `plugins/*/` looking for fi
 
 ### Error Codes (`error.py`)
 
-Stratified by component: USER_ERROR=1, INTERNAL_ERROR=2, TN=50+, LN=100+, SCAIEV=150+, PICOLIBC=190+, SIM=200+, LLVM=220+, LIBRELANE=230+.
+Stratified by component: USER_ERROR=1, INTERNAL_ERROR=2, TN=50+, LN=100+, SCAIEV=150+, PICOLIBC=190+, SIM=200+, LLVM=220+, LIBRELANE=230+, CVXIF=240+.
 
 ### Test Infrastructure
 

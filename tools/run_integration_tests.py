@@ -24,6 +24,9 @@ parser.add_argument("--show-results", metavar="FOLDER",
 parser.add_argument("--core", "--cores", dest="cores", default=None,
                     help="Only run tests for the given core(s). Comma-separated list, "
                          "case-insensitive (e.g. 'CVA6' or 'CVA6,CVA5'). Default: all cores.")
+parser.add_argument("--list", action="store_true",
+                    help="Print the test matrix (one make ci environment per line) and exit "
+                         "without running anything or touching the output directory.")
 parser.add_argument("-j", "--jobs", dest="jobs", type=int, default=os.cpu_count(),
                     help=f"Maximum number of parallel test jobs. Default: all available CPUs ({os.cpu_count()}).")
 args = parser.parse_args()
@@ -37,6 +40,11 @@ if args.jobs < 1:
 parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(parent_folder)
 import error
+
+# Cores whose ISAX is attached over CV-X-IF (cvxif.py) instead of being integrated by SCAIE-V.
+# The results summary prints them as a table of their own. Kept up here because
+# --show-results builds the tables before the `cores` list below exists.
+CVXIF_CORES = ("CV32E40X_UPSTREAM", "CV32E40PX", "CVA6_UPSTREAM")
 
 def save_results_to_json(folder, results):
     """Save test results to a JSON file for later retrieval."""
@@ -180,10 +188,19 @@ def build_and_print_results_table(results):
         assert test_case_name not in results_map[core], f"Result for test case: '{test_case_name}' has already been registered for core = {core}, full cmd = {cmd}"
         results_map[core][test_case_name] = error.decode_exit_code(exit_code, id)
 
-    df = pd.DataFrame(results_map)
-    df = df.fillna("N/A")
-    table = tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=True)
-    print(table)
+    # One table per integration path: the CV-X-IF cores run only the basic tests, so in a
+    # shared table they would be mostly N/A rows (and the SCAIE-V cores' table wider for it).
+    groups = (
+        ("SCAIE-V integration", {c: r for c, r in results_map.items() if c not in CVXIF_CORES}),
+        ("CV-X-IF integration", {c: r for c, r in results_map.items() if c in CVXIF_CORES}),
+    )
+    for title, group in groups:
+        if not group:
+            continue
+        df = pd.DataFrame(group)
+        df = df.fillna("N/A")
+        print(f"\n{title}:")
+        print(tabulate(df, headers='keys', tablefmt='fancy_grid', showindex=True))
 
     return failed
 
@@ -203,10 +220,11 @@ if args.show_results is not None:
     exit(1 if failed > 0 else 0)
 
 integration_test_working_dir = os.path.abspath(args.output_dir)
-if os.path.exists(integration_test_working_dir):
-    shutil.rmtree(integration_test_working_dir)
 logs_dir = os.path.join(integration_test_working_dir, "logs")
-os.makedirs(logs_dir)
+if not args.list:
+    if os.path.exists(integration_test_working_dir):
+        shutil.rmtree(integration_test_working_dir)
+    os.makedirs(logs_dir)
 
 import longnail
 # Remove the parent directory from the sys.path again
@@ -263,11 +281,21 @@ class CoreFeature(Flag):
     # Simulator supports tracing for ISS lockstep
     ISSLockstep = auto()
 
-    # Only basic functionality required for arithmetic ISAXes (includes semi-coupled).
-    # Includes RdInstr, RdPC, RdRS1/2, RdFlush, Rd/WrStall, WrRD, (custom registers via SCAL)
+    # RdPC: read the program counter of the ISAX instruction
+    PC = auto()
+    # ISAX-private (custom) registers
+    CustomRegs = auto()
+    # `always` blocks: ISAX logic that runs every cycle, independent of any instruction
+    Always = auto()
+
+    # Only basic functionality required for arithmetic ISAXes (includes semi-coupled):
+    # RdInstr, RdRS1/2, RdFlush, Rd/WrStall, WrRD. This is all a CV-X-IF attached ISAX can use.
     NONE = 0
-    # Advanced features present for all properly-supported cores
-    STANDARD = Memory | Decoupled | Control
+    # What every SCAIE-V integrated core adds to that (custom registers via SCAL)
+    BASE = PC | CustomRegs
+    # Advanced features present for all properly-supported cores. `Always` sits here, not in
+    # BASE: its only test (ZOL) also needs Control, so it is exercised on exactly these cores.
+    STANDARD = BASE | Memory | Decoupled | Control | Always
 
 class CommandFlags(Flag):
     EnableISSLockstep = auto()
@@ -290,17 +318,17 @@ command_templates = [
     CommandTemplate('ISAXES="MAC" SIM_ENABLE="y" TB_PATH="custom_tbs/mac.cpp" TB_EXPECTED_PATH="custom_tbs/mac_expected.txt"',
                     [CoreFeature.RdRD, CoreFeature.MultiReadWrite], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc.cpp" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
-                    [CoreFeature.Memory], CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Memory | CoreFeature.CustomRegs], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="AUTOINC" SIM_ENABLE="y" TB_PATH="custom_tbs/autoinc_multi_context.cpp" SCV_INTERNAL_CONTEXTS_AMOUNT="2" TB_EXPECTED_PATH="custom_tbs/autoinc_expected.txt"',
-                    [CoreFeature.Memory | CoreFeature.MultiContext], CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Memory | CoreFeature.CustomRegs | CoreFeature.MultiContext], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="BRIMM" SIM_ENABLE="y" TB_PATH="custom_tbs/brimm.cpp" TB_EXPECTED_PATH="custom_tbs/brimm_expected.txt"',
-                    [CoreFeature.Control], CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Control | CoreFeature.PC], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="DOTPROD" SIM_ENABLE="y" TB_PATH="custom_tbs/dotprod.yaml" TB_EXPECTED_PATH="custom_tbs/dotprod_expected.txt"',
                     [CoreFeature.NONE], CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     CommandTemplate('SIM_TB_COMPILE_FLAGS="-mcmodel=medany" ISAXES="INDIRECTJMP" SIM_ENABLE="y" TB_PATH="custom_tbs/indirectjmp.cpp" TB_EXPECTED_PATH="custom_tbs/indirectjmp_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.Control], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="TABLEJUMP" SIM_ENABLE="y" TB_PATH="custom_tbs/tablejump.cpp" TB_EXPECTED_PATH="custom_tbs/tablejump_expected.txt"',
-                    [CoreFeature.Memory | CoreFeature.Control], CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Memory | CoreFeature.Control | CoreFeature.PC | CoreFeature.CustomRegs], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SBOX" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
                     [CoreFeature.NONE], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="SPARKLE" SIM_ENABLE="y" TB_PATH="custom_tbs/sparkle.cpp" TB_EXPECTED_PATH="custom_tbs/sparkle_expected.txt"',
@@ -310,7 +338,7 @@ command_templates = [
     CommandTemplate('SIM_TB_COMPILE_FLAGS="-DTB_USE_SQRT_STALL" ISAXES="SQRT_STALL" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
                     [CoreFeature.NONE], CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     CommandTemplate('ISAXES="ZOL" SIM_ENABLE="y" TB_PATH="custom_tbs/zol.cpp" TB_EXPECTED_PATH="custom_tbs/zol_expected.txt" SIM_ISS_PREDEFINED_ISAXES="zol"',
-                    [CoreFeature.Control], CommandFlags.EnableISSLockstep),
+                    [CoreFeature.Control | CoreFeature.PC | CoreFeature.CustomRegs | CoreFeature.Always], CommandFlags.EnableISSLockstep),
     CommandTemplate('ISAXES="PUSHPOP" SIM_ENABLE="y" TB_PATH="custom_tbs/push_pop.cpp" TB_EXPECTED_PATH="custom_tbs/push_pop_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore], CommandFlags.EnableISSLockstep),
     CommandTemplate('LN_MAX_LOOP_UNROLL_FACTOR=32 ISAXES="INIT" SIM_ENABLE="y" TB_PATH="custom_tbs/init.cpp" TB_EXPECTED_PATH="custom_tbs/init_expected.txt"',
@@ -322,9 +350,9 @@ command_templates = [
     CommandTemplate('ISAXES="MULTIMEMREADWRITE" SIM_ENABLE="y" TB_PATH="custom_tbs/multi_mem_read_write.cpp" TB_EXPECTED_PATH="custom_tbs/multi_mem_read_write_expected.txt"',
                     [CoreFeature.Memory | CoreFeature.MultiLoadStore], CommandFlags.EnableISSLockstep),
     CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sbox.cpp" TB_EXPECTED_PATH="custom_tbs/sbox_expected.txt"',
-                    [CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled], CommandFlags.EnableISSLockstep),
+                    [CoreFeature.STANDARD], CommandFlags.EnableISSLockstep),
     CommandTemplate(f'SIM_TB_COMPILE_FLAGS="-DTB_FORCE_USE_MERGED" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="{core_isaxes_merge_file}" SIM_ENABLE="y" TB_PATH="custom_tbs/sqrt.cpp" TB_EXPECTED_PATH="custom_tbs/sqrt_expected.txt"',
-                    [CoreFeature.Memory | CoreFeature.Control | CoreFeature.Decoupled], CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
+                    [CoreFeature.STANDARD], CommandFlags.EnableISSLockstep).set_cycle_timeout(80000),
     # MLIR entrypoint tests
     # complex ISAX
     CommandTemplate('LN_SCHED_ALGO_MS="y" LN_SCHED_ALGO_PA="y" COREDSL_MLIR_ENTRY_POINT="y" MLIR_ENTRY_POINT_PATH="deps/longnail/sim/complex/complex.mlir" LN_CELL_LIBRARY="deps/longnail/sim/complex/library.yaml" SIM_ENABLE="y" TB_PATH="custom_tbs/complex.cpp" TB_EXPECTED_PATH="custom_tbs/complex_expected.txt" LN_OPTY_OL2_MODEL="y" LN_CLOCK_PERIOD="150.0"',
@@ -344,16 +372,25 @@ command_templates = [
 # Concurrent sbt runs of the Scala cores (VEX_*) are bounded where sbt is invoked, host-wide,
 # by run_cmd.sbt_semaphore() -- not here.
 cores = [
-    ("CVA6",      CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            1.0),
-    ("CVA6_DUAL", CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            1.0),
-    ("CVA5",      CoreFeature.STANDARD | CoreFeature.RdRD | CoreFeature.ISSLockstep,                                         1.0),
-    ("PICORV32",  CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           3.0),
-    ("PICCOLO",   CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           1.5),
-    ("ORCA",      CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           2.0),
-    ("VEX_4S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, 2.5),
-    ("VEX_5S",    CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, 2.0),
-    ("CV32E40X",  CoreFeature.NONE,                                                                                          2.0),
+    ("CVA6",              CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            1.0),
+    ("CVA6_DUAL",         CoreFeature.STANDARD | CoreFeature.ISSLockstep,                                                            1.0),
+    ("CVA5",              CoreFeature.STANDARD | CoreFeature.RdRD | CoreFeature.ISSLockstep,                                         1.0),
+    ("PICORV32",          CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           3.0),
+    ("PICCOLO",           CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           1.5),
+    ("ORCA",              CoreFeature.STANDARD | CoreFeature.MultiContext,                                                           2.0),
+    ("VEX_4S",            CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, 2.5),
+    ("VEX_5S",            CoreFeature.STANDARD | CoreFeature.MultiContext | CoreFeature.MultiReadWrite | CoreFeature.MultiLoadStore, 2.0),
+    ("CV32E40X",          CoreFeature.BASE,                                                                                          2.0),
+    # Pristine cores with the ISAX attached over CV-X-IF (cvxif.py). The interface cannot express
+    # RdPC, memory access, control flow, `always` blocks or decoupled writeback. Custom registers work
+    # on the two CV32E40 cores (ANTDOTP); on CVA6 they are unsafe: commit_kill is hardwired to 0, so
+    # an ISAX instruction behind a trapping one executes twice.
+    ("CV32E40X_UPSTREAM", CoreFeature.CustomRegs,                                                                                    2.0),
+    ("CV32E40PX",         CoreFeature.CustomRegs,                                                                                    2.0),
+    ("CVA6_UPSTREAM",     CoreFeature.NONE,                                                                                          1.0),
 ]
+
+assert set(CVXIF_CORES) <= {entry[0] for entry in cores}, "CVXIF_CORES names a core that is not in `cores`"
 
 if args.cores is not None:
     requested = {c.strip().upper() for c in args.cores.split(",") if c.strip()}
@@ -386,6 +423,11 @@ for core, core_features, timeout_scale in cores:
 
         # Run test in the parallel section once the all-ISAX compilers are built
         parallelizable_commands.append(CommandJob(f'SCAIEV_DO_NOT_REBUILD="y" CORE="{core}" {cmd}'))
+
+if args.list:
+    for job in sequential_commands + parallelizable_commands:
+        print(job.env_str)
+    exit(0)
 
 def get_job_output_folder(id: int):
     return os.path.join(integration_test_working_dir, f"output_test_{id:03}")

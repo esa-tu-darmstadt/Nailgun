@@ -1,0 +1,90 @@
+# CV32E40X: latch the eXtension-interface issue_resp attributes
+#
+# Resolves upstream's own `TODO:XIF These may be missed if issue_valid retracts
+# before ID goes to EX. Need to check for sticky accept as well`.
+#
+# issue_valid drops one cycle after the handshake (via xif_accepted_q), so an
+# offloaded instruction still waiting in ID for a busy EX is sampled into
+# id_ex_pipe with rf_we = 0 and loses its register writeback entirely.
+#
+# KNOWN UPSTREAM, still unfixed in openhwgroup/cv32e40x master HEAD (d952cd63):
+#   - issue #941 "[XIF] Coprocessor XIF Issue response not sampled by ID-EX
+#     pipeline registers" -- open since 2023-09-07, with waveforms showing
+#     exactly this lost writeback
+#   - PR #891 "Fixed XIF Control Signals for Sticky Accept/Reject" -- open
+#     since 2023-07-17, proposes the same fix, never merged
+#
+# Reproduced by tools/cvxif_sim (ANTDOTP): its custom-register interlock
+# back-pressures the coprocessor, which keeps ID stalled, so every offloaded
+# instruction after the first in a burst silently lost its result.
+#
+# Applies to deps/cv32e40x (pristine upstream). Inert when X_EXT = 0.
+#
+diff --git a/rtl/cv32e40x_id_stage.sv b/rtl/cv32e40x_id_stage.sv
+index 14d85b8..d1b874a 100644
+--- a/rtl/cv32e40x_id_stage.sv
++++ b/rtl/cv32e40x_id_stage.sv
+@@ -692,20 +692,38 @@ module cv32e40x_id_stage import cv32e40x_pkg::*;
+       // remember whether an instruction was accepted or rejected (required if EX stage is not ready)
+       // TODO:XIF check whether this state machine should be put back in its initial state when the instruction in ID gets killed
+       logic xif_accepted_q, xif_rejected_q;
++      // Sticky copies of the issue_resp attributes, latched alongside the
++      // accept (resolves the TODO below): issue_valid drops as soon as
++      // xif_accepted_q is set, so an instruction still waiting in ID for a
++      // busy EX would otherwise be sampled into id_ex_pipe with rf_we = 0 and
++      // lose its register writeback entirely.
++      logic xif_we_q, xif_exception_q, xif_dualwrite_q, xif_loadstore_q;
+ 
+       assign xif_en = xif_insn_accept || xif_insn_reject;
+ 
+       always_ff @(posedge clk, negedge rst_n) begin : ID_XIF_STATE_REGISTERS
+         if (rst_n == 1'b0) begin
+-          xif_accepted_q <= 1'b0;
+-          xif_rejected_q <= 1'b0;
++          xif_accepted_q  <= 1'b0;
++          xif_rejected_q  <= 1'b0;
++          xif_we_q        <= 1'b0;
++          xif_exception_q <= 1'b0;
++          xif_dualwrite_q <= 1'b0;
++          xif_loadstore_q <= 1'b0;
+         end else begin
+           if ( (id_valid_o && ex_ready_i) || ctrl_fsm_i.kill_id ) begin
+-            xif_accepted_q <= 1'b0;
+-            xif_rejected_q <= 1'b0;
++            xif_accepted_q  <= 1'b0;
++            xif_rejected_q  <= 1'b0;
++            xif_we_q        <= 1'b0;
++            xif_exception_q <= 1'b0;
++            xif_dualwrite_q <= 1'b0;
++            xif_loadstore_q <= 1'b0;
+           end else begin
+-            xif_accepted_q <= xif_insn_accept;
+-            xif_rejected_q <= xif_insn_reject;
++            xif_accepted_q  <= xif_insn_accept;
++            xif_rejected_q  <= xif_insn_reject;
++            xif_we_q        <= xif_we;
++            xif_exception_q <= xif_exception;
++            xif_dualwrite_q <= xif_dualwrite;
++            xif_loadstore_q <= xif_loadstore;
+           end
+         end
+       end
+@@ -755,11 +773,13 @@ module cv32e40x_id_stage import cv32e40x_pkg::*;
+       assign xif_insn_accept = (xif_issue_if.issue_valid && xif_issue_if.issue_ready &&  xif_issue_if.issue_resp.accept) || xif_accepted_q;
+       assign xif_insn_reject = (xif_issue_if.issue_valid && xif_issue_if.issue_ready && !xif_issue_if.issue_resp.accept) || xif_rejected_q;
+ 
+-      // TODO:XIF These may be missed if issue_valid retracts before ID goes to EX. Need to check for sticky accept as well
+-      assign xif_we        = xif_issue_if.issue_valid && xif_issue_if.issue_resp.writeback;
+-      assign xif_exception = xif_issue_if.issue_valid && xif_issue_if.issue_resp.exc;
+-      assign xif_dualwrite = xif_issue_if.issue_valid && xif_issue_if.issue_resp.dualwrite;
+-      assign xif_loadstore = xif_issue_if.issue_valid && xif_issue_if.issue_resp.loadstore;
++      // These would be missed if issue_valid retracts before ID goes to EX
++      // (it retracts one cycle after the handshake, via xif_accepted_q), so
++      // they are OR'ed with their sticky copies.
++      assign xif_we        = (xif_issue_if.issue_valid && xif_issue_if.issue_resp.writeback) || xif_we_q;
++      assign xif_exception = (xif_issue_if.issue_valid && xif_issue_if.issue_resp.exc)       || xif_exception_q;
++      assign xif_dualwrite = (xif_issue_if.issue_valid && xif_issue_if.issue_resp.dualwrite) || xif_dualwrite_q;
++      assign xif_loadstore = (xif_issue_if.issue_valid && xif_issue_if.issue_resp.loadstore) || xif_loadstore_q;
+ 
+     end else begin : no_x_ext
+ 

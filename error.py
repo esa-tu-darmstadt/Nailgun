@@ -9,6 +9,7 @@ PICOLIBC_BASE = 190
 SIM_BASE = 200
 LLVM_BASE = 220
 LIBRELANE_BASE = 230
+CVXIF_BASE = 240
 
 def exit_error(msg, error_code = -1):
     print(f"ERROR: {msg}")
@@ -23,7 +24,8 @@ _RANGES = [
     (PICOLIBC_BASE,  SIM_BASE,        "picolibc",  "Picolibc"),
     (SIM_BASE,       LLVM_BASE,       "sim",       "SIM"),
     (LLVM_BASE,      LIBRELANE_BASE,  "llvm",      "LLVM"),
-    (LIBRELANE_BASE, None,            "librelane", "Openlane"),
+    (LIBRELANE_BASE, CVXIF_BASE,      "librelane", "Openlane"),
+    (CVXIF_BASE,     None,            "cvxif",     "CV-X-IF"),
 ]
 
 def _classify(code):

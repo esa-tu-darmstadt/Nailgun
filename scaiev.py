@@ -18,6 +18,23 @@ class CoreExtensions:
         return '_'.join([ext.lower() for ext in self.archext_list])
 
 class CoreSupport(ABC):
+    def uses_cvxif(self) -> bool:
+        """True if the ISAX is attached over the CORE-V-XIF interface by
+        cvxif.py (glue from tools/cvxif_glue_gen.py) instead of being spliced
+        into the pipeline by SCAIE-V. See cvxif.CVXIFCoreSupport."""
+        return False
+
+    def filter_synthesis_core_srcs(self, core_srcs, core_dir) -> list[str]:
+        """Adapt `get_core_srcs()`'s SIMULATION file list for synthesis.
+
+        Called by the synthesis plugins with the core sources and this run's
+        private core copy (`core_dir`). Cores whose manifest carries
+        simulation-only files (or whose copied RTL needs sim-only constructs
+        stripped for synthesis) override this; the sim has already consumed
+        the copy by the time synthesis plugins run. Default: unchanged.
+        """
+        return core_srcs
+
     @abstractmethod
     def copy_blacklist(self) -> list[str]:
         pass
