@@ -1,0 +1,68 @@
+menu "CV-X-IF integration configuration"
+	depends on CORE_CV32E40X_UPSTREAM || CORE_CVA6_UPSTREAM || CORE_CV32E40PX
+
+	config CVXIF_NON_SPECULATIVE
+		bool "Commit-gated admission (admit only once non-speculative)"
+		default n
+		help
+			Speculative admission is the default: admit at the issue
+			handshake and hold results until commit. It both pipelines
+			the ISAX (~2.4-2.5x offload throughput) and drops the
+			commit-gated input buffer from the glue.
+
+			Set this to force the old commit-gated admission, which
+			serialises ISAX execution (max 1 in the datapath) but needs
+			no rollback. An ISAX with custom registers falls back to it
+			automatically -- a killed entry is dropped and there is no
+			way to undo its register writes -- so this switch is only
+			needed to force the fallback for an ISAX without them.
+
+	config CVXIF_IN_ORDER_RESULT
+		bool "In-order result emission (stage results to the last stage)"
+		default n
+		help
+			By default each result is handed over at the stage that
+			produces it, and the entry retires there; stages arbitrate
+			for the single result port (deepest = oldest first) and a
+			loser stalls in place. That removes the 32-bit staging
+			registers that used to drag every result to the last stage.
+
+			Set this to force the old in-order emission. Needed only if
+			the host cannot accept results out of order -- CV32E40X can
+			(fpu_ss runs OUT_OF_ORDER=1 on it). An ISAX that still
+			observes the interface after its WrRD falls back on its own.
+
+	config CVXIF_INPUT_BUFFER
+		bool "Keep the issue -> stage-0 input buffer"
+		default n
+		help
+			By default the glue admits in the issue cycle, without the
+			staging register between the issue handshake and stage 0.
+			Set this to keep the buffer: it decouples the core's ID
+			stage from the ISAX pipeline (non-ISAX instructions behind
+			an ISAX one keep flowing while stage 0 is occupied) at the
+			cost of ~125 register bits and a cycle of latency. The
+			commit-gated build always keeps it -- there the buffer IS
+			the wait for the commit.
+
+	config CVXIF_ALLOW_CUSTOM_REGS
+		bool "CVA6: allow ISAXes with custom registers despite commit_kill=0"
+		depends on CORE_CVA6_UPSTREAM
+		default n
+		help
+			CVA6 hardwires commit.commit_kill = 0, so an ISAX instruction
+			offloaded in the shadow of a trapping instruction executes
+			twice. Stateless ISAXes are unaffected; ISAXes with custom
+			registers are corrupted, so the CVA6 wrapper refuses them
+			unless this is set. See docs/cvxif.md.
+
+	config CVXIF_GEN_PROTOCOL_TB
+		bool "Also emit the self-checking CV-X-IF protocol testbench"
+		default n
+		help
+			Emits tb_cvxif_glue_<name>.sv, a standalone protocol testbench
+			driving the glue against the ISAX's Python golden model. This
+			is the only place kill-mid-datapath and the result.rd/we
+			fields are exercised (the cores kill within one cycle of
+			issue and derive rd themselves).
+endmenu

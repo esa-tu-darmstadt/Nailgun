@@ -5,6 +5,7 @@ import kconfiglib
 import shutil
 import re
 
+import cvxif
 import entrypoint
 import error
 import kconfig
@@ -165,18 +166,33 @@ if __name__ == "__main__":
         if mlir_path is not None and os.path.exists(mlir_path):
             isax_name = extract_isax_name(mlir_path)
 
-        # SCAIE-V integrate into core
+        # Integrate the ISAX into the core: SCAIE-V splices it into the
+        # pipeline; CV-X-IF cores get glue on the eXtension interface instead.
         if not only_add_cc_support:
-            scaiev.build_scaiev(kconf.syms)
-            scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
+            if core_support.uses_cvxif():
+                cvxif.run_cvxif(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
+            else:
+                scaiev.build_scaiev(kconf.syms)
+                scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
         # Optionally run the simulation
-        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, only_add_cc_support, isax_analysis_yaml)
+        if core_support.uses_cvxif() and not core_support.supports_cocotb_sim() and not only_add_cc_support:
+            # A CV-X-IF core without a cocotb testbench wrapper
+            # (CVXIFCoreSupport.get_tb_wrapper_files()).
+            if sim_enabled:
+                error.exit_error(
+                    f"SIM_ENABLE=y: CV-X-IF core '{scaiev_core_name}' provides no cocotb "
+                    "testbench wrapper (CVXIFCoreSupport.get_tb_wrapper_files())",
+                    error.USER_ERROR)
+        else:
+            simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, only_add_cc_support, isax_analysis_yaml)
 
         new_critical_chains = []
         if not only_add_cc_support:
             syn_dir_suffix = f"_{iteration}"
-            # Optionally run synthesis plugins
+            # Optionally run synthesis plugins. CV-X-IF cores support this too:
+            # their CoreSupport.get_core_srcs() serves the integrated design
+            # (core + glue + coprocessor) from run_cvxif's filelist.f.
             new_critical_chains = execute_plugins("synthesis_plugin")
 
         # None or empty

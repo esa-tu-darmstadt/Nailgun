@@ -1,0 +1,54 @@
+diff --git a/rtl/cv32e40px_ex_stage.sv b/rtl/cv32e40px_ex_stage.sv
+index 0287610..d86e4f4 100644
+--- a/rtl/cv32e40px_ex_stage.sv
++++ b/rtl/cv32e40px_ex_stage.sv
+@@ -215,14 +215,20 @@ module cv32e40px_ex_stage
+     wb_contention             = 1'b0;
+     result_fw_to_x_o          = '0;
+     regfile_alu_we_fw_power_o = 1'b0;
+-    if (x_result_valid_assigned_i & x_result_we_i & (x_result_rd_i != 5'b00000)) begin
++    // `~regfile_alu_we_i`: the core's own write wins the ALU port. Without that term
++    // the coprocessor result overwrites it and the core's write is lost for good --
++    // `wb_contention` below only feeds a performance counter, it resolves nothing.
++    // The dropped write is silent and can be arbitrarily far-reaching: a
++    // `csrr t3, mepc` at the top of a trap handler losing its writeback leaves the
++    // handler computing mepc from a stale register and `mret`-ing into itself forever.
++    // The refused result is not lost either -- x_result_ready_o is deasserted under the
++    // same condition (cv32e40px_x_disp.sv), so the coprocessor holds and re-presents it.
++    if (x_result_valid_assigned_i & x_result_we_i & (x_result_rd_i != 5'b00000)
++        & ~regfile_alu_we_i) begin
+       regfile_alu_we_fw_o       = 1'b1;
+       regfile_alu_we_fw_power_o = 1'b1;
+       regfile_alu_waddr_fw_o    = {1'b0, x_result_rd_i};
+       regfile_alu_wdata_fw_o    = x_result_data_i;
+-      if (regfile_alu_we_i) begin
+-        wb_contention = 1'b1;
+-      end
+     end else begin
+       // APU single cycle operations, and multicycle operations (>2cycles) are written back on ALU port
+       if (apu_valid & (apu_singlecycle | apu_multicycle)) begin
+diff --git a/rtl/cv32e40px_x_disp.sv b/rtl/cv32e40px_x_disp.sv
+index e5c0709..c37d872 100644
+--- a/rtl/cv32e40px_x_disp.sv
++++ b/rtl/cv32e40px_x_disp.sv
+@@ -155,7 +155,19 @@ module cv32e40px_x_disp
+   assign x_mem_result_err_o = 1'b0;
+ 
+   // result channel
+-  assign x_result_ready_o = 1'b1;
++  //
++  // NOT hardwired to 1: the coprocessor result and the core's own instruction share
++  // the ALU write port, and the EX write-port mux used to hand it to the coprocessor
++  // unconditionally -- setting `wb_contention`, which drives nothing but a
++  // performance counter, and silently DROPPING the core's write. Refusing the result
++  // for that cycle makes the collision visible on the interface instead: the
++  // coprocessor holds it (CV-X-IF results are a handshake) and the core's write
++  // survives. See the matching `~regfile_alu_we_i` term in cv32e40px_ex_stage.sv.
++  //
++  // Cannot deadlock: the core-side instruction that is winning the port does not
++  // wait on the coprocessor, so it retires, we_ex_i drops, and the held result is
++  // taken the next cycle.
++  assign x_result_ready_o = ~(we_ex_i & x_result_we_i);
+ 
+   // core internal memory request signal
+   assign x_mem_data_req_o = x_mem_valid_i & x_mem_ready_o;

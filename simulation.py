@@ -68,7 +68,11 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     os.makedirs(sim_cores_dir, exist_ok=True)
     shutil.copy(scaiev.get_core_support_path(core_name), sim_cores_dir)
     shutil.copytree(os.path.join("cores", "utils"), os.path.join(sim_cores_dir, "utils"))
-    for dep in ("scaiev.py", "error.py", "run_cmd.py"):
+    deps = ["scaiev.py", "error.py", "run_cmd.py"]
+    if scaiev.get_core_support(core_name).uses_cvxif():
+        # The CV-X-IF core modules derive from cvxif.CVXIFCoreSupport.
+        deps.append("cvxif.py")
+    for dep in deps:
         shutil.copy(dep, sim_dir)
 
     assert(len(tb_expected_paths) == len(elf_files))

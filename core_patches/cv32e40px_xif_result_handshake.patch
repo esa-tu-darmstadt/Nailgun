@@ -1,0 +1,63 @@
+diff --git a/rtl/cv32e40px_x_disp.sv b/rtl/cv32e40px_x_disp.sv
+--- a/rtl/cv32e40px_x_disp.sv	2026-09-10 11:38:27.906725482 +0200
++++ b/rtl/cv32e40px_x_disp.sv	2026-09-10 11:38:27.907691437 +0200
+@@ -169,6 +169,14 @@
+   // taken the next cycle.
+   assign x_result_ready_o = ~(we_ex_i & x_result_we_i);
+ 
++  // A result that is presented but refused (valid & ~ready: the core's own write
++  // owns the ALU port this cycle) is NOT written back this cycle. The scoreboard
++  // and the RAW interlock below must therefore act on the handshake, not on
++  // result_valid alone -- otherwise a dependent instruction in ID is released and
++  // reads the register one write-back too early.
++  logic x_result_hs;
++  assign x_result_hs = x_result_valid_i & x_result_ready_o & x_result_we_i;
++
+   // core internal memory request signal
+   assign x_mem_data_req_o = x_mem_valid_i & x_mem_ready_o;
+ 
+@@ -196,12 +204,12 @@
+       assign x_wb_fwd_o[3] = (x_rs_addr_i[0] | 5'b00001) == waddr_wb_i & we_wb_i & ex_valid_i & x_issue_resp_dualread_i[0];
+       assign x_wb_fwd_o[4] = (x_rs_addr_i[1] | 5'b00001) == waddr_wb_i & we_wb_i & ex_valid_i & x_issue_resp_dualread_i[1];
+       assign x_wb_fwd_o[5] = (x_rs_addr_i[2] | 5'b00001) == waddr_wb_i & we_wb_i & ex_valid_i & x_issue_resp_dualread_i[2];
+-      assign dep = ~x_illegal_insn_n & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]] & (x_result_rd_i != x_rs_addr_i[0]))
+-                                  |     (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (x_result_rd_i != x_rs_addr_i[1]))
+-                                  |     (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (x_result_rd_i != x_rs_addr_i[2]))
+-                                  |     (((regs_used_i[0] & x_issue_resp_dualread_i[0]) & scoreboard_q[x_rs_addr_i[0] | 5'b00001] & (x_result_rd_i != (x_rs_addr_i[0] | 5'b00001))) & x_issue_resp_dualread_i[0])
+-                                  |     (((regs_used_i[1] & x_issue_resp_dualread_i[1]) & scoreboard_q[x_rs_addr_i[1] | 5'b00001] & (x_result_rd_i != (x_rs_addr_i[1] | 5'b00001))) & x_issue_resp_dualread_i[1])
+-                                  |     (((regs_used_i[2] & x_issue_resp_dualread_i[2]) & scoreboard_q[x_rs_addr_i[2] | 5'b00001] & (x_result_rd_i != (x_rs_addr_i[2] | 5'b00001))) & x_issue_resp_dualread_i[2]));
++      assign dep = ~x_illegal_insn_n & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]] & (~x_result_hs | (x_result_rd_i != x_rs_addr_i[0])))
++                                  |     (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (~x_result_hs | (x_result_rd_i != x_rs_addr_i[1])))
++                                  |     (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (~x_result_hs | (x_result_rd_i != x_rs_addr_i[2])))
++                                  |     (((regs_used_i[0] & x_issue_resp_dualread_i[0]) & scoreboard_q[x_rs_addr_i[0] | 5'b00001] & (~x_result_hs | (x_result_rd_i != (x_rs_addr_i[0] | 5'b00001)))) & x_issue_resp_dualread_i[0])
++                                  |     (((regs_used_i[1] & x_issue_resp_dualread_i[1]) & scoreboard_q[x_rs_addr_i[1] | 5'b00001] & (~x_result_hs | (x_result_rd_i != (x_rs_addr_i[1] | 5'b00001)))) & x_issue_resp_dualread_i[1])
++                                  |     (((regs_used_i[2] & x_issue_resp_dualread_i[2]) & scoreboard_q[x_rs_addr_i[2] | 5'b00001] & (~x_result_hs | (x_result_rd_i != (x_rs_addr_i[2] | 5'b00001)))) & x_issue_resp_dualread_i[2]));
+     end else begin : gen_fwd_no_dualread
+       assign x_ex_fwd_o[0] = x_rs_addr_i[0] == waddr_ex_i & we_ex_i & ex_valid_i;
+       assign x_ex_fwd_o[1] = x_rs_addr_i[1] == waddr_ex_i & we_ex_i & ex_valid_i;
+@@ -209,9 +217,9 @@
+       assign x_wb_fwd_o[0] = x_rs_addr_i[0] == waddr_wb_i & we_wb_i & ex_valid_i;
+       assign x_wb_fwd_o[1] = x_rs_addr_i[1] == waddr_wb_i & we_wb_i & ex_valid_i;
+       assign x_wb_fwd_o[2] = x_rs_addr_i[2] == waddr_wb_i & we_wb_i & ex_valid_i;
+-      assign dep = ~x_illegal_insn_n & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]] & (x_result_rd_i != x_rs_addr_i[0]))
+-                                  |     (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (x_result_rd_i != x_rs_addr_i[1]))
+-                                  |     (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (x_result_rd_i != x_rs_addr_i[2])));
++      assign dep = ~x_illegal_insn_n & ((regs_used_i[0] & scoreboard_q[x_rs_addr_i[0]] & (~x_result_hs | (x_result_rd_i != x_rs_addr_i[0])))
++                                  |     (regs_used_i[1] & scoreboard_q[x_rs_addr_i[1]] & (~x_result_hs | (x_result_rd_i != x_rs_addr_i[1])))
++                                  |     (regs_used_i[2] & scoreboard_q[x_rs_addr_i[2]] & (~x_result_hs | (x_result_rd_i != x_rs_addr_i[2]))));
+     end
+   endgenerate
+ 
+@@ -240,10 +248,10 @@
+   always_comb begin
+     scoreboard_d = scoreboard_q;
+     if (x_issue_resp_writeback_i & x_issue_valid_o & x_issue_ready_i
+-        & ~((waddr_id_i == x_result_rd_i) & x_result_valid_i & (x_result_rd_i != '0))) begin
++        & ~((waddr_id_i == x_result_rd_i) & x_result_hs & (x_result_rd_i != '0))) begin
+       scoreboard_d[waddr_id_i] = 1'b1;
+     end
+-    if (x_result_valid_i & x_result_we_i) begin
++    if (x_result_hs) begin
+       scoreboard_d[x_result_rd_i] = 1'b0;
+     end
+   end

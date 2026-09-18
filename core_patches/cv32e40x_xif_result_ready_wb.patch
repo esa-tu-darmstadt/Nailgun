@@ -1,0 +1,46 @@
+# CV32E40X: accept the eXtension-interface result only when WB can advance
+#
+# The LSU issues the bus transaction of a load/store parked in EX while an
+# offloaded instruction still occupies WB (trans_valid only checks
+# cnt_q < DEPTH). With transfers outstanding, lsu_ready_i -- and with it
+# wb_ready_o -- follows the bus response. result_ready ignored that: the result
+# was consumed in a cycle where the instruction stayed in WB, after which
+# xif_waiting held forever (the coprocessor had delivered, the core waited for
+# a second result) and the parked store re-issued its transaction endlessly.
+#
+# Needs a memory whose response takes more than one cycle, so the zero-latency
+# memory of tools/cvxif_sim/tb_e40x.sv never showed it; the cocotb flow's
+# OBI->AXI4 adapter does (custom_tbs/sbox.cpp: four dependent offloads, then
+# stores). Inert when X_EXT=0. Present in pristine upstream master d952cd63.
+#
+--- a/rtl/cv32e40x_wb_stage.sv	2026-09-18 15:06:43.241595337 +0200
++++ b/rtl/cv32e40x_wb_stage.sv	2026-09-18 15:06:43.255637696 +0200
+@@ -225,8 +225,9 @@
+   // TODO:XIF Check whether result IDs match the instruction IDs propagated along the pipeline
+   // TODO:XIF Implement writeback to extension context status into mstatus (ecswe, ecsdata)
+ 
+-  // Need to wait for the result
+-  assign xif_waiting = ex_wb_pipe_i.instr_valid && ex_wb_pipe_i.xif_en && !xif_result_if.result_valid;
++  // Need to wait for the result, i.e. for the result HANDSHAKE: result_ready below is withheld
++  // while WB cannot advance, and a result that is merely offered must not retire the instruction.
++  assign xif_waiting = ex_wb_pipe_i.instr_valid && ex_wb_pipe_i.xif_en && !(xif_result_if.result_valid && xif_result_if.result_ready);
+ 
+   // Coprocessor signals a synchronous exception
+   // TODO:XIF Maybe do something when an exception occurs (other than just inhibiting writeback)
+@@ -234,6 +235,15 @@
+ 
+   // todo:XIF Handle xif_result_if.result.err as NMI (do not factor into xif_exception as that signal is for synchronous exceptions)
+ 
+-  assign xif_result_if.result_ready = ex_wb_pipe_i.instr_valid && ex_wb_pipe_i.xif_en;
++  // Accept the result only in a cycle in which WB can actually advance. The LSU issues the
++  // transaction of a load/store parked in EX while an offloaded instruction still occupies WB
++  // (trans_valid only checks cnt_q < DEPTH); with transfers outstanding, lsu_ready_i -- and with
++  // it wb_ready_o -- then follows the bus response. Accepting the result regardless consumed it
++  // in a cycle where the instruction stayed in WB, after which xif_waiting held forever: the
++  // coprocessor had delivered, the core waited for a second result. Seen with any memory whose
++  // response takes more than one cycle. The coprocessor holds result_valid until result_ready.
++  assign xif_result_if.result_ready = ex_wb_pipe_i.instr_valid && ex_wb_pipe_i.xif_en &&
++                                      (ctrl_fsm_i.kill_wb ||
++                                       (lsu_ready_i && !ctrl_fsm_i.halt_wb && !ctrl_fsm_i.halt_limited_wb));
+ 
+ endmodule
