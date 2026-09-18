@@ -229,6 +229,20 @@ endmodule
 
     print(f" - Creating wrapper module")
     run_cmd.run("deps/scaie-v/util/maketop", f"python3 {core_support.get_maketop()} {target_dir} {isax_dir}", "Could not generate top module", error.SCAIEV_BASE + 3)
+
+    # Optional core+ISAX-config specific source patches (SCV_POST_PATCH, colon-separated),
+    # applied after SCAIE-V integration/top-gen but BEFORE the core build steps (e.g. for
+    # VexRiscv: before sbt), so a configuration can e.g. strip an unused multiplier and
+    # its decoding from the core sources.
+    post_patch = kconf_syms["SCV_POST_PATCH"].str_value if "SCV_POST_PATCH" in kconf_syms else ""
+    for patch_file in filter(None, post_patch.split(":")):
+        patch_file = os.path.abspath(patch_file)
+        if not os.path.isfile(patch_file):
+            error.exit_error(f"SCV_POST_PATCH file not found: {patch_file}", error.USER_ERROR)
+        print(f" - Applying post-SCAIE-V core patch {patch_file}")
+        run_cmd.run(target_dir, f"patch -p1 < {patch_file}",
+                    f"Could not apply SCV_POST_PATCH patch {patch_file}", error.SCAIEV_BASE + 11, False)
+
     print(f" - Building the extended core")
 
     # Perform extra build steps that are required for the target core!
