@@ -181,9 +181,7 @@ if __name__ == "__main__":
         new_critical_chains = []
         if not only_add_cc_support:
             syn_dir_suffix = f"_{iteration}"
-            # Optionally run synthesis plugins. CV-X-IF cores support this too:
-            # their CoreSupport.get_core_srcs() serves the integrated design
-            # (core + glue + coprocessor) from run_cvxif's filelist.f.
+            # Optionally run synthesis plugins.
             new_critical_chains = execute_plugins("synthesis_plugin")
 
         # None or empty
