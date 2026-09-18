@@ -132,9 +132,15 @@ if __name__ == "__main__":
                 longnail.build_longnail(kconf.syms)
                 datasheet = longnail.select_core_datasheet(core_support)
                 mlir_path = longnail.run_longnail(mlir_paths, datasheet, kconf.syms, out_dir, iteration, critical_chains)
-                # Generate SystemVerilog for any split-datapath operators exported by LN
-                if kconf.syms["LN_SCHED_ALGO_MI"].str_value == "y":
-                    splitop.run_splitop_gen(os.path.join(out_dir, "splitops"), out_dir, kconf.syms)
+                # Generate SystemVerilog for any split-datapath operators LN exported.
+                # NOT gated on LN_SCHED_ALGO_MI: `-lower-lil-to-hw` exports a splitop YAML
+                # whenever a split-datapath operator is instantiated (e.g. a latency>0 mul
+                # from the cell library) and references its module in the ISAX SV -- this
+                # happens for LEGACY baselines too, not only under resource sharing. Gating
+                # on MI left those modules ungenerated -> dangling reference -> genus
+                # elaboration failure. run_splitop_gen no-ops when no splitop YAML was
+                # exported, so calling it unconditionally is safe.
+                splitop.run_splitop_gen(os.path.join(out_dir, "splitops"), out_dir, kconf.syms)
                 isax_yaml = longnail.provide_isax_yaml(out_dir)
         # ISAX analysis YAML, consumed only by the dynamic-ISAX clang during
         # simulation / compiler patching. Produce it only if such a consumer
