@@ -20,6 +20,10 @@ def run_tb(kconfig_syms, out_dir, core_name, isax_yaml_path, elf_files, tb_expec
     os.makedirs(sim_dir, exist_ok=False)
 
     external_tb_srcs, core_srcs, tb_top_module, core_top_module, include_dirs, defines, extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+    if not tb_top_module or not external_tb_srcs:
+        error.exit_error(f"SIM_ENABLE=y: core '{core_name}' provides no cocotb testbench wrapper "
+                         "(CoreSupport.get_core_srcs() names no tb sources / tb top module)",
+                         error.USER_ERROR)
 
     # Convert extra_makefile_opts dictionary into strings
     extra_makefile_opts_strs = []

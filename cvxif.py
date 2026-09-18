@@ -64,11 +64,12 @@ class CVXIFCoreSupport(CoreSupport):
         """Synthesis-consumer contract (cadence/librelane plugins): sources of
         the integrated design from the filelist.f run_cvxif wrote.
 
-        Also the cocotb contract (simulation.py): cores that provide
-        `get_tb_wrapper_files()` get their `testbench` wrapper as tb sources
-        (absolute paths -- they live in tools/cvxif_sim, not in SCAIE-V's
-        maketop dir); for the others the tb fields stay empty and dispatch
-        refuses SIM_ENABLE. `scal_sources` is ignored (no SCAL).
+        Also the cocotb contract (simulation.py): the `testbench` wrapper from
+        `get_tb_wrapper_files()` becomes the tb sources (absolute paths -- they
+        live in tools/cvxif_sim, not in SCAIE-V's maketop dir). A core that
+        does not provide one yet can still be synthesized: the tb fields stay
+        empty, which simulation.run_tb refuses. `scal_sources` is ignored (no
+        SCAL).
         Entries outside the integrated tree (../ISAX_*.sv, ../splitop_*.sv)
         are dropped: both the synthesis plugins and simulation.py glob the
         out_dir-level ISAX sources themselves.
@@ -94,7 +95,10 @@ class CVXIFCoreSupport(CoreSupport):
                     srcs.append(line)
         top_file = os.path.basename(self.get_top_files()[0])
         top_module = top_file[:-len(".sv")]
-        tb_srcs = [os.path.abspath(f) for f in self.get_tb_wrapper_files()]
+        try:
+            tb_srcs = [os.path.abspath(f) for f in self.get_tb_wrapper_files()]
+        except NotImplementedError:
+            tb_srcs = []
         return (tb_srcs, srcs, "testbench" if tb_srcs else "", top_module,
                 incdirs, defines, self.get_sim_makefile_args())
 
@@ -125,12 +129,8 @@ class CVXIFCoreSupport(CoreSupport):
 
     def get_tb_wrapper_files(self) -> list[str]:
         """cocotb testbench wrapper sources (module `testbench`) around this
-        core's CV-X-IF top, exposing the bus ports `get_tb_env_vars()` names.
-        Empty: the core has no cocotb flow (yet) and SIM_ENABLE is refused."""
-        return []
-
-    def supports_cocotb_sim(self) -> bool:
-        return bool(self.get_tb_wrapper_files())
+        core's CV-X-IF top, exposing the bus ports `get_tb_env_vars()` names."""
+        raise NotImplementedError
 
     def get_sim_makefile_args(self) -> dict[str, str]:
         """Extra cocotb Makefile lines, keyed by simulator ("default" = all)."""

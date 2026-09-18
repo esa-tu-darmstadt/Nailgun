@@ -176,16 +176,7 @@ if __name__ == "__main__":
                 scaiev.run_scaiev(scaiev_core_name, isax_yaml, out_dir, kconf.syms)
 
         # Optionally run the simulation
-        if core_support.uses_cvxif() and not core_support.supports_cocotb_sim() and not only_add_cc_support:
-            # A CV-X-IF core without a cocotb testbench wrapper
-            # (CVXIFCoreSupport.get_tb_wrapper_files()).
-            if sim_enabled:
-                error.exit_error(
-                    f"SIM_ENABLE=y: CV-X-IF core '{scaiev_core_name}' provides no cocotb "
-                    "testbench wrapper (CVXIFCoreSupport.get_tb_wrapper_files())",
-                    error.USER_ERROR)
-        else:
-            simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, only_add_cc_support, isax_analysis_yaml)
+        simulation.run_simulation(out_dir, scaiev_core_name, kconf.syms, isax_name, only_add_cc_support, isax_analysis_yaml)
 
         new_critical_chains = []
         if not only_add_cc_support:
