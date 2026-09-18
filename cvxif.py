@@ -15,8 +15,7 @@ self-contained integrated design —
 
 Simulation is the regular cocotb flow (simulation.py): each core provides a
 `testbench` wrapper around its top (get_tb_wrapper_files()) plus the memory
-map it is driven with. The retired standalone runners are kept in
-tools/cvxif_sim/legacy/.
+map it is driven with.
 """
 import glob
 import os
@@ -151,7 +150,7 @@ def _kconf_y(kconf_syms, name) -> bool:
 
 def _apply_core_patch(target_dir, patch_file):
     """Apply `patch_file` to the copied core tree, tolerating a checkout that
-    already carries it (the retired tools/cvxif_sim/legacy runners patch deps/ in place)."""
+    already carries it (a checkout patched in place)."""
     patch_file = os.path.abspath(patch_file)
     if not os.path.isfile(patch_file):
         error.exit_error(f"CV-X-IF core patch not found: {patch_file}", error.USER_ERROR)
