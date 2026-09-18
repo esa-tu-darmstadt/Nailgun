@@ -278,17 +278,12 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
     # downstream passes work on canonical, pre-selected IR.
     longnail_hw_gen_flags.append(f"-select-lil-solution=\"{sol_selection_args}\"")
 
-    if mi_enabled:
-        splitops_dir = os.path.abspath(os.path.join(out_dir, "splitops"))
-        os.makedirs(splitops_dir, exist_ok=True)
-        # `-materialize-instances` writes one splitop-gen YAML per
-        # multi-mode instance straight off its segAnalysis output (no
-        # encode-then-decode round-trip via moduleName).
-        materialize_instances_flag = (
-            f"-materialize-instances=\"splitopYAMLDir={splitops_dir}\""
-        )
-    else:
-        materialize_instances_flag = "-materialize-instances"
+    materialize_instances_flag = "-materialize-instances"
+    # `-lower-lil-to-hw` is the single splitop-gen YAML emission point: one
+    # config per shared operator instance (mode set carried on the
+    # `lil.mrt` via `lil.modes`) and per unshared multi-cycle operator.
+    splitops_dir = os.path.abspath(os.path.join(out_dir, "splitops"))
+    os.makedirs(splitops_dir, exist_ok=True)
 
     lat_1_ops_latch_inputs = "false"
     if kconfig_syms['LN_LATENCY_1_OPS_LATCH_INPUTS'].str_value == "y":
@@ -305,7 +300,7 @@ def run_hw_gen(out_dir, ln_path, sched_sol_mlir_file, sched_sol_kconf_file, sche
         "-materialize-predicates",
         "-generate-isax-ports",
         *merge_pipeline_stages_flags,
-        "-lower-lil-to-hw",
+        f"-lower-lil-to-hw=\"splitopYAMLDir={splitops_dir}\"",
         f"-lat-1-ops-latch-inputs={lat_1_ops_latch_inputs}",
         "-simplify-structure", "-cse", "-print-stats",
         "-lower-seq-to-sv", "-hw-cleanup", "-cse", "-hw-legalize-modules", "-prettify-verilog",
