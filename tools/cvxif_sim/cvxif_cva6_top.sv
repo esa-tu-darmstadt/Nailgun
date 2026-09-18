@@ -17,7 +17,7 @@
 `include "rvfi_types.svh"
 `include "cvxif_types.svh"
 
-module cvxif_cva6_top
+module cva6_ariane_wrapper
   import ariane_pkg::*;
 #(
     parameter config_pkg::cva6_cfg_t CVA6Cfg = build_config_pkg::build_config(
@@ -60,10 +60,78 @@ module cvxif_cva6_top
     input  logic                     ipi_i,
     input  logic                     time_irq_i,
     input  logic                     debug_req_i,
-    // memory side
-    output noc_req_t                 noc_req_o,
-    input  noc_resp_t                noc_resp_i
+    // memory side: flat AXI4, the port list of SCAIE-V's cva6_ariane_wrapper,
+    // so its CVA6_tb_wrapper.v drives this design as well.
+    //AXI Control Bus
+    output wire         m_axi_ctrl_AWVALID,
+    input  wire         m_axi_ctrl_AWREADY, //
+    output wire [5:0]   m_axi_ctrl_AWID,
+    output wire [63:0]  m_axi_ctrl_AWADDR,
+    output wire [2:0]   m_axi_ctrl_AWSIZE,
+    output wire [7:0]   m_axi_ctrl_AWLEN,
+    output wire [1:0]   m_axi_ctrl_AWBURST,
+    output wire         m_axi_ctrl_WVALID,
+    input  wire         m_axi_ctrl_WREADY, //
+    output wire [63:0]  m_axi_ctrl_WDATA,
+    output wire [7:0]   m_axi_ctrl_WSTRB,
+    output wire         m_axi_ctrl_WLAST,
+    input  wire         m_axi_ctrl_BVALID, //
+    output wire         m_axi_ctrl_BREADY,
+    input  wire [5:0]   m_axi_ctrl_BID, //
+    input  wire [1:0]   m_axi_ctrl_BRESP, //
+
+    output wire         m_axi_ctrl_ARVALID,
+    input  wire         m_axi_ctrl_ARREADY,//
+    output wire [5:0]   m_axi_ctrl_ARID,
+    output wire [63:0]  m_axi_ctrl_ARADDR,
+    output wire [2:0]   m_axi_ctrl_ARSIZE,
+    output wire [7:0]   m_axi_ctrl_ARLEN,
+    output wire [1:0]   m_axi_ctrl_ARBURST,
+
+    input  wire         m_axi_ctrl_RVALID, //
+    output wire         m_axi_ctrl_RREADY,
+    input  wire [5:0]   m_axi_ctrl_RID, //
+    input  wire [63:0]  m_axi_ctrl_RDATA, //
+    input  wire [1:0]   m_axi_ctrl_RRESP, //
+    input  wire         m_axi_ctrl_RLAST //
 );
+
+  noc_req_t  noc_req;
+  noc_resp_t noc_resp;
+
+  assign noc_resp.aw_ready = m_axi_ctrl_AWREADY;
+  assign noc_resp.ar_ready = m_axi_ctrl_ARREADY;
+  assign noc_resp.w_ready  = m_axi_ctrl_WREADY;
+  assign noc_resp.b_valid  = m_axi_ctrl_BVALID;
+  assign noc_resp.b.id     = m_axi_ctrl_BID[3:0];
+  assign noc_resp.b.resp   = m_axi_ctrl_BRESP;
+  assign noc_resp.b.user   = '0;
+  assign noc_resp.r_valid  = m_axi_ctrl_RVALID;
+  assign noc_resp.r.id     = m_axi_ctrl_RID[3:0];
+  assign noc_resp.r.data   = m_axi_ctrl_RDATA;
+  assign noc_resp.r.resp   = m_axi_ctrl_RRESP;
+  assign noc_resp.r.last   = m_axi_ctrl_RLAST;
+  assign noc_resp.r.user   = '0;
+
+  assign m_axi_ctrl_AWVALID = noc_req.aw_valid;
+  assign m_axi_ctrl_AWID    = {2'b00, noc_req.aw.id};
+  assign m_axi_ctrl_AWADDR  = noc_req.aw.addr;
+  assign m_axi_ctrl_AWSIZE  = noc_req.aw.size;
+  assign m_axi_ctrl_AWLEN   = noc_req.aw.len;
+  assign m_axi_ctrl_AWBURST = noc_req.aw.burst;
+  assign m_axi_ctrl_WVALID  = noc_req.w_valid;
+  assign m_axi_ctrl_WDATA   = noc_req.w.data;
+  assign m_axi_ctrl_WSTRB   = noc_req.w.strb;
+  assign m_axi_ctrl_WLAST   = noc_req.w.last;
+  assign m_axi_ctrl_BREADY  = noc_req.b_ready;
+  assign m_axi_ctrl_ARVALID = noc_req.ar_valid;
+  assign m_axi_ctrl_ARID    = {2'b00, noc_req.ar.id};
+  assign m_axi_ctrl_ARADDR  = noc_req.ar.addr;
+  assign m_axi_ctrl_ARSIZE  = noc_req.ar.size;
+  assign m_axi_ctrl_ARLEN   = noc_req.ar.len;
+  assign m_axi_ctrl_ARBURST = noc_req.ar.burst;
+  assign m_axi_ctrl_RREADY  = noc_req.r_ready;
+
 
   cvxif_req_t   cvxif_req;
   cvxif_resp_t  cvxif_resp;
@@ -105,8 +173,8 @@ module cvxif_cva6_top
       .rvfi_probes_o(rvfi_probes),
       .cvxif_req_o  (cvxif_req),
       .cvxif_resp_i (cvxif_resp),
-      .noc_req_o    (noc_req_o),
-      .noc_resp_i   (noc_resp_i)
+      .noc_req_o    (noc_req),
+      .noc_resp_i   (noc_resp)
   );
 
   // ---- the generated CV-X-IF coprocessor ----------------------------------

@@ -21,7 +21,7 @@ from scaiev import CoreExtensions
 # `make ci` runs cvxif.run_cvxif(), which populates the output tree with the
 # copied core, the generated glue + the struct-unpacking wrapper
 # (`--e40px-wrapper`), the top and a filelist.f. Simulation is the regular
-# cocotb flow, through `tools/cvxif_sim/cvxif_obi_tb_wrapper.sv`:
+# cocotb flow, through SCAIE-V's `cv32e40x_tb_wrapper.v`:
 #
 #   CORE=CV32E40PX ISAXES=SPARKLE SIM_ENABLE=y \
 #     TB_PATH=custom_tbs/sparkle.cpp TB_EXPECTED_PATH=custom_tbs/sparkle_expected.txt make ci
@@ -68,11 +68,13 @@ class CV32E40PXSupport(CVXIFCoreSupport):
     def get_top_files(self) -> list[str]:
         return [os.path.join("tools", "cvxif_sim", "cvxif_e40px_top.sv")]
 
+    def get_top_module(self) -> str:
+        # The interface of SCAIE-V's maketop top, module name included.
+        return "top"
+
     def get_tb_wrapper_files(self) -> list[str]:
-        # Same `testbench` ports as SCAIE-V's cv32e40x_tb_wrapper.v, whose
-        # OBI->AXI4 adapter it reuses.
-        return [os.path.join("tools", "cvxif_sim", "cvxif_obi_tb_wrapper.sv"),
-                os.path.join("deps", "scaie-v", "util", "maketop", "obi_axi_adapter.sv")]
+        # SCAIE-V's own wrapper (and its OBI->AXI4 adapter), as cores/CV32E40_.py.
+        return ["cv32e40x_tb_wrapper.v", "obi_axi_adapter.sv"]
 
     def get_tb_env_vars(self, kconf_syms) -> list[str]:
         # The memory map sim/linker_scripts/CV32E40X_link.ld is written for
@@ -85,8 +87,8 @@ class CV32E40PXSupport(CVXIFCoreSupport):
             "BUSSI1_SIGNAME=m_axi_data",
             "IMEM_BUSIDX=0",
             "IMEM_BASE=80000000",
-            # cvxif_e40px_top ties mtvec_addr_i to 0.
-            "EXCEPTION_BASE=00000000",
+            # mtvec_addr_i as SCAIE-V's wrapper drives it.
+            "EXCEPTION_BASE=00000020",
             "DMEM_BUSIDX=1",
             "DMEM_BASE=80100000",
             "DMEM_SIZE=00100000",

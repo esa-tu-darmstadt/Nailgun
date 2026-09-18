@@ -23,7 +23,7 @@ from scaiev import CoreExtensions
 # CVXIF_ALLOW_CUSTOM_REGS=y. See docs/cvxif.md.
 #
 # Simulation is the regular cocotb flow, through
-# `tools/cvxif_sim/cvxif_cva6_tb_wrapper.sv`:
+# SCAIE-V's `CVA6_tb_wrapper.v`:
 #
 #   CORE=CVA6_UPSTREAM ISAXES=SPARKLE SIM_ENABLE=y \
 #     TB_PATH=custom_tbs/sparkle.cpp TB_EXPECTED_PATH=custom_tbs/sparkle_expected.txt make ci
@@ -69,9 +69,13 @@ class CVA6UpstreamSupport(CVXIFCoreSupport):
     def get_top_files(self) -> list[str]:
         return [os.path.join("tools", "cvxif_sim", "cvxif_cva6_top.sv")]
 
+    def get_top_module(self) -> str:
+        # The interface of SCAIE-V's cva6_ariane_wrapper, module name included.
+        return "cva6_ariane_wrapper"
+
     def get_tb_wrapper_files(self) -> list[str]:
-        # Same `testbench` AXI4 ports as SCAIE-V's CVA6_tb_wrapper.v.
-        return [os.path.join("tools", "cvxif_sim", "cvxif_cva6_tb_wrapper.sv")]
+        # SCAIE-V's own wrapper, as cores/CVA6.py.
+        return ["CVA6_tb_wrapper.v"]
 
     def get_tb_env_vars(self, kconf_syms) -> list[str]:
         # The memory map sim/linker_scripts/CVA6_link.ld is written for

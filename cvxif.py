@@ -13,9 +13,9 @@ self-contained integrated design —
   4. the per-core top (core + coprocessor on the interface),
   5. a `filelist.f` (sources, +incdir+, +define+) for downstream consumers.
 
-Simulation is the regular cocotb flow (simulation.py): each core provides a
-`testbench` wrapper around its top (get_tb_wrapper_files()) plus the memory
-map it is driven with.
+Simulation is the regular cocotb flow (simulation.py): each top presents the
+interface of the corresponding SCAIE-V top, so SCAIE-V's own `testbench`
+wrapper (get_tb_wrapper_files()) and memory map drive it.
 """
 import glob
 import os
@@ -63,12 +63,12 @@ class CVXIFCoreSupport(CoreSupport):
         """Synthesis-consumer contract (the synthesis plugins): sources of
         the integrated design from the filelist.f run_cvxif wrote.
 
-        Also the cocotb contract (simulation.py): the `testbench` wrapper from
-        `get_tb_wrapper_files()` becomes the tb sources (absolute paths -- they
-        live in tools/cvxif_sim, not in SCAIE-V's maketop dir). A core that
-        does not provide one yet can still be synthesized: the tb fields stay
-        empty, which simulation.run_tb refuses. `scal_sources` is ignored (no
-        SCAL).
+        Also the cocotb contract (simulation.py): `get_tb_wrapper_files()` names
+        the `testbench` wrapper, one of SCAIE-V's (relative to its maketop dir,
+        like every SCAIE-V core) -- the tops present the interface of the
+        corresponding SCAIE-V top for that. A core that does not provide one
+        yet can still be synthesized: the tb fields stay empty, which
+        simulation.run_tb refuses. `scal_sources` is ignored (no SCAL).
         Entries outside the integrated tree (../ISAX_*.sv, ../splitop_*.sv)
         are dropped: both the synthesis plugins and simulation.py glob the
         out_dir-level ISAX sources themselves.
@@ -92,15 +92,11 @@ class CVXIFCoreSupport(CoreSupport):
                     continue
                 else:
                     srcs.append(line)
-        top_file = os.path.basename(self.get_top_files()[0])
-        top_module = top_file[:-len(".sv")]
-        # The shared OBI testbench wrapper instantiates the top by this name.
-        defines.append(f"CVXIF_TOP={top_module}")
         try:
-            tb_srcs = [os.path.abspath(f) for f in self.get_tb_wrapper_files()]
+            tb_srcs = list(self.get_tb_wrapper_files())
         except NotImplementedError:
             tb_srcs = []
-        return (tb_srcs, srcs, "testbench" if tb_srcs else "", top_module,
+        return (tb_srcs, srcs, "testbench" if tb_srcs else "", self.get_top_module(),
                 incdirs, defines, self.get_sim_makefile_args())
 
     # ---- CV-X-IF hooks ----------------------------------------------------
@@ -122,9 +118,16 @@ class CVXIFCoreSupport(CoreSupport):
         into the integrated tree. The first entry is the top module."""
         raise NotImplementedError
 
+    def get_top_module(self) -> str:
+        """Module name of the top in get_top_files()[0]: the name the SCAIE-V
+        testbench wrapper of get_tb_wrapper_files() instantiates."""
+        raise NotImplementedError
+
     def get_tb_wrapper_files(self) -> list[str]:
-        """cocotb testbench wrapper sources (module `testbench`) around this
-        core's CV-X-IF top, exposing the bus ports `get_tb_env_vars()` names."""
+        """cocotb testbench wrapper sources (module `testbench`), relative to
+        SCAIE-V's util/maketop: the wrapper of the corresponding SCAIE-V core,
+        whose top interface this core's CV-X-IF top presents. It exposes the
+        bus ports `get_tb_env_vars()` names."""
         raise NotImplementedError
 
     def get_sim_makefile_args(self) -> dict[str, str]:

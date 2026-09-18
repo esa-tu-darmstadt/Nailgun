@@ -1,42 +1,97 @@
-// CV32E40X + CV-X-IF coprocessor top for simulation.
+// CV32E40X + CV-X-IF coprocessor top (simulation and synthesis).
 //
 // Builds against pristine upstream openhwgroup/cv32e40x (deps/cv32e40x), not
 // the SCAIE-V fork: the ISAX reaches the core only through the standard
 // cv32e40x_if_xif eXtension interface, and the core has no SCAIE-V hooks at
 // all. The only core change is core_patches/cv32e40x_xif_sticky_issue_resp.patch,
 // which resolves upstream's own `TODO:XIF` in the ID stage.
-module cvxif_e40x_top
+module top
   import cv32e40x_pkg::*;
 #(
   parameter int unsigned X_ID_WIDTH  = 4,
   parameter int unsigned X_NUM_RS    = 2,
   parameter int unsigned X_RFR_WIDTH = 32,
   parameter int unsigned X_RFW_WIDTH = 32
-) (
-  input  logic        clk_i,
-  input  logic        rst_ni,
-  input  logic [31:0] boot_addr_i,
-  input  logic        fetch_enable_i,
+)
+// Port list of SCAIE-V's maketop top (cv32e40x_top_template.sv), so its
+// cv32e40x_tb_wrapper.v drives this design as well.
+(
+  input                 clk,
+  input                 rst,
 
-  // instruction OBI
+  //Ports copied from cv32e40x repository (Copyright 2018 ETH Zurich and University of Bologna, Solderpad Hardware License Version 0.51)
+
+  input  logic        scan_cg_en_i,                     // Enable all clock gates for testing
+
+  // Core ID, Cluster ID, debug mode halt address and boot address are considered more or less static
+  input  logic [31:0] boot_addr_i,
+  input  logic [31:0] mtvec_addr_i,
+  input  logic [31:0] dm_halt_addr_i,
+  input  logic [31:0] mhartid_i,
+  input  logic  [3:0] mimpid_patch_i,
+  input  logic [31:0] dm_exception_addr_i,
+
+  // Instruction memory interface
   output logic        instr_req_o,
   input  logic        instr_gnt_i,
   input  logic        instr_rvalid_i,
   output logic [31:0] instr_addr_o,
+  output logic [1:0]  instr_memtype_o,
+  output logic [2:0]  instr_prot_o,
+  output logic        instr_dbg_o,
   input  logic [31:0] instr_rdata_i,
+  input  logic        instr_err_i,
 
-  // data OBI
+  // Data memory interface
   output logic        data_req_o,
   input  logic        data_gnt_i,
   input  logic        data_rvalid_i,
-  output logic [31:0] data_addr_o,
-  output logic [3:0]  data_be_o,
   output logic        data_we_o,
+  output logic [3:0]  data_be_o,
+  output logic [31:0] data_addr_o,
+  output logic [1:0]  data_memtype_o,
+  output logic [2:0]  data_prot_o,
+  output logic        data_dbg_o,
   output logic [31:0] data_wdata_o,
   input  logic [31:0] data_rdata_i,
+  input  logic        data_err_i,
+  output logic [5:0]  data_atop_o,
+  input  logic        data_exokay_i,
 
+  // Cycle Count
+  output logic [63:0] mcycle_o,
+
+  // Interrupt inputs
+  input  logic [31:0] irq_i,                    // CLINT interrupts + CLINT extension interrupts
+
+  // WFE input
+  input  logic        wu_wfe_i,
+
+  // CLIC Interface
+  input  logic                       clic_irq_i,
+  input  logic [5-1:0] clic_irq_id_i,
+  input  logic [ 7:0]                clic_irq_level_i,
+  input  logic [ 1:0]                clic_irq_priv_i,
+  input  logic                       clic_irq_shv_i,
+
+
+  // Fencei flush handshake
+  output logic        fencei_flush_req_o,
+  input logic         fencei_flush_ack_i,
+  // Debug Interface
+  input  logic        debug_req_i,
+  output logic        debug_havereset_o,
+  output logic        debug_running_o,
+  output logic        debug_halted_o,
+
+  // CPU Control Signals
+  input  logic        fetch_enable_i,
   output logic        core_sleep_o
+
 );
+
+  wire clk_i  = clk;
+  wire rst_ni = ~rst;
 
   // ---- the eXtension interface -------------------------------------------
   cv32e40x_if_xif #(
@@ -60,24 +115,24 @@ module cvxif_e40x_top
   ) core_i (
     .clk_i               (clk_i),
     .rst_ni              (rst_ni),
-    .scan_cg_en_i        (1'b0),
+    .scan_cg_en_i        (scan_cg_en_i),
 
     .boot_addr_i         (boot_addr_i),
-    .dm_exception_addr_i (32'h0),
-    .dm_halt_addr_i      (32'h0),
-    .mhartid_i           (32'h0),
-    .mimpid_patch_i      (4'h0),
-    .mtvec_addr_i        (32'h0),
+    .dm_exception_addr_i (dm_exception_addr_i),
+    .dm_halt_addr_i      (dm_halt_addr_i),
+    .mhartid_i           (mhartid_i),
+    .mimpid_patch_i      (mimpid_patch_i),
+    .mtvec_addr_i        (mtvec_addr_i),
 
     .instr_req_o         (instr_req_o),
     .instr_gnt_i         (instr_gnt_i),
     .instr_rvalid_i      (instr_rvalid_i),
     .instr_addr_o        (instr_addr_o),
-    .instr_memtype_o     (),
-    .instr_prot_o        (),
-    .instr_dbg_o         (),
+    .instr_memtype_o     (instr_memtype_o),
+    .instr_prot_o        (instr_prot_o),
+    .instr_dbg_o         (instr_dbg_o),
     .instr_rdata_i       (instr_rdata_i),
-    .instr_err_i         (1'b0),
+    .instr_err_i         (instr_err_i),
 
     .data_req_o          (data_req_o),
     .data_gnt_i          (data_gnt_i),
@@ -86,15 +141,15 @@ module cvxif_e40x_top
     .data_be_o           (data_be_o),
     .data_we_o           (data_we_o),
     .data_wdata_o        (data_wdata_o),
-    .data_memtype_o      (),
-    .data_prot_o         (),
-    .data_dbg_o          (),
-    .data_atop_o         (),
+    .data_memtype_o      (data_memtype_o),
+    .data_prot_o         (data_prot_o),
+    .data_dbg_o          (data_dbg_o),
+    .data_atop_o         (data_atop_o),
     .data_rdata_i        (data_rdata_i),
-    .data_err_i          (1'b0),
-    .data_exokay_i       (1'b1),
+    .data_err_i          (data_err_i),
+    .data_exokay_i       (data_exokay_i),
 
-    .mcycle_o            (),
+    .mcycle_o            (mcycle_o),
     .time_i              (64'h0),
 
     .xif_compressed_if   (xif),
@@ -104,22 +159,22 @@ module cvxif_e40x_top
     .xif_mem_result_if   (xif),
     .xif_result_if       (xif),
 
-    .irq_i               (32'h0),
-    .wu_wfe_i            (1'b0),
+    .irq_i               (irq_i),
+    .wu_wfe_i            (wu_wfe_i),
 
-    .clic_irq_i          (1'b0),
-    .clic_irq_id_i       ('0),
-    .clic_irq_level_i    (8'h0),
-    .clic_irq_priv_i     (2'b0),
-    .clic_irq_shv_i      (1'b0),
+    .clic_irq_i          (clic_irq_i),
+    .clic_irq_id_i       (clic_irq_id_i),
+    .clic_irq_level_i    (clic_irq_level_i),
+    .clic_irq_priv_i     (clic_irq_priv_i),
+    .clic_irq_shv_i      (clic_irq_shv_i),
 
-    .fencei_flush_req_o  (),
-    .fencei_flush_ack_i  (1'b1),
+    .fencei_flush_req_o  (fencei_flush_req_o),
+    .fencei_flush_ack_i  (fencei_flush_ack_i),
 
-    .debug_req_i         (1'b0),
-    .debug_havereset_o   (),
-    .debug_running_o     (),
-    .debug_halted_o      (),
+    .debug_req_i         (debug_req_i),
+    .debug_havereset_o   (debug_havereset_o),
+    .debug_running_o     (debug_running_o),
+    .debug_halted_o      (debug_halted_o),
     .debug_pc_valid_o    (),
     .debug_pc_o          (),
 
