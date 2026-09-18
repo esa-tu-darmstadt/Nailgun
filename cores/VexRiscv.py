@@ -26,7 +26,8 @@ class VexSupport(CoreSupport):
         patch_file = os.path.abspath("patches/Vex5.patch")
         run_cmd.run(target_dir, f"patch -p1 < {patch_file}", "Could not patch the VexRiscv sources", error.SCAIEV_BASE + 4, False)
         # Build VexRiscv
-        run_cmd.run(target_dir, f'sbt "runMain vexriscv.demo.VexRiscvAhbLite3 {spinal_gen_args}"', "Could not generate VexRiscv.v", error.SCAIEV_BASE + 5, False, 100)
+        with run_cmd.sbt_semaphore():
+            run_cmd.run(target_dir, f'sbt "runMain vexriscv.demo.VexRiscvAhbLite3 {spinal_gen_args}"', "Could not generate VexRiscv.v", error.SCAIEV_BASE + 5, False, 100)
 
     def get_srcs_folder_name(self) -> str:
         return "VexRiscv"
