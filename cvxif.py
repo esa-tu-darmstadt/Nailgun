@@ -60,7 +60,7 @@ class CVXIFCoreSupport(CoreSupport):
         return []
 
     def get_core_srcs(self, scal_sources, core_dir):
-        """Synthesis-consumer contract (cadence/librelane plugins): sources of
+        """Synthesis-consumer contract (the synthesis plugins): sources of
         the integrated design from the filelist.f run_cvxif wrote.
 
         Also the cocotb contract (simulation.py): the `testbench` wrapper from

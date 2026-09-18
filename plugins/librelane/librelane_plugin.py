@@ -26,6 +26,10 @@ def run_synthesis(out_dir, core_name, kconfig_syms, isax_name, syn_dir_suffix):
     os.makedirs(syn_dir, exist_ok=False)
 
     _external_tb_srcs, core_srcs, _tb_top_module, core_top_module, include_dirs, defines,_extra_makefile_opts = scaiev.select_tb_wrapper_srcs(core_name, out_dir)
+    # get_core_srcs() serves the SIMULATION file list; cores whose list carries
+    # sim-only files provide a synthesis filter (see CoreSupport).
+    core_srcs = scaiev.get_core_support(core_name).filter_synthesis_core_srcs(
+        core_srcs, os.path.join(out_dir, core_name))
 
     core_base = os.path.abspath(os.path.join(out_dir, core_name))
     include_dirs = [os.path.join(core_base, d) for d in include_dirs]
