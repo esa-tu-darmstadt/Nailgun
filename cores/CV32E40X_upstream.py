@@ -67,9 +67,6 @@ class CV32E40XUpstreamSupport(CVXIFCoreSupport):
     def get_top_files(self) -> list[str]:
         return [os.path.join("tools", "cvxif_sim", "cvxif_e40x_top.sv")]
 
-    def get_null_coproc_file(self) -> str:
-        return os.path.join("tools", "cvxif_sim", "cvxif_coproc_null.sv")
-
     def get_tb_wrapper_files(self) -> list[str]:
         # Same `testbench` ports as SCAIE-V's cv32e40x_tb_wrapper.v, whose
         # OBI->AXI4 adapter it reuses.

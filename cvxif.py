@@ -120,12 +120,6 @@ class CVXIFCoreSupport(CoreSupport):
         into the integrated tree. The first entry is the top module."""
         raise NotImplementedError
 
-    def get_null_coproc_file(self) -> str:
-        """The null coprocessor (claims nothing) matching this core's
-        interface flavor; the NO_ISAX entry point puts it on the interface
-        instead of generated glue."""
-        raise NotImplementedError
-
     def get_tb_wrapper_files(self) -> list[str]:
         """cocotb testbench wrapper sources (module `testbench`) around this
         core's CV-X-IF top, exposing the bus ports `get_tb_env_vars()` names."""
@@ -173,7 +167,7 @@ def run_cvxif(core, isax_desc, out_dir, kconf_syms):
     isax_desc = os.path.abspath(isax_desc)
     isax_file = os.path.basename(isax_desc)
     # NO_ISAX entry point (entrypoint.py hands us its empty NO_ISAX.yaml):
-    # no glue to generate, the null coprocessor goes on the interface instead.
+    # no glue to generate, the top ties the interface off instead.
     no_isax = (isax_file == "NO_ISAX.yaml")
     if no_isax:
         isax_name = None
@@ -194,11 +188,11 @@ def run_cvxif(core, isax_desc, out_dir, kconf_syms):
     for patch in core_support.get_core_patches():
         _apply_core_patch(target_dir, patch)
 
-    # 3. Glue + coprocessor wrapper from the Longnail ISAX YAML — or, without
-    #    an ISAX, the null coprocessor (a CPU-only baseline design).
+    # 3. Glue + coprocessor wrapper from the Longnail ISAX YAML. Without an
+    #    ISAX there is nothing to generate: the top ties the interface off
+    #    itself when CVXIF_COPROC is not defined (a CPU-only baseline design).
     if no_isax:
-        print(" - NO_ISAX: putting the null coprocessor on the interface")
-        shutil.copy(os.path.abspath(core_support.get_null_coproc_file()), target_dir)
+        print(" - NO_ISAX: nothing on the interface (the top ties it off)")
     else:
         glue_args = list(core_support.cvxif_glue_args())
         # Speculative admission is the generator's default; only the opt-out is passed.
@@ -252,9 +246,15 @@ def run_cvxif(core, isax_desc, out_dir, kconf_syms):
                                 glob.glob(os.path.join(out_dir_abs, "splitop_*.sv"))))
         isax_srcs = [os.path.relpath(p, target_dir) for p in isax_srcs]
 
-    # The tops instantiate the coprocessor via the CVXIF_COPROC macro.
+    # The tops instantiate the coprocessor named by the CVXIF_COPROC macro and
+    # tie the interface off without it -- so a missing define must not go
+    # unnoticed when there IS an ISAX.
     coproc = [f for f in glue_srcs if f.startswith("cvxif_coproc_")]
-    if len(coproc) == 1:
+    if not no_isax:
+        if len(coproc) != 1:
+            error.exit_error("CV-X-IF: expected exactly one generated coprocessor wrapper "
+                             f"(cvxif_coproc_*.sv) in {target_dir}, found {coproc}",
+                             error.CVXIF_BASE + 4)
         defines = defines + [f"CVXIF_COPROC={coproc[0][:-len('.sv')]}"]
 
     filelist = os.path.join(target_dir, "filelist.f")
@@ -274,4 +274,4 @@ def run_cvxif(core, isax_desc, out_dir, kconf_syms):
     print(f" - CV-X-IF integrated design in {os.path.relpath(target_dir)} "
           f"({len(core_srcs)} core + {len(glue_srcs)} glue sources, filelist.f)")
     if no_isax:
-        print(" - No ISAX attached (null coprocessor): CPU-only baseline")
+        print(" - No ISAX attached: CPU-only baseline")

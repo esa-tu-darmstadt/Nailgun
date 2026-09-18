@@ -116,9 +116,11 @@ module cvxif_cva6_top
   );
 
   // ---- the generated CV-X-IF coprocessor ----------------------------------
-  `ifndef CVXIF_COPROC
-    `define CVXIF_COPROC cvxif_coproc_cva6_sparkle
-  `endif
+  // CVXIF_COPROC names its module (cvxif.run_cvxif puts the define into
+  // filelist.f). Without it -- the NO_ISAX entry point -- nothing sits on the
+  // interface: it is tied off to "answer immediately, accept nothing", so every
+  // custom encoding traps as illegal. A CPU-only baseline.
+  `ifdef CVXIF_COPROC
   `CVXIF_COPROC #(
       .X_ID_WIDTH  (CVA6Cfg.X_ID_WIDTH),
       .X_NUM_RS    (CVA6Cfg.X_NUM_RS),
@@ -132,5 +134,13 @@ module cvxif_cva6_top
       .cvxif_req_i (cvxif_req),
       .cvxif_resp_o(cvxif_resp)
   );
+  `else
+  always_comb begin
+    cvxif_resp                  = '0;
+    cvxif_resp.compressed_ready = 1'b1;
+    cvxif_resp.issue_ready      = 1'b1;
+    cvxif_resp.register_ready   = 1'b1;
+  end
+  `endif
 
 endmodule

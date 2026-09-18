@@ -130,9 +130,11 @@ module cvxif_e40x_top
   );
 
   // ---- the generated CV-X-IF coprocessor ----------------------------------
-  `ifndef CVXIF_COPROC
-    `define CVXIF_COPROC cvxif_coproc_sparkle
-  `endif
+  // CVXIF_COPROC names its module (cvxif.run_cvxif puts the define into
+  // filelist.f). Without it -- the NO_ISAX entry point -- nothing sits on the
+  // interface: it is tied off to "answer immediately, accept nothing", so every
+  // custom encoding traps as illegal. A CPU-only baseline.
+  `ifdef CVXIF_COPROC
   `CVXIF_COPROC #(
     .X_ID_WIDTH  (X_ID_WIDTH),
     .X_NUM_RS    (X_NUM_RS),
@@ -148,5 +150,15 @@ module cvxif_e40x_top
     .xif_mem_result_if (xif),
     .xif_result_if     (xif)
   );
+  `else
+  assign xif.compressed_ready = 1'b1;
+  assign xif.compressed_resp  = '0;
+  assign xif.issue_ready      = 1'b1;
+  assign xif.issue_resp       = '0;
+  assign xif.mem_valid        = 1'b0;
+  assign xif.mem_req          = '0;
+  assign xif.result_valid     = 1'b0;
+  assign xif.result           = '0;
+  `endif
 
 endmodule

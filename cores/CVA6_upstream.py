@@ -69,9 +69,6 @@ class CVA6UpstreamSupport(CVXIFCoreSupport):
     def get_top_files(self) -> list[str]:
         return [os.path.join("tools", "cvxif_sim", "cvxif_cva6_top.sv")]
 
-    def get_null_coproc_file(self) -> str:
-        return os.path.join("tools", "cvxif_sim", "cvxif_coproc_cva6_null.sv")
-
     def get_tb_wrapper_files(self) -> list[str]:
         # Same `testbench` AXI4 ports as SCAIE-V's CVA6_tb_wrapper.v.
         return [os.path.join("tools", "cvxif_sim", "cvxif_cva6_tb_wrapper.sv")]
