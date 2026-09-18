@@ -94,6 +94,8 @@ class CVXIFCoreSupport(CoreSupport):
                     srcs.append(line)
         top_file = os.path.basename(self.get_top_files()[0])
         top_module = top_file[:-len(".sv")]
+        # The shared OBI testbench wrapper instantiates the top by this name.
+        defines.append(f"CVXIF_TOP={top_module}")
         try:
             tb_srcs = [os.path.abspath(f) for f in self.get_tb_wrapper_files()]
         except NotImplementedError:

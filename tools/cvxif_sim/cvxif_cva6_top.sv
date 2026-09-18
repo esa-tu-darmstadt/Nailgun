@@ -62,19 +62,13 @@ module cvxif_cva6_top
     input  logic                     debug_req_i,
     // memory side
     output noc_req_t                 noc_req_o,
-    input  noc_resp_t                noc_resp_i,
-    // observation: did anything actually get offloaded?
-    output logic                     xif_issue_accept_o,
-    output logic                     xif_result_valid_o
+    input  noc_resp_t                noc_resp_i
 );
 
   cvxif_req_t   cvxif_req;
   cvxif_resp_t  cvxif_resp;
   rvfi_probes_t rvfi_probes;
 
-  assign xif_issue_accept_o = cvxif_req.issue_valid & cvxif_resp.issue_ready
-                            & cvxif_resp.issue_resp.accept;
-  assign xif_result_valid_o = cvxif_resp.result_valid;
 
   cva6 #(
       .CVA6Cfg             (CVA6Cfg),

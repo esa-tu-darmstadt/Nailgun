@@ -1,9 +1,11 @@
-// cocotb testbench wrapper for the CV-X-IF CV32E40PX top (cvxif_e40px_top):
-// pristine upstream core + the generated coprocessor on the eXtension
-// interface. Same `testbench` port list as SCAIE-V's cv32e40x_tb_wrapper.v
-// (two OBI->AXI4 adapters, m_axi_instr / m_axi_data), so sim/ drives it with
-// the bus models and memory map of the SCAIE-V CV32E40X. irq_i is unused: the
-// top ties the core's interrupts off.
+// cocotb testbench wrapper for the CV-X-IF tops with two OBI ports:
+// cvxif_e40x_top (CV32E40X_UPSTREAM) and cvxif_e40px_top (CV32E40PX) share one
+// port list, so the top's module name comes from the CVXIF_TOP define
+// (cvxif.CVXIFCoreSupport.get_core_srcs adds it). Pristine upstream core + the
+// generated coprocessor on the eXtension interface. Same `testbench` port list
+// as SCAIE-V's cv32e40x_tb_wrapper.v (two OBI->AXI4 adapters, m_axi_instr /
+// m_axi_data), so sim/ drives it with the bus models and memory map of the
+// SCAIE-V CV32E40X. irq_i is unused: the tops tie the core's interrupts off.
 module testbench(
 	input clk,
 	input rst,
@@ -91,7 +93,7 @@ wire        obi_data_exokay;
 
 // The CV-X-IF top exposes only the OBI signals a memory needs; the adapters'
 // side-band inputs are tied off (the core ties instr/data_err_i and
-// data_exokay_i itself, see cvxif_e40px_top.sv).
+// data_exokay_i itself, see the tops).
 assign obi_instr_memtype = 2'b00;
 assign obi_instr_prot    = 3'b000;
 assign obi_instr_dbg     = 1'b0;
@@ -100,7 +102,7 @@ assign obi_data_prot     = 3'b000;
 assign obi_data_dbg      = 1'b0;
 assign obi_data_atop     = 6'd0;
 
-cvxif_e40px_top top_inst(
+`CVXIF_TOP top_inst(
     .clk_i(clk),
     .rst_ni(~rst),
     // sim/linker_scripts/CV32E40X_link.ld: imem at 0x80000000.
@@ -122,15 +124,7 @@ cvxif_e40px_top top_inst(
     .data_wdata_o(obi_data_wdata),
     .data_rdata_i(obi_data_rdata),
 
-    .core_sleep_o(),
-    // XIF activity taps of the standalone testbench; unused here.
-    .xif_issue_valid_o(),
-    .xif_issue_ready_o(),
-    .xif_issue_accept_o(),
-    .xif_commit_valid_o(),
-    .xif_commit_kill_o(),
-    .xif_result_valid_o(),
-    .xif_result_ready_o()
+    .core_sleep_o()
 );
 
 obi_axi_adapter#(.DATA_WIDTH(32),.ADDR_WIDTH(32),.COMB_GNT(0)) obi_adapter_instr_inst (

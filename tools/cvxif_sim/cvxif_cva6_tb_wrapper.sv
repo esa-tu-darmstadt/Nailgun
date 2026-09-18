@@ -88,10 +88,7 @@ module testbench(
         .time_irq_i (1'b0),
         .debug_req_i(1'b0),
         .noc_req_o  (noc_req),
-        .noc_resp_i (noc_resp),
-        // XIF activity taps of the standalone testbench; unused here.
-        .xif_issue_accept_o(),
-        .xif_result_valid_o()
+        .noc_resp_i (noc_resp)
     );
 
 endmodule

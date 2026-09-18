@@ -15,7 +15,7 @@ from scaiev import CoreExtensions
 # `make ci` runs cvxif.run_cvxif(), which populates the output tree with the
 # copied (and patched) core, the generated glue + `cv32e40x_if_xif` wrapper,
 # the top and a filelist.f. Simulation is the regular cocotb flow, through
-# `tools/cvxif_sim/cvxif_e40x_tb_wrapper.sv`:
+# `tools/cvxif_sim/cvxif_obi_tb_wrapper.sv`:
 #
 #   CORE=CV32E40X_UPSTREAM ISAXES=SPARKLE SIM_ENABLE=y \
 #     TB_PATH=custom_tbs/sparkle.cpp TB_EXPECTED_PATH=custom_tbs/sparkle_expected.txt make ci
@@ -70,7 +70,7 @@ class CV32E40XUpstreamSupport(CVXIFCoreSupport):
     def get_tb_wrapper_files(self) -> list[str]:
         # Same `testbench` ports as SCAIE-V's cv32e40x_tb_wrapper.v, whose
         # OBI->AXI4 adapter it reuses.
-        return [os.path.join("tools", "cvxif_sim", "cvxif_e40x_tb_wrapper.sv"),
+        return [os.path.join("tools", "cvxif_sim", "cvxif_obi_tb_wrapper.sv"),
                 os.path.join("deps", "scaie-v", "util", "maketop", "obi_axi_adapter.sv")]
 
     def get_tb_env_vars(self, kconf_syms) -> list[str]:

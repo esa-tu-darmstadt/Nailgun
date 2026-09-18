@@ -35,9 +35,7 @@ module cvxif_e40x_top
   output logic [31:0] data_wdata_o,
   input  logic [31:0] data_rdata_i,
 
-  output logic        core_sleep_o,
-  output logic        retire_valid_o,
-  output logic [31:0] retire_pc_o
+  output logic        core_sleep_o
 );
 
   // ---- the eXtension interface -------------------------------------------
@@ -122,8 +120,8 @@ module cvxif_e40x_top
     .debug_havereset_o   (),
     .debug_running_o     (),
     .debug_halted_o      (),
-    .debug_pc_valid_o    (retire_valid_o),
-    .debug_pc_o          (retire_pc_o),
+    .debug_pc_valid_o    (),
+    .debug_pc_o          (),
 
     .fetch_enable_i      (fetch_enable_i),
     .core_sleep_o        (core_sleep_o)

@@ -6,9 +6,8 @@
 // CV32E40PX is the CV32E40P derivative that adds CV-X-IF, and it packages the
 // same interface revision as packed structs in `cv32e40px_core_v_xif_pkg`.
 //
-// Same port list as cvxif_e40x_top.sv so tb_e40x-style harnesses can drive
-// either, plus the XIF observation outputs the testbench counts on (CV32E40X
-// exposes them through the `xif` interface instance instead).
+// Same port list as cvxif_e40x_top.sv, so one testbench wrapper
+// (cvxif_obi_tb_wrapper.sv) drives either.
 module cvxif_e40px_top
   import cv32e40px_core_v_xif_pkg::*;
 (
@@ -34,16 +33,7 @@ module cvxif_e40px_top
   output logic [31:0] data_wdata_o,
   input  logic [31:0] data_rdata_i,
 
-  output logic        core_sleep_o,
-
-  // XIF observation (the testbench's activity counters)
-  output logic        xif_issue_valid_o,
-  output logic        xif_issue_ready_o,
-  output logic        xif_issue_accept_o,
-  output logic        xif_commit_valid_o,
-  output logic        xif_commit_kill_o,
-  output logic        xif_result_valid_o,
-  output logic        xif_result_ready_o
+  output logic        core_sleep_o
 );
 
   // ---- the eXtension interface (structs, not an SV interface) -------------
@@ -67,13 +57,6 @@ module cvxif_e40px_top
   logic               x_result_valid, x_result_ready;
   x_result_t          x_result;
 
-  assign xif_issue_valid_o  = x_issue_valid;
-  assign xif_issue_ready_o  = x_issue_ready;
-  assign xif_issue_accept_o = x_issue_resp.accept;
-  assign xif_commit_valid_o = x_commit_valid;
-  assign xif_commit_kill_o  = x_commit.commit_kill;
-  assign xif_result_valid_o = x_result_valid;
-  assign xif_result_ready_o = x_result_ready;
 
   cv32e40px_top #(
     .COREV_X_IF      (1),
