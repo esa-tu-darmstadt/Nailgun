@@ -19,3 +19,16 @@ menu "SCAIE-V configuration"
         bool "Generate RT-Life / DExIE interface"
         default n
 endmenu
+
+# Deliberately OUTSIDE the SCAIE-V menu (which depends on !NO_ISAX_ENTRY_POINT):
+# a core-source patch is also useful for NO_ISAX baseline builds.
+config SCV_POST_PATCH
+    string "Colon-separated patches applied to the core sources after SCAIE-V, before the core build"
+    default ""
+    help
+      Optional core- and ISAX-configuration-specific source patches (e.g. strip
+      the multiplier and its decoding from VexRiscv when an ISAX replaces it).
+      Each listed file is applied with `patch -p1` inside the copied core source
+      directory (<out>/<core>/) after SCAIE-V integration and top-module
+      generation, immediately BEFORE the core's extra build steps run (for
+      VexRiscv: right before sbt generates VexRiscv.v). Empty applies nothing.
